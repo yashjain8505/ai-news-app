@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -54,6 +55,23 @@ export default function Feed({
 
   const current = SECTIONS.find((s) => s.key === active)!;
   const list = grouped[active] ?? [];
+  const isTools = active === "tools";
+  const featured = list.slice(0, 5);
+  const right = list.slice(5, 7);
+
+  useEffect(() => {
+    if (isTools) return;
+    const el = scroller.current;
+    if (!el || featured.length <= 1) return;
+    const id = setInterval(() => {
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) {
+        el.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        el.scrollBy({ left: el.clientWidth, behavior: "smooth" });
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [active, isTools, featured.length]);
 
   function signal(it: Item, action: "like" | "less", e: MouseEvent) {
     e.preventDefault();
@@ -101,11 +119,6 @@ export default function Feed({
     if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
   }
 
-  const isTools = active === "tools";
-  const right = list.slice(0, 2);
-  const featured = list.slice(2, 6);
-  const more = list.slice(6);
-
   return (
     <div>
       <div className="mb-3 flex gap-4 text-sm text-neutral-500">
@@ -151,10 +164,7 @@ export default function Feed({
             const isSkill = it.title.toLowerCase().includes("skill");
             const s = signals[it.id];
             return (
-              <li
-                key={it.id}
-                className="flex items-center gap-3 border-b border-neutral-800 p-4 last:border-b-0 sm:gap-4"
-              >
+              <li key={it.id} className="flex items-center gap-3 border-b border-neutral-800 p-4 last:border-b-0 sm:gap-4">
                 <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-sm font-bold text-neutral-400 sm:flex">
                   {i + 1}
                 </span>
@@ -168,14 +178,10 @@ export default function Feed({
                     <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] font-medium text-neutral-400">
                       {isSkill ? "Claude skill" : "Tool"}
                     </span>
-                    {it.traction && (
-                      <span className="text-[11px] text-neutral-500">{it.traction}</span>
-                    )}
+                    {it.traction && <span className="text-[11px] text-neutral-500">{it.traction}</span>}
                   </div>
                   {it.summary && (
-                    <p className="serif mt-0.5 line-clamp-1 text-sm text-neutral-400">
-                      {it.summary}
-                    </p>
+                    <p className="serif mt-0.5 line-clamp-1 text-sm text-neutral-400">{it.summary}</p>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -191,12 +197,7 @@ export default function Feed({
                       <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" />
                     </svg>
                   </button>
-                  <a
-                    href={it.url ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full border border-neutral-700 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:border-[#cdff3a] hover:text-[#cdff3a]"
-                  >
+                  <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded-full border border-neutral-700 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:border-[#cdff3a] hover:text-[#cdff3a]">
                     Open ↗
                   </a>
                 </div>
@@ -206,14 +207,11 @@ export default function Feed({
         </ul>
       ) : (
         <>
-          <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
-            <div>
-              <ul
-                ref={scroller}
-                className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none]"
-              >
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+            <div className="min-w-0">
+              <ul ref={scroller} className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none]">
                 {featured.map((it) => (
-                  <li key={it.id} className="w-full shrink-0 snap-start">
+                  <li key={it.id} className="w-full min-w-0 shrink-0 snap-start">
                     <div className="overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
                       <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
                         <div className="relative h-56 w-full bg-neutral-900 sm:h-64">
@@ -225,18 +223,14 @@ export default function Feed({
                         </div>
                       </a>
                       <div className="p-5">
-                        <div className="mb-2 text-xs text-neutral-500">
-                          {it.source} · {fullDate}
-                        </div>
+                        <div className="mb-2 text-xs text-neutral-500">{it.source} · {fullDate}</div>
                         <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
                           <h3 className="display text-2xl font-extrabold leading-tight text-white">
                             {withHighlight(it.title, it.highlight)}
                           </h3>
                         </a>
                         {it.summary && (
-                          <p className="serif mt-2.5 line-clamp-2 text-sm leading-relaxed text-neutral-400">
-                            {it.summary}
-                          </p>
+                          <p className="serif mt-2.5 line-clamp-2 text-sm leading-relaxed text-neutral-400">{it.summary}</p>
                         )}
                       </div>
                     </div>
@@ -245,71 +239,58 @@ export default function Feed({
               </ul>
               {featured.length > 1 && (
                 <div className="mt-3 flex justify-end gap-2">
-                  <button onClick={() => move(-1)} aria-label="Previous" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">
-                    ←
-                  </button>
-                  <button onClick={() => move(1)} aria-label="Next" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">
-                    →
-                  </button>
+                  <button onClick={() => move(-1)} aria-label="Previous" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">←</button>
+                  <button onClick={() => move(1)} aria-label="Next" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">→</button>
                 </div>
               )}
             </div>
 
             <div className="flex flex-col gap-4">
               {right.map((it) => (
-                <a
-                  key={it.id}
-                  href={it.url ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block flex-1 rounded-2xl border border-neutral-800 bg-[#141416] p-5 transition-colors hover:border-neutral-600"
-                >
-                  <div className="mb-2 text-xs text-neutral-500">
-                    {it.source} · {fullDate}
-                  </div>
-                  <h3 className="display text-xl font-bold leading-snug text-white">
+                <a key={it.id} href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block rounded-2xl border border-neutral-800 bg-[#141416] p-5 transition-colors hover:border-neutral-600">
+                  <div className="mb-2 text-xs text-neutral-500">{it.source} · {fullDate}</div>
+                  <h3 className="display text-lg font-bold leading-snug text-white">
                     {withHighlight(it.title, it.highlight)}
                   </h3>
                   {it.summary && (
-                    <p className="serif mt-2.5 line-clamp-3 text-sm leading-relaxed text-neutral-400">
-                      {it.summary}
-                    </p>
+                    <p className="serif mt-2 line-clamp-3 text-sm leading-relaxed text-neutral-400">{it.summary}</p>
                   )}
                 </a>
               ))}
             </div>
           </div>
 
-          {more.length > 0 && (
-            <ul className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {more.map((it) => (
-                <li key={it.id}>
-                  <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
-                    <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
-                      <div className="relative h-40 w-full bg-neutral-900">
-                        {it.image_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={it.image_url} alt="" loading="lazy" onError={hideImg} className="h-full w-full object-cover" />
-                        )}
-                        {controls(it)}
-                      </div>
-                    </a>
-                    <div className="flex flex-1 flex-col p-4">
-                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                        <h3 className="text-base font-bold leading-snug text-white">
-                          {it.title}
-                        </h3>
+          {list.length > 0 && (
+            <>
+              <h3 className="mb-4 mt-12 text-sm font-medium uppercase tracking-wide text-neutral-500">
+                All stories
+              </h3>
+              <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((it) => (
+                  <li key={it.id}>
+                    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
+                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
+                        <div className="relative h-40 w-full bg-neutral-900">
+                          {it.image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={it.image_url} alt="" loading="lazy" onError={hideImg} className="h-full w-full object-cover" />
+                          )}
+                          {controls(it)}
+                        </div>
                       </a>
-                      {it.summary && (
-                        <p className="serif mt-2 line-clamp-2 text-sm leading-relaxed text-neutral-400">
-                          {it.summary}
-                        </p>
-                      )}
+                      <div className="flex flex-1 flex-col p-4">
+                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                          <h3 className="text-base font-bold leading-snug text-white">{it.title}</h3>
+                        </a>
+                        {it.summary && (
+                          <p className="serif mt-2 line-clamp-2 text-sm leading-relaxed text-neutral-400">{it.summary}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
