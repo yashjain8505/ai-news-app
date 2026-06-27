@@ -9,6 +9,7 @@ export interface Item {
   source: string | null;
   author: string | null;
   traction: string | null;
+  image_url: string | null;
   published_at: string | null;
   rank: number;
   created_at: string;
