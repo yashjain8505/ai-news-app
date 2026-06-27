@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Newsreader } from "next/font/google";
+import {
+  Bricolage_Grotesque,
+  Newsreader,
+  Playfair_Display,
+} from "next/font/google";
 import "./globals.css";
 
 const sans = Bricolage_Grotesque({
@@ -14,6 +18,12 @@ const serif = Newsreader({
   weight: ["400", "500"],
 });
 
+const display = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["700", "800"],
+});
+
 export const metadata: Metadata = {
   title: "Signal: AI, curated to your taste",
   description:
@@ -25,7 +35,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} ${serif.variable}`}>
+      <body className={`${sans.variable} ${serif.variable} ${display.variable}`}>
         <div className="h-1 w-full bg-[#cdff3a]" />
         {children}
       </body>

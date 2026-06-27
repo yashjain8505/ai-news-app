@@ -5,7 +5,7 @@ import { Item, Section, SECTIONS } from "@/lib/types";
 import { recordSignal } from "@/app/actions";
 
 export default function Feed({ items }: { items: Item[] }) {
-  const [active, setActive] = useState<Section>("daily");
+  const [active, setActive] = useState<Section>("tools");
   const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
   const [, startTransition] = useTransition();
 
@@ -68,7 +68,7 @@ export default function Feed({ items }: { items: Item[] }) {
   return (
     <div>
       <nav className="-mx-5 mb-2 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-        {SECTIONS.map((s) => {
+        {SECTIONS.filter((s) => s.key !== "daily").map((s) => {
           const isActive = s.key === active;
           return (
             <button

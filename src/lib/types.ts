@@ -10,6 +10,7 @@ export interface Item {
   author: string | null;
   traction: string | null;
   image_url: string | null;
+  highlight: string | null;
   tags: string[];
   published_at: string | null;
   rank: number;
