@@ -42,6 +42,11 @@ export default function Feed({
 }) {
   const [active, setActive] = useState<Section>("daily");
   const [sel, setSel] = useState(todayIdx);
+  const [offsets, setOffsets] = useState<Record<Section, number>>({
+    daily: 0,
+    tools: 0,
+    articles: 0,
+  });
   const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
   const [, startTransition] = useTransition();
   const scroller = useRef<HTMLUListElement>(null);
@@ -54,7 +59,11 @@ export default function Feed({
 
   const isToday = sel === todayIdx;
   const current = SECTIONS.find((s) => s.key === active)!;
-  const list = grouped[active] ?? [];
+  const baseList = grouped[active] ?? [];
+  const off = baseList.length ? offsets[active] % baseList.length : 0;
+  const list = off
+    ? [...baseList.slice(off), ...baseList.slice(0, off)]
+    : baseList;
   const isTools = active === "tools";
   const featured = list.slice(0, 5);
   const right = list.slice(5, 7);
@@ -104,6 +113,14 @@ export default function Feed({
     if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
   }
 
+  function refresh() {
+    const len = (grouped[active] ?? []).length;
+    if (!len) return;
+    const step = Math.max(1, Math.floor(len / 2));
+    setOffsets((o) => ({ ...o, [active]: (o[active] + step) % len }));
+    scroller.current?.scrollTo({ left: 0 });
+  }
+
   return (
     <div>
       <div className="mb-3 flex gap-1 text-sm">
@@ -126,10 +143,25 @@ export default function Feed({
           {days[sel]?.big}
         </h2>
         {isToday && (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-[#cde87a]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#cdff3a]" />
-            New today
-          </span>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={refresh}
+              aria-label="Refresh stories"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-[#cdff3a] hover:text-[#cdff3a]"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                <path d="M3 21v-5h5" />
+              </svg>
+              Refresh
+            </button>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-[#cde87a]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#cdff3a]" />
+              New today
+            </span>
+          </div>
         )}
       </div>
 
