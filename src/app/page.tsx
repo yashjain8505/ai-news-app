@@ -47,23 +47,37 @@ export default async function Home() {
   });
 
   return (
-    <main className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
-      <header className="mb-9 flex items-center justify-between">
+    <main className="mx-auto max-w-[1120px] px-7 pb-[90px] pt-1">
+      <header className="flex items-center justify-between pb-[18px] pt-[22px]">
         <div className="flex items-center gap-2.5">
-          <span className="inline-block h-3.5 w-3.5 rounded-sm bg-[#cdff3a]" />
-          <h1 className="display text-2xl font-extrabold tracking-tight text-white">
+          <span className="inline-block h-[13px] w-[13px] rounded-[3px] bg-[#cdff3a]" />
+          <span className="display text-[22px] font-extrabold tracking-[-0.01em] text-[#f5f3ec]">
             Signal
-          </h1>
+          </span>
         </div>
-        <p className="text-sm text-neutral-500">
-          {name ? `Welcome back, ${name}` : "Tuned to your taste"}
-        </p>
+        <div className="flex items-center gap-3.5 text-[13px] text-[#807c72]">
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="inline-block h-[7px] w-[7px] rounded-full bg-[#cdff3a]"
+              style={{ animation: "sigpulse 2s infinite" }}
+            />
+            <span>Live</span>
+          </span>
+          <span className="inline-block h-[13px] w-px bg-[#2a2825]" />
+          <span>{name ? `Welcome back, ${name}` : "Tuned to your taste"}</span>
+        </div>
       </header>
 
       <Feed items={items} days={days} todayIdx={todayIdx} />
 
-      <footer className="mt-14 border-t border-neutral-800 pt-6 text-xs text-neutral-500">
-        The more you read and react, the sharper your feed gets.
+      <footer className="mt-[72px] flex items-center justify-between border-t border-[#232220] pt-[22px]">
+        <span className="serif text-[14px] italic text-[#56534c]">
+          The more you read and react, the sharper your feed gets.
+        </span>
+        <span className="inline-flex items-center gap-2 text-[12px] text-[#56534c]">
+          <span className="inline-block h-[11px] w-[11px] rounded-[2px] bg-[#cdff3a]" />
+          Signal
+        </span>
       </footer>
     </main>
   );

@@ -16,12 +16,13 @@ const serif = Newsreader({
   subsets: ["latin"],
   variable: "--font-serif",
   weight: ["400", "500"],
+  style: ["normal", "italic"],
 });
 
 const display = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: ["700", "800"],
+  weight: ["600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -36,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${sans.variable} ${serif.variable} ${display.variable}`}>
-        <div className="h-1 w-full bg-[#cdff3a]" />
+        <div className="h-0.5 w-full bg-[#cdff3a]" />
         {children}
       </body>
     </html>

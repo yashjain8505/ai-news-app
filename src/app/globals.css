@@ -3,7 +3,24 @@
 html,
 body {
   background-color: #0a0a0b;
-  color: #f4f4f5;
+  color: #f5f3ec;
+}
+
+::selection {
+  background: #cdff3a;
+  color: #0a0a0b;
+}
+
+@keyframes sigpulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(205, 255, 58, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(205, 255, 58, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(205, 255, 58, 0);
+  }
 }
 
 body {

@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  useEffect,
   useMemo,
-  useRef,
   useState,
   useTransition,
   type MouseEvent,
@@ -14,14 +12,23 @@ import { recordSignal } from "@/app/actions";
 
 type Day = { label: string; big: string; full: string };
 
-function withHighlight(title: string, h: string | null): ReactNode {
+const FULL = [
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+];
+
+const HEART =
+  "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z";
+
+function withHighlight(title: string, h: string | null, px = 4): ReactNode {
   if (!h) return title;
   const i = title.indexOf(h);
   if (i < 0) return title;
   return (
     <>
       {title.slice(0, i)}
-      <span style={{ borderBottom: "4px solid #cdff3a" }}>{h}</span>
+      <span style={{ borderBottom: `${px}px solid #e3a44e`, paddingBottom: "1px" }}>
+        {h}
+      </span>
       {title.slice(i + h.length)}
     </>
   );
@@ -49,7 +56,6 @@ export default function Feed({
   });
   const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
   const [, startTransition] = useTransition();
-  const scroller = useRef<HTMLUListElement>(null);
 
   const grouped = useMemo(() => {
     const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [] };
@@ -59,29 +65,12 @@ export default function Feed({
 
   const isToday = sel === todayIdx;
   const current = SECTIONS.find((s) => s.key === active)!;
+  const fullDate = days[sel]?.full ?? "";
   const baseList = grouped[active] ?? [];
   const off = baseList.length ? offsets[active] % baseList.length : 0;
   const list = off
     ? [...baseList.slice(off), ...baseList.slice(0, off)]
     : baseList;
-  const isTools = active === "tools";
-  const featured = list.slice(0, 5);
-  const right = list.slice(5, 7);
-  const fullDate = days[sel]?.full ?? "";
-
-  useEffect(() => {
-    if (!isToday || isTools) return;
-    const el = scroller.current;
-    if (!el || featured.length <= 1) return;
-    const id = setInterval(() => {
-      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) {
-        el.scrollTo({ left: 0, behavior: "smooth" });
-      } else {
-        el.scrollBy({ left: el.clientWidth, behavior: "smooth" });
-      }
-    }, 5000);
-    return () => clearInterval(id);
-  }, [active, sel, isToday, isTools, featured.length]);
 
   function signal(it: Item, action: "like" | "less", e: MouseEvent) {
     e.preventDefault();
@@ -92,62 +81,98 @@ export default function Feed({
     });
   }
 
-  function controls(it: Item) {
+  function refresh() {
+    const len = (grouped[active] ?? []).length;
+    if (!len) return;
+    setOffsets((o) => ({
+      ...o,
+      [active]: (o[active] + Math.max(1, Math.floor(len / 2))) % len,
+    }));
+  }
+
+  function reactions(it: Item, withLess: boolean) {
     const s = signals[it.id];
     return (
-      <div className="absolute right-2 top-2 flex gap-1.5">
-        <button title="More like this" aria-label="More like this" onClick={(e) => signal(it, "like", e)}
-          className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${s === "like" ? "bg-[#cdff3a] text-black" : "bg-black/55 text-white hover:bg-black/75"}`}>
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill={s === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+      <div className="flex gap-2">
+        <button
+          onClick={(e) => signal(it, "like", e)}
+          title="More like this"
+          aria-label="More like this"
+          className="flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+          style={{
+            borderColor: s === "like" ? "#cdff3a" : "#2a2825",
+            background: s === "like" ? "#cdff3a" : "transparent",
+            color: s === "like" ? "#0a0a0b" : "#a3a097",
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill={s === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={HEART} />
+          </svg>
         </button>
-        <button title="Less like this" aria-label="Less like this" onClick={(e) => signal(it, "less", e)}
-          className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${s === "less" ? "bg-neutral-200 text-black" : "bg-black/55 text-white hover:bg-black/75"}`}>
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /></svg>
-        </button>
+        {withLess && (
+          <button
+            onClick={(e) => signal(it, "less", e)}
+            title="Less like this"
+            aria-label="Less like this"
+            className="flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+            style={{
+              borderColor: "#2a2825",
+              background: s === "less" ? "#2a2825" : "transparent",
+              color: s === "less" ? "#f5f3ec" : "#a3a097",
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+        )}
       </div>
     );
   }
 
-  function move(dir: number) {
-    const el = scroller.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
+  function kicker(it: Item, small = false) {
+    return (
+      <div
+        className={`flex items-center gap-2 uppercase ${small ? "text-[10px]" : "text-[11px]"}`}
+        style={{ letterSpacing: "0.09em", color: "#a3a097" }}
+      >
+        <span className="font-semibold" style={{ color: small ? "#b4b1a8" : "#cbc8bf" }}>
+          {it.source}
+        </span>
+        {fullDate && (
+          <>
+            <span style={{ color: "#3a3833" }}>/</span>
+            <span>{fullDate}</span>
+          </>
+        )}
+      </div>
+    );
   }
 
-  function refresh() {
-    const len = (grouped[active] ?? []).length;
-    if (!len) return;
-    const step = Math.max(1, Math.floor(len / 2));
-    setOffsets((o) => ({ ...o, [active]: (o[active] + step) % len }));
-    scroller.current?.scrollTo({ left: 0 });
-  }
+  const lead = list[0];
+  const rail = list.slice(1, 3);
+  const more = list.slice(3);
 
   return (
     <div>
-      <div className="mb-3 flex gap-1 text-sm">
-        {days.map((d, i) => (
-          <button
-            key={d.label}
-            onClick={() => setSel(i)}
-            className={`rounded-md px-2 py-1 transition-colors ${
-              i === sel
-                ? "font-medium text-[#cdff3a]"
-                : "text-neutral-500 hover:text-neutral-300"
-            }`}
+      <div className="flex items-end justify-between gap-6 pt-[18px]">
+        <div>
+          <div
+            className="mb-2 uppercase text-[12px] text-[#56534c]"
+            style={{ letterSpacing: "0.18em" }}
           >
-            {d.label}
-          </button>
-        ))}
-      </div>
-      <div className="mb-7 flex items-end justify-between">
-        <h2 className="display text-4xl font-extrabold leading-none text-white sm:text-5xl">
-          {days[sel]?.big}
-        </h2>
-        {isToday && (
-          <div className="flex items-center gap-2.5">
+            {isToday ? `${FULL[sel]} · Today's edition` : FULL[sel]}
+          </div>
+          <h1 className="display m-0 font-extrabold leading-[0.98] tracking-[-0.01em] text-[#f5f3ec] text-[clamp(34px,5vw,52px)]">
+            {days[sel]?.big}
+          </h1>
+        </div>
+        <div className="flex items-center gap-3">
+          {isToday && (
             <button
               onClick={refresh}
               aria-label="Refresh stories"
-              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-[#cdff3a] hover:text-[#cdff3a]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#2a2825] px-3 py-1.5 text-[12px] text-[#a3a097] transition-colors hover:border-[#e3a44e] hover:text-[#e3a44e]"
             >
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
@@ -157,145 +182,277 @@ export default function Feed({
               </svg>
               Refresh
             </button>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-[#cde87a]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#cdff3a]" />
-              New today
-            </span>
+          )}
+          <div className="flex gap-0.5">
+            {days.map((d, i) => (
+              <button
+                key={d.label}
+                onClick={() => setSel(i)}
+                className="rounded-[7px] px-[9px] py-1 text-[13px] transition-colors"
+                style={{
+                  color: i === sel ? "#f5f3ec" : "#56534c",
+                  fontWeight: i === sel ? 600 : 400,
+                }}
+              >
+                {d.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
+      <nav className="mt-7 flex gap-[30px] border-b border-[#232220]">
+        {SECTIONS.map((s) => {
+          const a = s.key === active;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setActive(s.key)}
+              className="-mb-px inline-flex items-baseline gap-[7px] pb-[14px] text-[15px] font-semibold tracking-[-0.01em]"
+              style={{
+                borderBottom: a ? "2px solid #e3a44e" : "2px solid transparent",
+                color: a ? "#f5f3ec" : "#807c72",
+              }}
+            >
+              <span>{s.label}</span>
+              <span
+                className="font-mono text-[11px]"
+                style={{ color: a ? "#e3a44e" : "#56534c" }}
+              >
+                {grouped[s.key]?.length ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
       {!isToday ? (
-        <div className="mt-2 rounded-2xl border border-dashed border-neutral-800 p-14 text-center">
-          <p className="text-neutral-400">No stories archived for {days[sel]?.big} yet.</p>
-          <p className="mt-1 text-sm text-neutral-600">We only started keeping the archive today.</p>
+        <div className="mt-10 rounded-[6px] border border-dashed border-[#2a2825] px-6 py-16 text-center">
+          <p className="serif m-0 text-[18px] text-[#a3a097]">
+            No stories archived for {days[sel]?.big} yet.
+          </p>
+          <p className="mt-2 text-[13px] text-[#56534c]">
+            We only started keeping the archive today.
+          </p>
           <button
             onClick={() => setSel(todayIdx)}
-            className="mt-5 rounded-full bg-[#cdff3a] px-4 py-2 text-sm font-semibold text-black"
+            className="mt-[22px] rounded-full bg-[#cdff3a] px-5 py-2.5 text-[14px] font-bold text-[#0a0a0b]"
           >
             Back to today
           </button>
         </div>
       ) : (
         <>
-          <nav className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-            {SECTIONS.map((s) => {
-              const isActive = s.key === active;
-              return (
-                <button key={s.key} onClick={() => setActive(s.key)}
-                  className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${isActive ? "bg-[#cdff3a] text-black" : "border border-neutral-700 bg-transparent text-neutral-400 hover:border-neutral-500 hover:text-white"}`}>
-                  {s.label}
-                </button>
-              );
-            })}
-          </nav>
-          <p className="mb-6 mt-2 text-sm text-neutral-500">{current.blurb}</p>
+          <p className="serif mt-3.5 text-[16px] italic text-[#a3a097]">
+            {current.blurb}
+          </p>
 
-          {isTools ? (
-            <ul className="overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
-              {list.map((it, i) => {
-                const isSkill = it.title.toLowerCase().includes("skill");
-                const s = signals[it.id];
-                return (
-                  <li key={it.id} className="flex items-center gap-3 border-b border-neutral-800 p-4 last:border-b-0 sm:gap-4">
-                    <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-sm font-bold text-neutral-400 sm:flex">{i + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                          <h3 className="font-bold text-white hover:text-[#cdff3a]">{it.title.replace(/\s*\(Claude skill\)$/, "")}</h3>
-                        </a>
-                        <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] font-medium text-neutral-400">{isSkill ? "Claude skill" : "Tool"}</span>
-                        {it.traction && <span className="text-[11px] text-neutral-500">{it.traction}</span>}
-                      </div>
-                      {it.summary && <p className="serif mt-0.5 line-clamp-1 text-sm text-neutral-400">{it.summary}</p>}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button title="More like this" aria-label="More like this" onClick={(e) => signal(it, "like", e)}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${s === "like" ? "bg-[#cdff3a] text-black" : "text-neutral-500 hover:text-white"}`}>
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill={s === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
-                      </button>
-                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="rounded-full border border-neutral-700 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:border-[#cdff3a] hover:text-[#cdff3a]">Open ↗</a>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <>
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-                <div className="min-w-0">
-                  <ul ref={scroller} className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none]">
-                    {featured.map((it) => (
-                      <li key={it.id} className="w-full min-w-0 shrink-0 snap-start">
-                        <div className="overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
-                          <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
-                            <div className="relative h-56 w-full bg-neutral-900 sm:h-64">
-                              {it.image_url && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={it.image_url} alt="" onError={hideImg} className="h-full w-full object-cover" />
-                              )}
-                              {controls(it)}
-                            </div>
-                          </a>
-                          <div className="p-5">
-                            <div className="mb-2 text-xs text-neutral-500">{it.source} · {fullDate}</div>
-                            <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                              <h3 className="display text-2xl font-extrabold leading-tight text-white">{withHighlight(it.title, it.highlight)}</h3>
-                            </a>
-                            {it.summary && <p className="serif mt-2.5 line-clamp-2 text-sm leading-relaxed text-neutral-400">{it.summary}</p>}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  {featured.length > 1 && (
-                    <div className="mt-3 flex justify-end gap-2">
-                      <button onClick={() => move(-1)} aria-label="Previous" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">←</button>
-                      <button onClick={() => move(1)} aria-label="Next" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">→</button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  {right.map((it) => (
-                    <a key={it.id} href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block rounded-2xl border border-neutral-800 bg-[#141416] p-5 transition-colors hover:border-neutral-600">
-                      <div className="mb-2 text-xs text-neutral-500">{it.source} · {fullDate}</div>
-                      <h3 className="display text-lg font-bold leading-snug text-white">{withHighlight(it.title, it.highlight)}</h3>
-                      {it.summary && <p className="serif mt-2 line-clamp-3 text-sm leading-relaxed text-neutral-400">{it.summary}</p>}
+          {active === "daily" && (
+            <section className="mt-[34px]">
+              <div className="grid gap-[46px] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                {lead && (
+                  <article className="min-w-0">
+                    <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
+                      {lead.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={lead.image_url}
+                          alt=""
+                          onError={hideImg}
+                          className="aspect-video w-full rounded-[3px] object-cover"
+                        />
+                      )}
                     </a>
+                    <div className="mt-[18px]">{kicker(lead)}</div>
+                    <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                      <h2 className="display mt-3.5 font-extrabold leading-[1.04] tracking-[-0.015em] text-[#f5f3ec] text-[clamp(28px,3.6vw,42px)]">
+                        {withHighlight(lead.title, lead.highlight, 4)}
+                      </h2>
+                    </a>
+                    {lead.summary && (
+                      <p className="serif mt-4 max-w-[56ch] text-[19px] leading-[1.5] text-[#a3a097]">
+                        {lead.summary}
+                      </p>
+                    )}
+                    <div className="mt-5 flex items-center gap-[18px]">
+                      {reactions(lead, true)}
+                      <a
+                        href={lead.url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[13px] font-semibold text-[#e3a44e] hover:text-[#f0bd70]"
+                      >
+                        Read story →
+                      </a>
+                    </div>
+                  </article>
+                )}
+
+                <div className="flex flex-col">
+                  {rail.map((it, i) => (
+                    <article
+                      key={it.id}
+                      className="pb-[22px]"
+                      style={{
+                        marginBottom: i === rail.length - 1 ? 0 : 22,
+                        borderBottom:
+                          i === rail.length - 1 ? "none" : "1px solid #232220",
+                      }}
+                    >
+                      {kicker(it)}
+                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                        <h3 className="display mt-2.5 text-[22px] font-bold leading-[1.16] tracking-[-0.01em] text-[#f5f3ec]">
+                          {withHighlight(it.title, it.highlight, 3)}
+                        </h3>
+                      </a>
+                      {it.summary && (
+                        <p className="serif mt-2.5 line-clamp-2 text-[15px] leading-[1.5] text-[#807c72]">
+                          {it.summary}
+                        </p>
+                      )}
+                    </article>
                   ))}
                 </div>
               </div>
 
-              {list.length > 0 && (
+              {more.length > 0 && (
                 <>
-                  <h3 className="mb-4 mt-12 text-sm font-medium uppercase tracking-wide text-neutral-500">All stories</h3>
-                  <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {list.map((it) => (
-                      <li key={it.id}>
-                        <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
-                          <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
-                            <div className="relative h-40 w-full bg-neutral-900">
-                              {it.image_url && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={it.image_url} alt="" loading="lazy" onError={hideImg} className="h-full w-full object-cover" />
-                              )}
-                              {controls(it)}
-                            </div>
-                          </a>
-                          <div className="flex flex-1 flex-col p-4">
-                            <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                              <h3 className="text-base font-bold leading-snug text-white">{it.title}</h3>
-                            </a>
-                            {it.summary && <p className="serif mt-2 line-clamp-2 text-sm leading-relaxed text-neutral-400">{it.summary}</p>}
-                          </div>
-                        </div>
-                      </li>
+                  <div className="mb-[26px] mt-[58px] flex items-center gap-4">
+                    <span className="whitespace-nowrap font-mono text-[12px] uppercase text-[#56534c]" style={{ letterSpacing: "0.13em" }}>
+                      More today
+                    </span>
+                    <span className="h-px flex-1 bg-[#232220]" />
+                    <span className="font-mono text-[12px] text-[#56534c]">
+                      {more.length} stories
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-[34px] lg:grid-cols-3">
+                    {more.map((it) => (
+                      <article key={it.id}>
+                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
+                          {it.image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={it.image_url}
+                              alt=""
+                              loading="lazy"
+                              onError={hideImg}
+                              className="mb-3.5 aspect-[16/10] w-full rounded-[3px] object-cover"
+                            />
+                          )}
+                          <div className="mb-2.5">{kicker(it, true)}</div>
+                          <h4 className="text-[17px] font-bold leading-[1.26] tracking-[-0.01em] text-[#f5f3ec]">
+                            {it.title}
+                          </h4>
+                        </a>
+                      </article>
                     ))}
-                  </ul>
+                  </div>
                 </>
               )}
-            </>
+            </section>
+          )}
+
+          {active === "tools" && (
+            <section className="mt-[30px]">
+              {list.map((it, i) => {
+                const skill = it.title.toLowerCase().includes("skill");
+                return (
+                  <div
+                    key={it.id}
+                    className="pb-[22px]"
+                    style={{
+                      marginBottom: i === list.length - 1 ? 0 : 22,
+                      borderBottom:
+                        i === list.length - 1 ? "none" : "1px solid #232220",
+                    }}
+                  >
+                    <div className="flex items-start gap-5">
+                      <span className="display min-w-[38px] text-[30px] font-bold leading-none text-[#3f3d37]">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                            <h3 className="text-[18px] font-bold tracking-[-0.01em] text-[#f5f3ec]">
+                              {it.title.replace(/\s*\(Claude skill\)$/, "")}
+                            </h3>
+                          </a>
+                          <span
+                            className="rounded-full border px-[9px] py-0.5 text-[11px] font-semibold"
+                            style={{
+                              borderColor: skill ? "#e3a44e" : "#2a2825",
+                              color: skill ? "#e3a44e" : "#807c72",
+                            }}
+                          >
+                            {skill ? "Claude skill" : "Tool"}
+                          </span>
+                          {it.traction && (
+                            <span className="font-mono text-[11px] text-[#56534c]">
+                              {it.traction}
+                            </span>
+                          )}
+                        </div>
+                        {it.summary && (
+                          <p className="serif mt-1.5 text-[15px] leading-[1.45] text-[#807c72]">
+                            {it.summary}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        {reactions(it, false)}
+                        <a
+                          href={it.url ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-full border border-[#2a2825] px-4 py-2 text-[13px] font-semibold text-[#f5f3ec] transition-colors hover:border-[#e3a44e] hover:text-[#e3a44e]"
+                        >
+                          Open ↗
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          )}
+
+          {active === "articles" && (
+            <section className="mt-[18px] max-w-[780px]">
+              {list.map((it, i) => (
+                <article
+                  key={it.id}
+                  className="pb-[26px]"
+                  style={{
+                    marginBottom: i === list.length - 1 ? 0 : 26,
+                    borderBottom:
+                      i === list.length - 1 ? "none" : "1px solid #232220",
+                  }}
+                >
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span className="text-[11px] font-semibold uppercase text-[#b4b1a8]" style={{ letterSpacing: "0.09em" }}>
+                      {it.source}
+                    </span>
+                    {fullDate && (
+                      <span className="whitespace-nowrap font-mono text-[11px] text-[#56534c]">
+                        {fullDate}
+                      </span>
+                    )}
+                  </div>
+                  <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                    <h2 className="display mt-2.5 text-[28px] font-bold leading-[1.18] tracking-[-0.01em] text-[#f5f3ec]">
+                      {withHighlight(it.title, it.highlight, 3)}
+                    </h2>
+                  </a>
+                  {it.summary && (
+                    <p className="serif mt-3 text-[18px] leading-[1.55] text-[#a3a097]">
+                      {it.summary}
+                    </p>
+                  )}
+                  <div className="mt-4">{reactions(it, true)}</div>
+                </article>
+              ))}
+            </section>
           )}
         </>
       )}
