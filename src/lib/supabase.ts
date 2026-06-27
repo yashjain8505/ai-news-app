@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Publishable (anon) key — safe to expose in the client; all access is gated by RLS.
+// Publishable (anon) key, safe to expose in the client; all access is gated by RLS.
 const url =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
   "https://zrjbzowohsgjbrhsldfi.supabase.co";

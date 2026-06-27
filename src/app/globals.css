@@ -2,8 +2,16 @@
 
 html,
 body {
-  background-color: #fafaf9;
-  color: #171717;
+  background-color: #0a0a0b;
+  color: #f4f4f5;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.serif {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
 }
 
 * {

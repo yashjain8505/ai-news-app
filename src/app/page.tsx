@@ -15,20 +15,20 @@ export default async function Home() {
   const items = (data ?? []) as Item[];
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
-      <header className="mb-8">
-        <div className="flex items-center gap-2">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-500" />
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+    <main className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
+      <header className="mb-9">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-block h-3.5 w-3.5 rounded-sm bg-[#cdff3a]" />
+          <h1 className="text-3xl font-bold tracking-tight text-white">
             Signal
           </h1>
         </div>
-        <p className="mt-2 text-[15px] text-neutral-500">
+        <p className="mt-2 text-[15px] text-neutral-400">
           AI news, tools, and ideas, curated to your taste.
         </p>
       </header>
       <Feed items={items} />
-      <footer className="mt-12 border-t border-neutral-200 pt-6 text-xs text-neutral-400">
+      <footer className="mt-14 border-t border-neutral-800 pt-6 text-xs text-neutral-500">
         Rate items 👍 / 👎. Your feedback trains what you see next.
       </footer>
     </main>

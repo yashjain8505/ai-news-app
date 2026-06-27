@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Space_Grotesk, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const sans = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  weight: ["400", "500", "600", "700"],
+});
+
+const serif = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: ["400", "600"],
+});
 
 export const metadata: Metadata = {
-  title: "Signal — AI, curated to your taste",
+  title: "Signal: AI, curated to your taste",
   description:
-    "Daily AI updates, obscure new tools, and the most interesting AI reads — personalized.",
+    "Daily AI updates, obscure new tools, and the most interesting AI reads, personalized.",
 };
 
 export default function RootLayout({
@@ -15,7 +25,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={`${sans.variable} ${serif.variable}`}>
+        <div className="h-1 w-full bg-[#cdff3a]" />
+        {children}
+      </body>
     </html>
   );
 }

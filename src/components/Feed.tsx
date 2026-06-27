@@ -36,9 +36,9 @@ export default function Feed({ items }: { items: Item[] }) {
         className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
           sel
             ? good
-              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-              : "border-rose-500 bg-rose-50 text-rose-700"
-            : "border-neutral-200 text-neutral-500 hover:border-neutral-400"
+              ? "border-[#cdff3a] bg-[#cdff3a]/15 text-[#cdff3a]"
+              : "border-rose-500 bg-rose-500/15 text-rose-400"
+            : "border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
         }`}
       >
         {good ? "👍 Good" : "👎 Not for me"}
@@ -55,27 +55,27 @@ export default function Feed({ items }: { items: Item[] }) {
             <button
               key={s.key}
               onClick={() => setActive(s.key)}
-              className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                 isActive
-                  ? "bg-neutral-900 text-white"
-                  : "border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400"
+                  ? "bg-[#cdff3a] text-black"
+                  : "border border-neutral-700 bg-transparent text-neutral-400 hover:border-neutral-500 hover:text-white"
               }`}
             >
               {s.label}
-              <span className="ml-2 text-xs opacity-60">
+              <span className="ml-2 text-xs opacity-70">
                 {grouped[s.key]?.length ?? 0}
               </span>
             </button>
           );
         })}
       </nav>
-      <p className="mb-5 text-sm text-neutral-500">{current.blurb}</p>
+      <p className="mb-6 text-sm text-neutral-500">{current.blurb}</p>
 
-      <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {list.map((it) => (
           <li
             key={it.id}
-            className="flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-shadow hover:shadow-md"
+            className="flex flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416] transition-colors hover:border-neutral-600"
           >
             <a
               href={it.url ?? "#"}
@@ -83,7 +83,7 @@ export default function Feed({ items }: { items: Item[] }) {
               rel="noopener noreferrer"
               className="block"
             >
-              <div className="relative aspect-video w-full bg-gradient-to-br from-neutral-100 to-neutral-200">
+              <div className="relative aspect-video w-full bg-neutral-900">
                 {it.image_url && (
                   <img
                     src={it.image_url}
@@ -96,30 +96,30 @@ export default function Feed({ items }: { items: Item[] }) {
                   />
                 )}
                 {it.traction && (
-                  <span className="absolute left-2.5 top-2.5 rounded-full bg-black/70 px-2.5 py-1 text-xs font-medium text-white">
+                  <span className="absolute left-2.5 top-2.5 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white">
                     {it.traction}
                   </span>
                 )}
               </div>
-              <div className="p-4 sm:p-5">
-                <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-neutral-900">
+              <div className="p-5">
+                <h3 className="text-xl font-bold leading-tight text-white">
                   {it.title}
                 </h3>
                 {it.summary && (
-                  <p className="mt-2 line-clamp-2 text-[15px] leading-relaxed text-neutral-600">
+                  <p className="serif mt-2.5 text-[15px] leading-relaxed text-neutral-400">
                     {it.summary}
                   </p>
                 )}
               </div>
             </a>
-            <div className="mt-auto flex gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
+            <div className="mt-auto flex gap-2 px-5 pb-5">
               {voteButton(it, "good")}
               {voteButton(it, "bad")}
             </div>
           </li>
         ))}
         {list.length === 0 && (
-          <li className="col-span-full rounded-2xl border border-dashed border-neutral-200 p-8 text-center text-sm text-neutral-400">
+          <li className="col-span-full rounded-2xl border border-dashed border-neutral-700 p-8 text-center text-sm text-neutral-500">
             Nothing here yet.
           </li>
         )}
