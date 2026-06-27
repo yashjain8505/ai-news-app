@@ -1,13 +1,50 @@
 "use client";
 
-import { useMemo, useState, useTransition, type MouseEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { Item, Section, SECTIONS } from "@/lib/types";
 import { recordSignal } from "@/app/actions";
 
-export default function Feed({ items }: { items: Item[] }) {
-  const [active, setActive] = useState<Section>("tools");
+const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function withHighlight(title: string, h: string | null): ReactNode {
+  if (!h) return title;
+  const i = title.indexOf(h);
+  if (i < 0) return title;
+  return (
+    <>
+      {title.slice(0, i)}
+      <span style={{ borderBottom: "4px solid #cdff3a" }}>{h}</span>
+      {title.slice(i + h.length)}
+    </>
+  );
+}
+
+function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
+  e.currentTarget.style.display = "none";
+}
+
+export default function Feed({
+  items,
+  bigDate,
+  fullDate,
+  today,
+}: {
+  items: Item[];
+  bigDate: string;
+  fullDate: string;
+  today: string;
+}) {
+  const [active, setActive] = useState<Section>("daily");
   const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
   const [, startTransition] = useTransition();
+  const scroller = useRef<HTMLUListElement>(null);
 
   const grouped = useMemo(() => {
     const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [] };
@@ -17,8 +54,6 @@ export default function Feed({ items }: { items: Item[] }) {
 
   const current = SECTIONS.find((s) => s.key === active)!;
   const list = grouped[active] ?? [];
-  const featured = list[0];
-  const rest = list.slice(1);
 
   function signal(it: Item, action: "like" | "less", e: MouseEvent) {
     e.preventDefault();
@@ -38,9 +73,7 @@ export default function Feed({ items }: { items: Item[] }) {
           aria-label="More like this"
           onClick={(e) => signal(it, "like", e)}
           className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${
-            s === "like"
-              ? "bg-[#cdff3a] text-black"
-              : "bg-black/55 text-white hover:bg-black/75"
+            s === "like" ? "bg-[#cdff3a] text-black" : "bg-black/55 text-white hover:bg-black/75"
           }`}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill={s === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -52,9 +85,7 @@ export default function Feed({ items }: { items: Item[] }) {
           aria-label="Less like this"
           onClick={(e) => signal(it, "less", e)}
           className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${
-            s === "less"
-              ? "bg-neutral-200 text-black"
-              : "bg-black/55 text-white hover:bg-black/75"
+            s === "less" ? "bg-neutral-200 text-black" : "bg-black/55 text-white hover:bg-black/75"
           }`}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -65,10 +96,37 @@ export default function Feed({ items }: { items: Item[] }) {
     );
   }
 
+  function move(dir: number) {
+    const el = scroller.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
+  }
+
+  const isTools = active === "tools";
+  const right = list.slice(0, 2);
+  const featured = list.slice(2, 6);
+  const more = list.slice(6);
+
   return (
     <div>
-      <nav className="-mx-5 mb-2 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
-        {SECTIONS.filter((s) => s.key !== "daily").map((s) => {
+      <div className="mb-3 flex gap-4 text-sm text-neutral-500">
+        {WEEK.map((d) => (
+          <span key={d} className={d === today ? "font-medium text-[#cdff3a]" : ""}>
+            {d}
+          </span>
+        ))}
+      </div>
+      <div className="mb-7 flex items-end justify-between">
+        <h2 className="display text-4xl font-extrabold leading-none text-white sm:text-5xl">
+          {bigDate}
+        </h2>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-[#cde87a]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#cdff3a]" />
+          New today
+        </span>
+      </div>
+
+      <nav className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+        {SECTIONS.map((s) => {
           const isActive = s.key === active;
           return (
             <button
@@ -85,114 +143,176 @@ export default function Feed({ items }: { items: Item[] }) {
           );
         })}
       </nav>
-      <p className="mb-6 text-sm text-neutral-500">{current.blurb}</p>
+      <p className="mb-6 mt-2 text-sm text-neutral-500">{current.blurb}</p>
 
-      <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {featured && (
-          <li className="sm:col-span-2 lg:col-span-3">
-            <div className="group overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416] transition-colors hover:border-neutral-600 sm:flex">
-              <a
-                href={featured.url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative block sm:w-3/5"
+      {isTools ? (
+        <ul className="overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
+          {list.map((it, i) => {
+            const isSkill = it.title.toLowerCase().includes("skill");
+            const s = signals[it.id];
+            return (
+              <li
+                key={it.id}
+                className="flex items-center gap-3 border-b border-neutral-800 p-4 last:border-b-0 sm:gap-4"
               >
-                <div className="relative aspect-video w-full bg-neutral-900">
-                  {featured.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={featured.image_url}
-                      alt=""
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-                  {featured.traction && (
-                    <span className="absolute left-2.5 top-2.5 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white">
-                      {featured.traction}
+                <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-sm font-bold text-neutral-400 sm:flex">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                      <h3 className="font-bold text-white hover:text-[#cdff3a]">
+                        {it.title.replace(/\s*\(Claude skill\)$/, "")}
+                      </h3>
+                    </a>
+                    <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] font-medium text-neutral-400">
+                      {isSkill ? "Claude skill" : "Tool"}
                     </span>
+                    {it.traction && (
+                      <span className="text-[11px] text-neutral-500">{it.traction}</span>
+                    )}
+                  </div>
+                  {it.summary && (
+                    <p className="serif mt-0.5 line-clamp-1 text-sm text-neutral-400">
+                      {it.summary}
+                    </p>
                   )}
-                  {controls(featured)}
                 </div>
-              </a>
-              <div className="flex flex-col justify-center p-5 sm:w-2/5 sm:p-7">
-                <a
-                  href={featured.url ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <h3 className="text-2xl font-extrabold leading-tight text-white sm:text-3xl">
-                    {featured.title}
-                  </h3>
-                </a>
-                {featured.summary && (
-                  <p className="serif mt-3 text-base leading-relaxed text-neutral-400">
-                    {featured.summary}
-                  </p>
-                )}
-              </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    title="More like this"
+                    aria-label="More like this"
+                    onClick={(e) => signal(it, "like", e)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                      s === "like" ? "bg-[#cdff3a] text-black" : "text-neutral-500 hover:text-white"
+                    }`}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill={s === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" />
+                    </svg>
+                  </button>
+                  <a
+                    href={it.url ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-neutral-700 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:border-[#cdff3a] hover:text-[#cdff3a]"
+                  >
+                    Open ↗
+                  </a>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <>
+          <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
+            <div>
+              <ul
+                ref={scroller}
+                className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none]"
+              >
+                {featured.map((it) => (
+                  <li key={it.id} className="w-full shrink-0 snap-start">
+                    <div className="overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
+                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
+                        <div className="relative h-56 w-full bg-neutral-900 sm:h-64">
+                          {it.image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={it.image_url} alt="" onError={hideImg} className="h-full w-full object-cover" />
+                          )}
+                          {controls(it)}
+                        </div>
+                      </a>
+                      <div className="p-5">
+                        <div className="mb-2 text-xs text-neutral-500">
+                          {it.source} · {fullDate}
+                        </div>
+                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                          <h3 className="display text-2xl font-extrabold leading-tight text-white">
+                            {withHighlight(it.title, it.highlight)}
+                          </h3>
+                        </a>
+                        {it.summary && (
+                          <p className="serif mt-2.5 line-clamp-2 text-sm leading-relaxed text-neutral-400">
+                            {it.summary}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {featured.length > 1 && (
+                <div className="mt-3 flex justify-end gap-2">
+                  <button onClick={() => move(-1)} aria-label="Previous" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">
+                    ←
+                  </button>
+                  <button onClick={() => move(1)} aria-label="Next" className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white">
+                    →
+                  </button>
+                </div>
+              )}
             </div>
-          </li>
-        )}
 
-        {rest.map((it) => (
-          <li key={it.id}>
-            <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416] transition-colors hover:border-neutral-600">
-              <a
-                href={it.url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <div className="relative aspect-video w-full bg-neutral-900">
-                  {it.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={it.image_url}
-                      alt=""
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-                  {it.traction && (
-                    <span className="absolute left-2.5 top-2.5 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white">
-                      {it.traction}
-                    </span>
-                  )}
-                  {controls(it)}
-                </div>
-              </a>
-              <div className="flex flex-1 flex-col p-4">
+            <div className="flex flex-col gap-4">
+              {right.map((it) => (
                 <a
+                  key={it.id}
                   href={it.url ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="block flex-1 rounded-2xl border border-neutral-800 bg-[#141416] p-5 transition-colors hover:border-neutral-600"
                 >
-                  <h3 className="text-lg font-bold leading-snug text-white">
-                    {it.title}
+                  <div className="mb-2 text-xs text-neutral-500">
+                    {it.source} · {fullDate}
+                  </div>
+                  <h3 className="display text-xl font-bold leading-snug text-white">
+                    {withHighlight(it.title, it.highlight)}
                   </h3>
+                  {it.summary && (
+                    <p className="serif mt-2.5 line-clamp-3 text-sm leading-relaxed text-neutral-400">
+                      {it.summary}
+                    </p>
+                  )}
                 </a>
-                {it.summary && (
-                  <p className="serif mt-2 line-clamp-3 text-sm leading-relaxed text-neutral-400">
-                    {it.summary}
-                  </p>
-                )}
-              </div>
+              ))}
             </div>
-          </li>
-        ))}
+          </div>
 
-        {list.length === 0 && (
-          <li className="col-span-full rounded-2xl border border-dashed border-neutral-700 p-8 text-center text-sm text-neutral-500">
-            Nothing here yet.
-          </li>
-        )}
-      </ul>
+          {more.length > 0 && (
+            <ul className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {more.map((it) => (
+                <li key={it.id}>
+                  <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-[#141416]">
+                    <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block">
+                      <div className="relative h-40 w-full bg-neutral-900">
+                        {it.image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={it.image_url} alt="" loading="lazy" onError={hideImg} className="h-full w-full object-cover" />
+                        )}
+                        {controls(it)}
+                      </div>
+                    </a>
+                    <div className="flex flex-1 flex-col p-4">
+                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                        <h3 className="text-base font-bold leading-snug text-white">
+                          {it.title}
+                        </h3>
+                      </a>
+                      {it.summary && (
+                        <p className="serif mt-2 line-clamp-2 text-sm leading-relaxed text-neutral-400">
+                          {it.summary}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </div>
   );
 }

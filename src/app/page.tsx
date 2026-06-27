@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Item } from "@/lib/types";
 import { scoreItem, type Weights } from "@/lib/taste";
-import Hero from "@/components/Hero";
 import Feed from "@/components/Feed";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +33,6 @@ export default async function Home() {
     .map((it) => ({ it, s: scoreItem(it.tags, weights) }))
     .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
     .map((x) => x.it);
-  const daily = items.filter((it) => it.section === "daily");
 
   const now = new Date();
   const bigDate = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
@@ -43,7 +41,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
-      <header className="mb-10 flex items-center justify-between">
+      <header className="mb-9 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="inline-block h-3.5 w-3.5 rounded-sm bg-[#cdff3a]" />
           <h1 className="display text-2xl font-extrabold tracking-tight text-white">
@@ -55,8 +53,7 @@ export default async function Home() {
         </p>
       </header>
 
-      <Hero items={daily} bigDate={bigDate} fullDate={fullDate} today={today} />
-      <Feed items={items} />
+      <Feed items={items} bigDate={bigDate} fullDate={fullDate} today={today} />
 
       <footer className="mt-14 border-t border-neutral-800 pt-6 text-xs text-neutral-500">
         The more you read and react, the sharper your feed gets.
