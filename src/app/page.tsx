@@ -11,7 +11,7 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-const WK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default async function Home() {
   const jar = await cookies();
@@ -35,9 +35,16 @@ export default async function Home() {
     .map((x) => x.it);
 
   const now = new Date();
-  const bigDate = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
-  const fullDate = `${bigDate}, ${now.getFullYear()}`;
-  const today = WK[now.getDay()];
+  const todayIdx = (now.getDay() + 6) % 7;
+  const days = LABELS.map((label, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + (i - todayIdx));
+    return {
+      label,
+      big: `${MONTHS[d.getMonth()]} ${d.getDate()}`,
+      full: `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`,
+    };
+  });
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
@@ -53,7 +60,7 @@ export default async function Home() {
         </p>
       </header>
 
-      <Feed items={items} bigDate={bigDate} fullDate={fullDate} today={today} />
+      <Feed items={items} days={days} todayIdx={todayIdx} />
 
       <footer className="mt-14 border-t border-neutral-800 pt-6 text-xs text-neutral-500">
         The more you read and react, the sharper your feed gets.
