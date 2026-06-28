@@ -21,7 +21,7 @@ jobs:
           node-version: "20"
 
       - name: Supabase write self-test
-        if: ${{ inputs.selftest == 'true' }}
+        if: ${{ github.event.inputs.selftest == 'true' }}
         env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -37,11 +37,11 @@ jobs:
           if [ "$code" = "201" ]; then echo "WRITE OK (service_role key works)"; else echo "WRITE FAILED — key is not service_role (got $code)"; exit 1; fi
 
       - name: Install Claude Code
-        if: ${{ inputs.selftest != 'true' }}
+        if: ${{ github.event.inputs.selftest != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Curate and insert today's edition
-        if: ${{ inputs.selftest != 'true' }}
+        if: ${{ github.event.inputs.selftest != 'true' }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
