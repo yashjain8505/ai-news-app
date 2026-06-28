@@ -5,8 +5,24 @@ import { useRouter } from "next/navigation";
 import { QuizArticle } from "@/lib/types";
 import { completeOnboarding } from "@/app/actions";
 
-const ROUNDS = 3;
-const PER = 5;
+const CARDS = 12;
+
+const APPETITES: { tag: string; label: string }[] = [
+  { tag: "lab-power", label: "Big-lab power plays" },
+  { tag: "strategy", label: "Strategy & analysis" },
+  { tag: "drama", label: "Drama & personalities" },
+  { tag: "tools", label: "New tools" },
+  { tag: "economics", label: "Money, deals & funding" },
+  { tag: "policy", label: "Policy & regulation" },
+  { tag: "regional", label: "Global & regional" },
+  { tag: "technical", label: "Technical & research" },
+  { tag: "culture", label: "Culture & society" },
+  { tag: "future-of-work", label: "Jobs & future of work" },
+];
+const TAGS = APPETITES.map((a) => a.tag);
+const LABEL: Record<string, string> = Object.fromEntries(
+  APPETITES.map((a) => [a.tag, a.label])
+);
 
 function shuffle<T>(a: T[]): T[] {
   const r = [...a];
@@ -26,159 +42,268 @@ function host(url: string | null): string {
   }
 }
 
-type Pick = {
-  chosenId: string;
-  shownIds: string[];
-  chosenTags: string[];
-  otherTags: string[][];
-};
+function emptyScores(): Record<string, number> {
+  return Object.fromEntries(TAGS.map((t) => [t, 0]));
+}
 
 export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [step, setStep] = useState(0); // 0 = details, 1..ROUNDS = quiz
+  const [phase, setPhase] = useState<"details" | "calibrate" | "mix" | "done">(
+    "details"
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [picks, setPicks] = useState<Pick[]>([]);
+  const [idx, setIdx] = useState(0);
+  const [scores, setScores] = useState<Record<string, number>>(emptyScores());
+  const [mix, setMix] = useState<Record<string, number>>({});
 
-  const rounds = useMemo(() => {
-    const pool = shuffle(articles).slice(0, ROUNDS * PER);
-    const out: QuizArticle[][] = [];
-    for (let i = 0; i < ROUNDS; i++) out.push(pool.slice(i * PER, i * PER + PER));
-    return out;
-  }, [articles]);
-
+  const cards = useMemo(
+    () => shuffle(articles).slice(0, CARDS),
+    [articles]
+  );
   const emailOk = /\S+@\S+\.\S+/.test(email);
 
-  function choose(chosen: QuizArticle) {
-    const round = rounds[step - 1];
-    const others = round.filter((a) => a.id !== chosen.id);
-    const pick: Pick = {
-      chosenId: chosen.id,
-      shownIds: round.map((a) => a.id),
-      chosenTags: chosen.tags ?? [],
-      otherTags: others.map((a) => a.tags ?? []),
-    };
-    const next = [...picks, pick];
-    setPicks(next);
-    if (step >= ROUNDS) {
-      startTransition(async () => {
-        await completeOnboarding({ name, email, rounds: next });
-        router.push("/");
-        router.refresh();
-      });
+  function computeMix(s: Record<string, number>) {
+    const raw = TAGS.map((t) => Math.max(0, s[t] ?? 0));
+    const total = raw.reduce((a, b) => a + b, 0);
+    const next: Record<string, number> = {};
+    if (total <= 0) {
+      TAGS.forEach((t) => (next[t] = Math.round(100 / TAGS.length)));
     } else {
-      setStep(step + 1);
+      TAGS.forEach((t, i) => (next[t] = Math.round((raw[i] / total) * 100)));
+    }
+    return next;
+  }
+
+  function rate(action: "skip" | "read" | "love") {
+    const card = cards[idx];
+    const delta = action === "love" ? 2 : action === "read" ? 1 : -0.5;
+    const next = { ...scores };
+    for (const t of card.tags ?? []) next[t] = (next[t] ?? 0) + delta;
+    setScores(next);
+    if (idx + 1 >= cards.length) {
+      setMix(computeMix(next));
+      setPhase("mix");
+    } else {
+      setIdx(idx + 1);
     }
   }
 
+  function setBar(tag: string, v: number) {
+    const val = Math.max(0, Math.min(100, v));
+    const others = TAGS.filter((t) => t !== tag);
+    const othersTotal = others.reduce((a, t) => a + (mix[t] ?? 0), 0);
+    const remaining = 100 - val;
+    const next: Record<string, number> = { ...mix, [tag]: val };
+    if (othersTotal > 0) {
+      for (const t of others) next[t] = (mix[t] ?? 0) * (remaining / othersTotal);
+    } else {
+      for (const t of others) next[t] = remaining / others.length;
+    }
+    setMix(next);
+  }
+
+  function finish() {
+    const weights: Record<string, number> = {};
+    for (const t of TAGS) weights[t] = Math.round(mix[t] ?? 0);
+    startTransition(async () => {
+      await completeOnboarding({ name, email, weights });
+      router.push("/");
+      router.refresh();
+    });
+  }
+
+  const topThree = [...TAGS]
+    .sort((a, b) => (mix[b] ?? 0) - (mix[a] ?? 0))
+    .slice(0, 3);
+
+  const wrap: React.CSSProperties = {
+    maxWidth: 620,
+    margin: "0 auto",
+    padding: "48px 24px 80px",
+  };
+
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-4px)] max-w-2xl flex-col px-5 py-10 sm:py-16">
-      <div className="mb-8 flex items-center gap-2.5">
-        <span className="inline-block h-3.5 w-3.5 rounded-sm bg-[#cdff3a]" />
-        <span className="text-xl font-extrabold tracking-tight text-white">
+    <main style={wrap}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 36 }}>
+        <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 3 }}>
+          <span style={{ width: 5, height: 11, background: "var(--accent)" }} />
+          <span style={{ width: 5, height: 18, background: "var(--accent)" }} />
+          <span style={{ width: 5, height: 25, background: "var(--accent)" }} />
+        </span>
+        <span className="display" style={{ fontSize: 24, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)" }}>
           Signal
         </span>
       </div>
 
-      {step === 0 ? (
-        <div className="my-auto">
-          <h1 className="text-3xl font-extrabold leading-tight text-white sm:text-4xl">
-            Let us learn what you love to read.
+      {phase === "details" && (
+        <div>
+          <h1 className="display" style={{ fontSize: 34, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
+            Let&#8217;s tune your briefing.
           </h1>
-          <p className="serif mt-3 text-lg text-neutral-400">
-            A few taps and your feed of AI news, tools, and ideas tunes itself to
-            your taste.
+          <p className="serif" style={{ fontSize: 17, fontStyle: "italic", color: "var(--muted)", marginTop: 10 }}>
+            Two minutes. We&#8217;ll learn your taste from real headlines, no jargon.
           </p>
-          <div className="mt-8 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-neutral-300">
+          <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 16 }}>
+            <label style={{ display: "block" }}>
+              <span className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>
                 Your name
-              </label>
+              </span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jane Doe"
-                className="w-full rounded-xl border border-neutral-700 bg-[#141416] px-4 py-3 text-white outline-none placeholder:text-neutral-600 focus:border-[#cdff3a]"
+                style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "11px 14px", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", fontFamily: "inherit", fontSize: 16 }}
               />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-neutral-300">
+            </label>
+            <label style={{ display: "block" }}>
+              <span className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>
                 Email
-              </label>
+              </span>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 placeholder="jane@email.com"
-                className="w-full rounded-xl border border-neutral-700 bg-[#141416] px-4 py-3 text-white outline-none placeholder:text-neutral-600 focus:border-[#cdff3a]"
+                style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "11px 14px", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", fontFamily: "inherit", fontSize: 16 }}
               />
-            </div>
+            </label>
           </div>
           <button
             disabled={!name.trim() || !emailOk}
-            onClick={() => setStep(1)}
-            className="mt-7 w-full rounded-xl bg-[#cdff3a] px-5 py-3.5 font-bold text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => setPhase("calibrate")}
+            style={{ marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: !name.trim() || !emailOk ? 0.4 : 1 }}
           >
             Start
           </button>
         </div>
-      ) : (
-        <div className="my-auto">
-          <div className="mb-6 flex items-center gap-2">
-            {Array.from({ length: ROUNDS }).map((_, i) => (
-              <span
-                key={i}
-                className={`h-1.5 flex-1 rounded-full ${
-                  i < step ? "bg-[#cdff3a]" : "bg-neutral-800"
-                }`}
-              />
-            ))}
+      )}
+
+      {phase === "calibrate" && cards[idx] && (
+        <div>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
+            Article {idx + 1} of {cards.length}
           </div>
-          <p className="text-sm font-medium text-[#cdff3a]">
-            Question {step} of {ROUNDS}
-          </p>
-          <h2 className="mt-1 text-2xl font-extrabold text-white sm:text-3xl">
-            Which would you read first?
+          <div style={{ height: 3, background: "var(--rule)", marginBottom: 26 }}>
+            <div style={{ height: 3, background: "var(--accent)", width: `${((idx + 1) / cards.length) * 100}%` }} />
+          </div>
+          <h2 className="display" style={{ fontSize: 22, lineHeight: 1.1, color: "var(--ink)", margin: "0 0 18px" }}>
+            Would you read this?
           </h2>
 
-          <ul className="mt-6 space-y-3">
-            {rounds[step - 1].map((a) => (
-              <li key={a.id}>
-                <button
-                  disabled={pending}
-                  onClick={() => choose(a)}
-                  className="group flex w-full items-center gap-4 rounded-2xl border border-neutral-800 bg-[#141416] p-3 text-left transition-colors hover:border-[#cdff3a] disabled:opacity-50"
-                >
-                  {a.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={a.image_url}
-                      alt=""
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                      className="h-16 w-24 shrink-0 rounded-lg object-cover"
-                    />
-                  )}
-                  <span className="min-w-0">
-                    <span className="block font-semibold leading-snug text-white">
-                      {a.title}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-neutral-500">
-                      {host(a.url)}
-                    </span>
+          <div style={{ border: "1px solid var(--rule)", background: "var(--ph1)" }}>
+            {cards[idx].image_url && (
+              <div className="news-photo" style={{ aspectRatio: "16/9" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={cards[idx].image_url ?? ""}
+                  alt=""
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+                <div className="news-photo__screen" />
+              </div>
+            )}
+            <div style={{ padding: "16px 18px" }}>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>
+                {host(cards[idx].url)}
+              </div>
+              <h3 className="display" style={{ fontSize: 24, lineHeight: 1.12, color: "var(--ink)", margin: "8px 0 0" }}>
+                {cards[idx].title}
+              </h3>
+              {cards[idx].summary && (
+                <p className="serif" style={{ fontSize: 15, lineHeight: 1.5, color: "var(--muted)", margin: "10px 0 0" }}>
+                  {cards[idx].summary}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+            <button
+              onClick={() => rate("skip")}
+              style={{ flex: 1, padding: "12px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}
+            >
+              Skip
+            </button>
+            <button
+              onClick={() => rate("read")}
+              style={{ flex: 1, padding: "12px", border: "1px solid var(--accent)", background: "transparent", color: "var(--accent)", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}
+            >
+              Read it
+            </button>
+            <button
+              onClick={() => rate("love")}
+              style={{ flex: 1, padding: "12px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}
+            >
+              Love it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase === "mix" && (
+        <div>
+          <h2 className="display" style={{ fontSize: 30, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
+            Your mix
+          </h2>
+          <p className="serif" style={{ fontSize: 16, fontStyle: "italic", color: "var(--muted)", margin: "10px 0 24px" }}>
+            Here&#8217;s what we picked up. Drag any bar to tune the intensity, it always totals 100%.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {APPETITES.map((a) => (
+              <div key={a.tag}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontSize: 15, color: "var(--ink)" }}>{a.label}</span>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--accent)" }}>
+                    {Math.round(mix[a.tag] ?? 0)}%
                   </span>
-                </button>
-              </li>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(mix[a.tag] ?? 0)}
+                  onChange={(e) => setBar(a.tag, Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "var(--accent)", marginTop: 4 }}
+                />
+              </div>
             ))}
-          </ul>
-          {pending && (
-            <p className="mt-5 text-center text-sm text-neutral-500">
-              Building your feed...
-            </p>
-          )}
+          </div>
+          <button
+            onClick={() => setPhase("done")}
+            style={{ marginTop: 28, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {phase === "done" && (
+        <div>
+          <h2 className="display" style={{ fontSize: 30, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
+            You&#8217;re all set, {name.split(" ")[0]}.
+          </h2>
+          <p className="serif" style={{ fontSize: 17, color: "var(--muted)", margin: "14px 0 0" }}>
+            You lean:{" "}
+            <span style={{ color: "var(--ink)" }}>
+              {topThree.map((t) => `${LABEL[t]} ${Math.round(mix[t] ?? 0)}%`).join(" · ")}
+            </span>
+            .
+          </p>
+          <p className="serif" style={{ fontSize: 15, fontStyle: "italic", color: "var(--dim)", margin: "10px 0 0" }}>
+            Keep tuning it any time by reacting as you read.
+          </p>
+          <button
+            disabled={pending}
+            onClick={finish}
+            style={{ marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: pending ? 0.5 : 1 }}
+          >
+            {pending ? "Building your briefing…" : "Enter Signal"}
+          </button>
         </div>
       )}
     </main>

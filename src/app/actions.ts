@@ -9,38 +9,18 @@ const UID = "sig_uid";
 const UNAME = "sig_name";
 const YEAR = 60 * 60 * 24 * 365;
 
-type Round = {
-  chosenId: string;
-  shownIds: string[];
-  chosenTags: string[];
-  otherTags: string[][];
-};
-
 export async function completeOnboarding(input: {
   name: string;
   email: string;
-  rounds: Round[];
+  weights: Weights;
 }) {
   const userId = crypto.randomUUID();
   await supabase
     .from("users")
     .insert({ id: userId, name: input.name, email: input.email });
-
-  const weights: Weights = {};
-  const responses = input.rounds.map((r, i) => {
-    for (const t of r.chosenTags) weights[t] = (weights[t] ?? 0) + 1;
-    for (const arr of r.otherTags)
-      for (const t of arr) weights[t] = (weights[t] ?? 0) - 0.2;
-    return {
-      user_id: userId,
-      round: i + 1,
-      chosen_id: r.chosenId,
-      shown_ids: r.shownIds,
-    };
-  });
-  if (responses.length)
-    await supabase.from("taste_responses").insert(responses);
-  await supabase.from("user_taste").insert({ user_id: userId, weights });
+  await supabase
+    .from("user_taste")
+    .insert({ user_id: userId, weights: input.weights, sources: [] });
 
   const jar = await cookies();
   const opts = { path: "/", maxAge: YEAR, sameSite: "lax" as const };
@@ -92,14 +72,15 @@ export async function getSectionItems(
     uid
       ? supabase
           .from("user_taste")
-          .select("weights")
+          .select("weights, sources")
           .eq("user_id", uid)
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const weights = (tasteRes.data?.weights as Weights) ?? null;
+  const sources = (tasteRes.data?.sources as string[]) ?? null;
   return ((itemsRes.data ?? []) as Item[])
-    .map((it) => ({ it, s: scoreItem(it.tags, weights) }))
+    .map((it) => ({ it, s: scoreItem(it.tags, weights, it.source, sources) }))
     .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
     .map((x) => x.it);
 }

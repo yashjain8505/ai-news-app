@@ -32,14 +32,15 @@ export default async function Home() {
     supabase.from("items").select("*").eq("is_active", true),
     supabase
       .from("user_taste")
-      .select("weights")
+      .select("weights, sources")
       .eq("user_id", uid)
       .maybeSingle(),
   ]);
 
   const weights = (tasteData?.weights as Weights) ?? null;
+  const sources = (tasteData?.sources as string[]) ?? null;
   const items = ((itemsData ?? []) as Item[])
-    .map((it) => ({ it, s: scoreItem(it.tags, weights) }))
+    .map((it) => ({ it, s: scoreItem(it.tags, weights, it.source, sources) }))
     .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
     .map((x) => x.it);
 
