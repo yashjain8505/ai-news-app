@@ -11,7 +11,7 @@ import { Item, Section, SECTIONS } from "@/lib/types";
 import { recordSignal } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 
-type Day = { label: string; big: string; full: string };
+type Day = { label: string; date: string; big: string; full: string };
 
 const FULL = [
   "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
@@ -63,13 +63,17 @@ export default function Feed({
   const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
   const [, startTransition] = useTransition();
 
+  const selectedDate = days[sel]?.date ?? null;
   const grouped = useMemo(() => {
     const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [] };
-    for (const it of items) g[it.section]?.push(it);
+    for (const it of items)
+      if (it.edition_date === selectedDate) g[it.section]?.push(it);
     return g;
-  }, [items]);
+  }, [items, selectedDate]);
 
   const isToday = sel === todayIdx;
+  const hasContent =
+    grouped.daily.length + grouped.tools.length + grouped.articles.length > 0;
   const current = SECTIONS.find((s) => s.key === active)!;
   const baseList = grouped[active] ?? [];
   const off = baseList.length ? offsets[active] % baseList.length : 0;
@@ -236,7 +240,7 @@ export default function Feed({
         })}
       </nav>
 
-      {!isToday ? (
+      {!hasContent ? (
         <div className="mt-10 rounded-[6px] border border-dashed border-[#2a2825] px-6 py-16 text-center">
           <p className="serif m-0 text-[18px] text-[#a3a097]">
             No stories archived for {days[sel]?.big} yet.

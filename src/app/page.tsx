@@ -41,8 +41,10 @@ export default async function Home() {
   const days = LABELS.map((label, i) => {
     const dd = new Date(now);
     dd.setDate(d.getDate() + (i - todayIdx));
+    const iso = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
     return {
       label,
+      date: iso,
       big: `${MONTHS[dd.getMonth()]} ${dd.getDate()}`,
       full: `${MONTHS[dd.getMonth()]} ${dd.getDate()}, ${dd.getFullYear()}`,
     };
