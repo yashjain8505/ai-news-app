@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -9,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { Item, Section } from "@/lib/types";
-import { recordSignal } from "@/app/actions";
+import { recordSignal, getSectionItems } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 
 type Day = { label: string; date: string; big: string; full: string };
@@ -84,12 +85,21 @@ export default function Feed({
   const [active, setActive] = useState<Section>("daily");
   const [sel, setSel] = useState(todayIdx);
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [offsets, setOffsets] = useState<Record<Section, number>>({
+  const [cursor, setCursor] = useState<Record<Section, number>>({
     daily: 0,
     tools: 0,
     articles: 0,
   });
+  const [overrides, setOverrides] = useState<Partial<Record<Section, Item[]>>>(
+    {}
+  );
+  const [loading, setLoading] = useState(false);
   const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
+
+  useEffect(() => {
+    setOverrides({});
+    setCursor({ daily: 0, tools: 0, articles: 0 });
+  }, [sel]);
   const [, startTransition] = useTransition();
 
   const selectedDate = days[sel]?.date ?? null;
@@ -104,11 +114,17 @@ export default function Feed({
     grouped.daily.length + grouped.tools.length + grouped.articles.length;
   const hasContent = total > 0;
   const isToday = sel === todayIdx;
-  const baseList = grouped[active] ?? [];
-  const off = baseList.length ? offsets[active] % baseList.length : 0;
-  const list = off
-    ? [...baseList.slice(off), ...baseList.slice(0, off)]
-    : baseList;
+  const PAGES: Record<Section, number> = { daily: 9, tools: 8, articles: 6 };
+  const fullList = overrides[active] ?? grouped[active] ?? [];
+  const pageSize = PAGES[active];
+  const start = fullList.length ? cursor[active] % fullList.length : 0;
+  const list =
+    fullList.length <= pageSize
+      ? fullList
+      : Array.from(
+          { length: pageSize },
+          (_, i) => fullList[(start + i) % fullList.length]
+        );
 
   function toggleMode() {
     const next: Mode = mode === "dark" ? "light" : "dark";
@@ -128,13 +144,17 @@ export default function Feed({
     });
   }
 
-  function refresh() {
-    const len = (grouped[active] ?? []).length;
-    if (!len) return;
-    setOffsets((o) => ({
-      ...o,
-      [active]: (o[active] + Math.max(1, Math.floor(len / 2))) % len,
-    }));
+  async function refresh() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const fresh = await getSectionItems(active, selectedDate ?? "");
+      setOverrides((o) => ({ ...o, [active]: fresh }));
+      const len = fresh.length || 1;
+      setCursor((c) => ({ ...c, [active]: (c[active] + PAGES[active]) % len }));
+    } finally {
+      setLoading(false);
+    }
   }
 
   const circle: CSSProperties = {
@@ -337,6 +357,14 @@ export default function Feed({
             {BLURBS[active]}
           </p>
 
+          {loading ? (
+            <div className="mono" style={{ padding: "90px 0", textAlign: "center", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)" }}>
+              <span style={{ animation: "sigpulse 1.2s ease-in-out infinite" }}>
+                Fetching fresh stories&#8230;
+              </span>
+            </div>
+          ) : (
+          <>
           {active === "daily" && (
             <section style={{ marginTop: 30 }}>
               <div className="bs-lead">
@@ -511,6 +539,8 @@ export default function Feed({
                 </article>
               ))}
             </section>
+          )}
+          </>
           )}
         </>
       )}

@@ -2,7 +2,8 @@
 
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
-import type { Weights } from "@/lib/taste";
+import { scoreItem, type Weights } from "@/lib/taste";
+import type { Item, Section } from "@/lib/types";
 
 const UID = "sig_uid";
 const UNAME = "sig_name";
@@ -74,4 +75,31 @@ export async function recordSignal(
     .from("user_taste")
     .upsert({ user_id: uid, weights: w, updated_at: new Date().toISOString() });
   return { ok: true };
+}
+
+export async function getSectionItems(
+  section: Section,
+  dateISO: string
+): Promise<Item[]> {
+  const uid = (await cookies()).get(UID)?.value;
+  const [itemsRes, tasteRes] = await Promise.all([
+    supabase
+      .from("items")
+      .select("*")
+      .eq("is_active", true)
+      .eq("edition_date", dateISO)
+      .eq("section", section),
+    uid
+      ? supabase
+          .from("user_taste")
+          .select("weights")
+          .eq("user_id", uid)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const weights = (tasteRes.data?.weights as Weights) ?? null;
+  return ((itemsRes.data ?? []) as Item[])
+    .map((it) => ({ it, s: scoreItem(it.tags, weights) }))
+    .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
+    .map((x) => x.it);
 }
