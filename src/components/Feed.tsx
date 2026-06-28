@@ -246,6 +246,13 @@ export default function Feed({
             <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
             {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
           </span>
+          <a
+            href="/tune"
+            className="mono"
+            style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
+          >
+            Tune
+          </a>
           <button
             onClick={toggleMode}
             className="mono"

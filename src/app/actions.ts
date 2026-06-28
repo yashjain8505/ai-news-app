@@ -132,3 +132,43 @@ export async function getSectionItems(
     .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
     .map((x) => x.it);
 }
+
+// Manual edit of the taste mix from the Tune page: this is an explicit baseline,
+// so set weights + affinity + the decay-target prior all to the edited mix.
+export async function saveMix(weights: Weights) {
+  const uid = (await cookies()).get(UID)?.value;
+  if (!uid) return { ok: false };
+  const norm = normalizeMix(weights);
+  await supabase
+    .from("user_taste")
+    .update({
+      weights: norm,
+      affinity: norm,
+      prior: norm,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", uid);
+  return { ok: true };
+}
+
+function reactionDelta(a: "like" | "less" | "neutral", n: number) {
+  return a === "like" ? 1.2 / n : a === "less" ? -0.6 / n : 0;
+}
+
+// Change a past reaction (mis-click / changed mind): apply only the net delta.
+export async function reviseReaction(
+  itemId: string,
+  tags: string[],
+  prev: "like" | "less" | "neutral",
+  next: "like" | "less" | "neutral"
+) {
+  const uid = (await cookies()).get(UID)?.value;
+  if (!uid) return { ok: false };
+  await supabase
+    .from("interactions")
+    .insert({ user_id: uid, item_id: itemId, action: next });
+  const n = tags.length || 1;
+  const perTag = reactionDelta(next, n) - reactionDelta(prev, n);
+  if (perTag !== 0 && tags.length) await bumpAffinity(uid, tags, perTag);
+  return { ok: true };
+}
