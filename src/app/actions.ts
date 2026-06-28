@@ -67,7 +67,7 @@ export async function completeOnboarding(input: {
 
 export async function recordSignal(
   itemId: string,
-  action: "like" | "less",
+  action: "like" | "less" | "neutral",
   tags: string[]
 ) {
   const uid = (await cookies()).get(UID)?.value;
@@ -75,6 +75,7 @@ export async function recordSignal(
   await supabase
     .from("interactions")
     .insert({ user_id: uid, item_id: itemId, action });
+  if (action === "neutral") return { ok: true };
   const n = tags.length || 1;
   const perTag = action === "like" ? 1.2 / n : -0.6 / n;
   if (tags.length) await bumpAffinity(uid, tags, perTag);

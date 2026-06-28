@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Item, Section } from "@/lib/types";
-import { recordEngagement, recordSignal, getSectionItems } from "@/app/actions";
+import { recordEngagement, recordSignal } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 
 type Day = { label: string; date: string; big: string; full: string };
@@ -14,11 +14,7 @@ const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "tools", label: "New Tools" },
   { key: "articles", label: "Articles" },
 ];
-const BLURBS: Record<Section, string> = {
-  daily: "Big-lab power moves and the surprising consequences of AI.",
-  tools: "Obscure, novel tools before anyone else knows them.",
-  articles: "Strategic parallels and sharp takes worth reading.",
-};
+const PAGES: Record<Section, number> = { daily: 9, tools: 8, articles: 6 };
 
 function withHighlight(title: string, h: string | null, px: number): ReactNode {
   if (!h) return title;
@@ -80,20 +76,19 @@ export default function Feed({
     tools: 0,
     articles: 0,
   });
-  const [overrides, setOverrides] = useState<Partial<Record<Section, Item[]>>>({});
-  const [loading, setLoading] = useState(false);
-  const [promptItem, setPromptItem] = useState<{ id: string; tags: string[] } | null>(null);
-
+  const [promptItem, setPromptItem] = useState<{ id: string; tags: string[] } | null>(
+    null
+  );
   const pendingRef = useRef<Pending | null>(null);
-  const promptShownRef = useRef(false);
+  const promptCountRef = useRef(0);
 
   useEffect(() => {
-    setOverrides({});
     setCursor({ daily: 0, tools: 0, articles: 0 });
+    setPromptItem(null);
   }, [sel]);
 
   // Return-time dwell: when the reader comes back to our tab after opening a
-  // story, turn time-away into an engagement signal (and sometimes a prompt).
+  // story, turn time-away into an engagement signal, and ask on that card.
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("sig_pending");
@@ -104,15 +99,15 @@ export default function Feed({
       const p = pendingRef.current;
       if (!p) return;
       const dwell = Date.now() - p.ts;
-      if (dwell < 1500) return; // never actually left
+      if (dwell < 1500) return;
       pendingRef.current = null;
       try {
         sessionStorage.removeItem("sig_pending");
       } catch {}
       const mobile = /Mobi|Android/i.test(navigator.userAgent);
       recordEngagement(p.id, p.tags, "dwell", p.rank, dwell, mobile);
-      if (!promptShownRef.current && (mobile || (dwell >= 8000 && dwell < 30000))) {
-        promptShownRef.current = true;
+      if (promptCountRef.current < 8 && (mobile || dwell >= 8000)) {
+        promptCountRef.current += 1;
         setPromptItem({ id: p.id, tags: p.tags });
       }
     }
@@ -135,18 +130,26 @@ export default function Feed({
   const total =
     grouped.daily.length + grouped.tools.length + grouped.articles.length;
   const hasContent = total > 0;
-  const isToday = sel === todayIdx;
-  const PAGES: Record<Section, number> = { daily: 9, tools: 8, articles: 6 };
-  const fullList = overrides[active] ?? grouped[active] ?? [];
+  const fullList = grouped[active] ?? [];
   const pageSize = PAGES[active];
-  const start = fullList.length ? cursor[active] % fullList.length : 0;
+  const startAt = fullList.length ? cursor[active] % fullList.length : 0;
   const list =
     fullList.length <= pageSize
       ? fullList
       : Array.from(
           { length: pageSize },
-          (_, i) => fullList[(start + i) % fullList.length]
+          (_, i) => fullList[(startAt + i) % fullList.length]
         );
+  const canExplore = fullList.length > pageSize;
+
+  function toggleMode() {
+    const next: Mode = mode === "dark" ? "light" : "dark";
+    setMode(next);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", next);
+      document.cookie = `sig_theme=${next}; path=/; max-age=31536000; samesite=lax`;
+    }
+  }
 
   function onOpen(it: Item, rank: number) {
     const tags = it.tags ?? [];
@@ -158,31 +161,38 @@ export default function Feed({
     } catch {}
   }
 
-  function answerPrompt(action: "like" | "less") {
-    if (promptItem) recordSignal(promptItem.id, action, promptItem.tags);
+  function exploreMore() {
+    const len = fullList.length || 1;
+    setCursor((c) => ({ ...c, [active]: (c[active] + pageSize) % len }));
     setPromptItem(null);
   }
 
-  function toggleMode() {
-    const next: Mode = mode === "dark" ? "light" : "dark";
-    setMode(next);
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", next);
-      document.cookie = `sig_theme=${next}; path=/; max-age=31536000; samesite=lax`;
-    }
+  function answer(a: "like" | "less" | "neutral") {
+    if (promptItem) recordSignal(promptItem.id, a, promptItem.tags);
+    setPromptItem(null);
   }
 
-  async function refresh() {
-    if (loading) return;
-    setLoading(true);
-    try {
-      const fresh = await getSectionItems(active, selectedDate ?? "");
-      setOverrides((o) => ({ ...o, [active]: fresh }));
-      const len = fresh.length || 1;
-      setCursor((c) => ({ ...c, [active]: (c[active] + PAGES[active]) % len }));
-    } finally {
-      setLoading(false);
-    }
+  function cardPrompt(it: Item) {
+    if (promptItem?.id !== it.id) return null;
+    const btn: React.CSSProperties = {
+      fontFamily: "inherit",
+      fontSize: 12,
+      padding: "5px 13px",
+      border: "1px solid var(--sep)",
+      background: "transparent",
+      color: "var(--ink)",
+      cursor: "pointer",
+    };
+    return (
+      <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, border: "1px solid var(--accent)", padding: "10px 12px", background: "var(--ph1)" }}>
+        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", marginRight: 4 }}>
+          How was this read?
+        </span>
+        <button onClick={() => answer("less")} style={btn}>Bad</button>
+        <button onClick={() => answer("neutral")} style={btn}>Neutral</button>
+        <button onClick={() => answer("like")} style={{ ...btn, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)" }}>Good</button>
+      </div>
+    );
   }
 
   function meta(it: Item, sep: string, size: number, withRead: boolean) {
@@ -211,8 +221,21 @@ export default function Feed({
   const more = list.slice(3);
   const day = days[sel];
 
+  const exploreBtn = canExplore ? (
+    <div style={{ textAlign: "center", marginTop: 44 }}>
+      <button
+        onClick={exploreMore}
+        className="mono"
+        style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", padding: "11px 24px", cursor: "pointer" }}
+      >
+        Explore more &darr;
+      </button>
+    </div>
+  ) : null;
+
   return (
     <main className="bs-main" style={{ position: "relative" }}>
+      {/* utility line */}
       <div
         className="mono"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.04em", color: "var(--faint)", padding: "12px 0", borderBottom: "1px solid var(--rule)" }}
@@ -233,6 +256,7 @@ export default function Feed({
         </div>
       </div>
 
+      {/* masthead */}
       <header style={{ position: "relative", paddingTop: 12 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24 }}>
           <div>
@@ -259,12 +283,29 @@ export default function Feed({
           </div>
         </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
-        <div className="mono" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
+        {/* dateline with prev/next-day arrows */}
+        <div className="mono" style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
+          <button
+            onClick={() => setSel(Math.max(0, sel - 1))}
+            aria-label="Previous day"
+            disabled={sel <= 0}
+            style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel <= 0 ? "default" : "pointer", opacity: sel <= 0 ? 0.3 : 1, padding: 0 }}
+          >
+            &#8249;
+          </button>
           <span style={{ color: "var(--strong)", fontWeight: 700 }}>{day?.full}</span>
-          <span style={{ color: "var(--dim)" }}>{total} stories</span>
+          <button
+            onClick={() => setSel(Math.min(todayIdx, sel + 1))}
+            aria-label="Next day"
+            disabled={sel >= todayIdx}
+            style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel >= todayIdx ? "default" : "pointer", opacity: sel >= todayIdx ? 0.3 : 1, padding: 0 }}
+          >
+            &#8250;
+          </button>
         </div>
       </header>
 
+      {/* section tabs (no counts) */}
       <div className="bs-controls">
         <nav style={{ display: "flex", gap: 26 }}>
           {SECTION_TABS.map((s) => {
@@ -273,40 +314,13 @@ export default function Feed({
               <button
                 key={s.key}
                 onClick={() => setActive(s.key)}
-                style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", border: 0, borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, background: "transparent", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer", display: "inline-flex", gap: 7, alignItems: "baseline" }}
+                style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", border: 0, borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, background: "transparent", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer" }}
               >
-                <span>{s.label}</span>
-                <span className="mono" style={{ fontSize: 11, color: a ? "var(--accent)" : "var(--faint)" }}>
-                  {grouped[s.key]?.length ?? 0}
-                </span>
+                {s.label}
               </button>
             );
           })}
         </nav>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 14, paddingBottom: 9 }}>
-          {hasContent && (
-            <button
-              onClick={refresh}
-              aria-label="Refresh stories"
-              className="mono"
-              style={{ fontSize: 11, letterSpacing: "0.04em", padding: "3px 10px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: "pointer" }}
-            >
-              &#8635; Refresh
-            </button>
-          )}
-          <div style={{ display: "flex", gap: 1 }}>
-            {days.map((d, i) => (
-              <button
-                key={d.label}
-                onClick={() => setSel(i)}
-                className="mono"
-                style={{ fontSize: 12, letterSpacing: "0.03em", padding: "3px 8px", border: 0, background: "transparent", cursor: "pointer", color: i === sel ? "var(--ink)" : "var(--faint)", fontWeight: i === sel ? 700 : 400 }}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {!hasContent ? (
@@ -315,7 +329,7 @@ export default function Feed({
             No stories filed for {day?.big} yet.
           </p>
           <p className="serif" style={{ fontStyle: "italic", fontSize: 15, color: "var(--dim)", margin: "8px 0 0" }}>
-            We only began keeping the archive today.
+            We only began keeping the archive recently.
           </p>
           <button
             onClick={() => setSel(todayIdx)}
@@ -325,21 +339,9 @@ export default function Feed({
           </button>
         </div>
       ) : (
-        <>
-          <p className="serif" style={{ fontStyle: "italic", fontSize: 16, color: "var(--muted)", margin: "16px 0 0" }}>
-            {BLURBS[active]}
-          </p>
-
-          {loading ? (
-            <div className="mono" style={{ padding: "90px 0", textAlign: "center", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)" }}>
-              <span style={{ animation: "sigpulse 1.2s ease-in-out infinite" }}>
-                Fetching fresh stories&#8230;
-              </span>
-            </div>
-          ) : (
-          <>
+        <div style={{ marginTop: 28 }}>
           {active === "daily" && (
-            <section style={{ marginTop: 30 }}>
+            <section>
               <div className="bs-lead">
                 {lead && (
                   <article>
@@ -357,11 +359,12 @@ export default function Feed({
                         {lead.summary}
                       </p>
                     )}
-                    <div style={{ marginTop: 18 }}>
+                    <div style={{ marginTop: 16 }}>
                       <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ fontStyle: "italic", fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>
                         Read the full story &rarr;
                       </a>
                     </div>
+                    {cardPrompt(lead)}
                   </article>
                 )}
 
@@ -382,6 +385,7 @@ export default function Feed({
                           {it.summary}
                         </p>
                       )}
+                      {cardPrompt(it)}
                     </article>
                   ))}
                 </div>
@@ -394,9 +398,6 @@ export default function Feed({
                       More Today
                     </span>
                     <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
-                    <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
-                      {more.length} stories
-                    </span>
                   </div>
                   <div className="bs-more">
                     {more.map((it, i) => (
@@ -415,16 +416,18 @@ export default function Feed({
                             {it.read_time} min read
                           </div>
                         )}
+                        {cardPrompt(it)}
                       </article>
                     ))}
                   </div>
                 </>
               )}
+              {exploreBtn}
             </section>
           )}
 
           {active === "tools" && (
-            <section style={{ marginTop: 26 }}>
+            <section>
               {list.map((it, i) => {
                 const skill = it.title.toLowerCase().includes("skill");
                 return (
@@ -457,6 +460,7 @@ export default function Feed({
                             {it.summary}
                           </p>
                         )}
+                        {cardPrompt(it)}
                       </div>
                       <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, fontStyle: "italic", fontSize: 13, color: "var(--ink)", textDecoration: "none", border: "1px solid var(--sep)", padding: "7px 15px" }}>
                         Open &#8599;
@@ -465,11 +469,12 @@ export default function Feed({
                   </div>
                 );
               })}
+              {exploreBtn}
             </section>
           )}
 
           {active === "articles" && (
-            <section style={{ marginTop: 20, maxWidth: 800 }}>
+            <section style={{ maxWidth: 800 }}>
               {list.map((it, i) => (
                 <article
                   key={it.id}
@@ -495,45 +500,19 @@ export default function Feed({
                       {it.summary}
                     </p>
                   )}
-                  {timeAgo(it.published_at, now) && (
-                    <div className="mono" style={{ fontSize: 11, color: "var(--faint)", marginTop: 14 }}>
-                      {timeAgo(it.published_at, now)}
-                    </div>
-                  )}
+                  {cardPrompt(it)}
                 </article>
               ))}
+              {exploreBtn}
             </section>
           )}
-          </>
-          )}
-        </>
+        </div>
       )}
 
       <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.08em", color: "var(--faint)" }}>
         <span style={{ textTransform: "uppercase" }}>Signal &mdash; printed for one reader</span>
         <span>The more you read, the sharper it gets &middot; p. 1</span>
       </footer>
-
-      {promptItem && (
-        <div
-          style={{ position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 60, display: "flex", alignItems: "center", gap: 14, background: "var(--ink)", color: "var(--bg)", padding: "12px 18px", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}
-        >
-          <span style={{ fontSize: 14 }}>Worth your time?</span>
-          <button
-            onClick={() => answerPrompt("like")}
-            style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: "6px 14px", border: 0, background: "var(--accent)", color: "var(--onAccent)", cursor: "pointer" }}
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => answerPrompt("less")}
-            className="mono"
-            style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--bg)", background: "transparent", color: "var(--bg)", cursor: "pointer", opacity: 0.8 }}
-          >
-            Meh
-          </button>
-        </div>
-      )}
     </main>
   );
 }
