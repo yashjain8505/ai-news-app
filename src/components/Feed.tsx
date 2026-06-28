@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Item, Section, SECTIONS } from "@/lib/types";
 import { recordSignal } from "@/app/actions";
+import { timeAgo } from "@/lib/time";
 
 type Day = { label: string; big: string; full: string };
 
@@ -18,6 +19,9 @@ const FULL = [
 
 const HEART =
   "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z";
+
+const STRIPES =
+  "repeating-linear-gradient(135deg,#141312,#141312 11px,#17150f 11px,#17150f 22px)";
 
 function withHighlight(title: string, h: string | null, px = 4): ReactNode {
   if (!h) return title;
@@ -42,10 +46,12 @@ export default function Feed({
   items,
   days,
   todayIdx,
+  now,
 }: {
   items: Item[];
   days: Day[];
   todayIdx: number;
+  now: number;
 }) {
   const [active, setActive] = useState<Section>("daily");
   const [sel, setSel] = useState(todayIdx);
@@ -65,7 +71,6 @@ export default function Feed({
 
   const isToday = sel === todayIdx;
   const current = SECTIONS.find((s) => s.key === active)!;
-  const fullDate = days[sel]?.full ?? "";
   const baseList = grouped[active] ?? [];
   const off = baseList.length ? offsets[active] % baseList.length : 0;
   const list = off
@@ -130,19 +135,33 @@ export default function Feed({
     );
   }
 
-  function kicker(it: Item, small = false) {
+  function kicker(
+    it: Item,
+    opts: { small?: boolean; read?: "none" | "short" | "full" } = {}
+  ) {
+    const ago = timeAgo(it.published_at, now);
+    const read = opts.read ?? "none";
+    const sep = <span style={{ color: "#3a3833" }}>/</span>;
     return (
       <div
-        className={`flex items-center gap-2 uppercase ${small ? "text-[10px]" : "text-[11px]"}`}
+        className={`flex items-center gap-2 uppercase ${opts.small ? "text-[10px]" : "text-[11px]"}`}
         style={{ letterSpacing: "0.09em", color: "#a3a097" }}
       >
-        <span className="font-semibold" style={{ color: small ? "#b4b1a8" : "#cbc8bf" }}>
+        <span className="font-semibold" style={{ color: opts.small ? "#b4b1a8" : "#cbc8bf" }}>
           {it.source}
         </span>
-        {fullDate && (
+        {ago && (
           <>
-            <span style={{ color: "#3a3833" }}>/</span>
-            <span>{fullDate}</span>
+            {sep}
+            <span>{ago}</span>
+          </>
+        )}
+        {read !== "none" && it.read_time && (
+          <>
+            {sep}
+            <span>
+              {it.read_time} min{read === "full" ? " read" : ""}
+            </span>
           </>
         )}
       </div>
@@ -157,10 +176,7 @@ export default function Feed({
     <div>
       <div className="flex items-end justify-between gap-6 pt-[18px]">
         <div>
-          <div
-            className="mb-2 uppercase text-[12px] text-[#56534c]"
-            style={{ letterSpacing: "0.18em" }}
-          >
+          <div className="mb-2 uppercase text-[12px] text-[#56534c]" style={{ letterSpacing: "0.18em" }}>
             {isToday ? `${FULL[sel]} · Today's edition` : FULL[sel]}
           </div>
           <h1 className="display m-0 font-extrabold leading-[0.98] tracking-[-0.01em] text-[#f5f3ec] text-[clamp(34px,5vw,52px)]">
@@ -184,17 +200,14 @@ export default function Feed({
             </button>
           )}
           <div className="flex gap-0.5">
-            {days.map((d, i) => (
+            {days.map((dy, i) => (
               <button
-                key={d.label}
+                key={dy.label}
                 onClick={() => setSel(i)}
                 className="rounded-[7px] px-[9px] py-1 text-[13px] transition-colors"
-                style={{
-                  color: i === sel ? "#f5f3ec" : "#56534c",
-                  fontWeight: i === sel ? 600 : 400,
-                }}
+                style={{ color: i === sel ? "#f5f3ec" : "#56534c", fontWeight: i === sel ? 600 : 400 }}
               >
-                {d.label}
+                {dy.label}
               </button>
             ))}
           </div>
@@ -215,10 +228,7 @@ export default function Feed({
               }}
             >
               <span>{s.label}</span>
-              <span
-                className="font-mono text-[11px]"
-                style={{ color: a ? "#e3a44e" : "#56534c" }}
-              >
+              <span className="font-mono text-[11px]" style={{ color: a ? "#e3a44e" : "#56534c" }}>
                 {grouped[s.key]?.length ?? 0}
               </span>
             </button>
@@ -243,9 +253,7 @@ export default function Feed({
         </div>
       ) : (
         <>
-          <p className="serif mt-3.5 text-[16px] italic text-[#a3a097]">
-            {current.blurb}
-          </p>
+          <p className="serif mt-3.5 text-[16px] italic text-[#a3a097]">{current.blurb}</p>
 
           {active === "daily" && (
             <section className="mt-[34px]">
@@ -253,17 +261,17 @@ export default function Feed({
                 {lead && (
                   <article className="min-w-0">
                     <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
-                      {lead.image_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={lead.image_url}
-                          alt=""
-                          onError={hideImg}
-                          className="aspect-video w-full rounded-[3px] object-cover"
-                        />
-                      )}
+                      <div
+                        className="aspect-video w-full overflow-hidden rounded-[3px]"
+                        style={lead.image_url ? undefined : { background: STRIPES }}
+                      >
+                        {lead.image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={lead.image_url} alt="" onError={hideImg} className="h-full w-full object-cover" />
+                        )}
+                      </div>
                     </a>
-                    <div className="mt-[18px]">{kicker(lead)}</div>
+                    <div className="mt-[18px]">{kicker(lead, { read: "full" })}</div>
                     <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer">
                       <h2 className="display mt-3.5 font-extrabold leading-[1.04] tracking-[-0.015em] text-[#f5f3ec] text-[clamp(28px,3.6vw,42px)]">
                         {withHighlight(lead.title, lead.highlight, 4)}
@@ -276,12 +284,7 @@ export default function Feed({
                     )}
                     <div className="mt-5 flex items-center gap-[18px]">
                       {reactions(lead, true)}
-                      <a
-                        href={lead.url ?? "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[13px] font-semibold text-[#e3a44e] hover:text-[#f0bd70]"
-                      >
+                      <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-[13px] font-semibold text-[#e3a44e] hover:text-[#f0bd70]">
                         Read story →
                       </a>
                     </div>
@@ -295,11 +298,10 @@ export default function Feed({
                       className="pb-[22px]"
                       style={{
                         marginBottom: i === rail.length - 1 ? 0 : 22,
-                        borderBottom:
-                          i === rail.length - 1 ? "none" : "1px solid #232220",
+                        borderBottom: i === rail.length - 1 ? "none" : "1px solid #232220",
                       }}
                     >
-                      {kicker(it)}
+                      {kicker(it, { read: "short" })}
                       <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
                         <h3 className="display mt-2.5 text-[22px] font-bold leading-[1.16] tracking-[-0.01em] text-[#f5f3ec]">
                           {withHighlight(it.title, it.highlight, 3)}
@@ -322,29 +324,31 @@ export default function Feed({
                       More today
                     </span>
                     <span className="h-px flex-1 bg-[#232220]" />
-                    <span className="font-mono text-[12px] text-[#56534c]">
-                      {more.length} stories
-                    </span>
+                    <span className="font-mono text-[12px] text-[#56534c]">{more.length} stories</span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-8 gap-y-[34px] lg:grid-cols-3">
                     {more.map((it) => (
                       <article key={it.id}>
                         <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
-                          {it.image_url && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={it.image_url}
-                              alt=""
-                              loading="lazy"
-                              onError={hideImg}
-                              className="mb-3.5 aspect-[16/10] w-full rounded-[3px] object-cover"
-                            />
-                          )}
-                          <div className="mb-2.5">{kicker(it, true)}</div>
+                          <div
+                            className="mb-3.5 aspect-[16/10] w-full overflow-hidden rounded-[3px]"
+                            style={it.image_url ? undefined : { background: STRIPES }}
+                          >
+                            {it.image_url && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={it.image_url} alt="" loading="lazy" onError={hideImg} className="h-full w-full object-cover" />
+                            )}
+                          </div>
+                          <div className="mb-2.5">{kicker(it, { small: true })}</div>
                           <h4 className="text-[17px] font-bold leading-[1.26] tracking-[-0.01em] text-[#f5f3ec]">
                             {it.title}
                           </h4>
                         </a>
+                        {it.read_time && (
+                          <div className="mt-2.5 font-mono text-[11px] text-[#56534c]">
+                            {it.read_time} min read
+                          </div>
+                        )}
                       </article>
                     ))}
                   </div>
@@ -363,8 +367,7 @@ export default function Feed({
                     className="pb-[22px]"
                     style={{
                       marginBottom: i === list.length - 1 ? 0 : 22,
-                      borderBottom:
-                        i === list.length - 1 ? "none" : "1px solid #232220",
+                      borderBottom: i === list.length - 1 ? "none" : "1px solid #232220",
                     }}
                   >
                     <div className="flex items-start gap-5">
@@ -380,23 +383,16 @@ export default function Feed({
                           </a>
                           <span
                             className="rounded-full border px-[9px] py-0.5 text-[11px] font-semibold"
-                            style={{
-                              borderColor: skill ? "#e3a44e" : "#2a2825",
-                              color: skill ? "#e3a44e" : "#807c72",
-                            }}
+                            style={{ borderColor: skill ? "#e3a44e" : "#2a2825", color: skill ? "#e3a44e" : "#807c72" }}
                           >
                             {skill ? "Claude skill" : "Tool"}
                           </span>
                           {it.traction && (
-                            <span className="font-mono text-[11px] text-[#56534c]">
-                              {it.traction}
-                            </span>
+                            <span className="font-mono text-[11px] text-[#56534c]">{it.traction}</span>
                           )}
                         </div>
                         {it.summary && (
-                          <p className="serif mt-1.5 text-[15px] leading-[1.45] text-[#807c72]">
-                            {it.summary}
-                          </p>
+                          <p className="serif mt-1.5 text-[15px] leading-[1.45] text-[#807c72]">{it.summary}</p>
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2.5">
@@ -425,17 +421,16 @@ export default function Feed({
                   className="pb-[26px]"
                   style={{
                     marginBottom: i === list.length - 1 ? 0 : 26,
-                    borderBottom:
-                      i === list.length - 1 ? "none" : "1px solid #232220",
+                    borderBottom: i === list.length - 1 ? "none" : "1px solid #232220",
                   }}
                 >
                   <div className="flex items-baseline justify-between gap-4">
                     <span className="text-[11px] font-semibold uppercase text-[#b4b1a8]" style={{ letterSpacing: "0.09em" }}>
                       {it.source}
                     </span>
-                    {fullDate && (
+                    {it.read_time && (
                       <span className="whitespace-nowrap font-mono text-[11px] text-[#56534c]">
-                        {fullDate}
+                        {it.read_time} min read
                       </span>
                     )}
                   </div>
@@ -445,11 +440,16 @@ export default function Feed({
                     </h2>
                   </a>
                   {it.summary && (
-                    <p className="serif mt-3 text-[18px] leading-[1.55] text-[#a3a097]">
-                      {it.summary}
-                    </p>
+                    <p className="serif mt-3 text-[18px] leading-[1.55] text-[#a3a097]">{it.summary}</p>
                   )}
-                  <div className="mt-4">{reactions(it, true)}</div>
+                  <div className="mt-4 flex items-center gap-3.5">
+                    {reactions(it, true)}
+                    {timeAgo(it.published_at, now) && (
+                      <span className="font-mono text-[11px] text-[#56534c]">
+                        {timeAgo(it.published_at, now)}
+                      </span>
+                    )}
+                  </div>
                 </article>
               ))}
             </section>

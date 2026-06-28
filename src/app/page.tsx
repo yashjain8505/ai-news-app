@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Item } from "@/lib/types";
 import { scoreItem, type Weights } from "@/lib/taste";
+import { timeAgo } from "@/lib/time";
 import Feed from "@/components/Feed";
 
 export const dynamic = "force-dynamic";
@@ -34,17 +35,24 @@ export default async function Home() {
     .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
     .map((x) => x.it);
 
-  const now = new Date();
-  const todayIdx = (now.getDay() + 6) % 7;
+  const now = Date.now();
+  const d = new Date(now);
+  const todayIdx = (d.getDay() + 6) % 7;
   const days = LABELS.map((label, i) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() + (i - todayIdx));
+    const dd = new Date(now);
+    dd.setDate(d.getDate() + (i - todayIdx));
     return {
       label,
-      big: `${MONTHS[d.getMonth()]} ${d.getDate()}`,
-      full: `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`,
+      big: `${MONTHS[dd.getMonth()]} ${dd.getDate()}`,
+      full: `${MONTHS[dd.getMonth()]} ${dd.getDate()}, ${dd.getFullYear()}`,
     };
   });
+
+  const newest = items.reduce<string | null>(
+    (m, it) => (it.published_at && (!m || it.published_at > m) ? it.published_at : m),
+    null
+  );
+  const updatedAgo = timeAgo(newest, now);
 
   return (
     <main className="mx-auto max-w-[1120px] px-7 pb-[90px] pt-1">
@@ -61,14 +69,14 @@ export default async function Home() {
               className="inline-block h-[7px] w-[7px] rounded-full bg-[#cdff3a]"
               style={{ animation: "sigpulse 2s infinite" }}
             />
-            <span>Live</span>
+            <span>Live{updatedAgo ? ` · updated ${updatedAgo}` : ""}</span>
           </span>
           <span className="inline-block h-[13px] w-px bg-[#2a2825]" />
           <span>{name ? `Welcome back, ${name}` : "Tuned to your taste"}</span>
         </div>
       </header>
 
-      <Feed items={items} days={days} todayIdx={todayIdx} />
+      <Feed items={items} days={days} todayIdx={todayIdx} now={now} />
 
       <footer className="mt-[72px] flex items-center justify-between border-t border-[#232220] pt-[22px]">
         <span className="serif text-[14px] italic text-[#56534c]">

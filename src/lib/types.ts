@@ -13,6 +13,7 @@ export interface Item {
   highlight: string | null;
   tags: string[];
   published_at: string | null;
+  read_time: number | null;
   rank: number;
   created_at: string;
 }
