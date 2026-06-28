@@ -3,7 +3,12 @@ name: Daily edition
 on:
   schedule:
     - cron: "30 1 * * *" # 07:00 IST (01:30 UTC) daily
-  workflow_dispatch: {} # lets you run it manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      selftest:
+        description: "Run a Supabase write self-test instead of curating"
+        type: boolean
+        default: false
 
 jobs:
   curate:
@@ -14,9 +19,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - name: Supabase write self-test
+        if: ${{ inputs.selftest == 'true' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          code=$(curl -s -o /tmp/r.txt -w "%{http_code}" -X POST "$SUPABASE_URL/rest/v1/items" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" -H "Prefer: return=minimal" \
+            -d '[{"section":"daily","title":"__selftest__","edition_date":"2099-01-01","is_active":false,"rank":9999,"tags":[]}]')
+          echo "INSERT HTTP $code"; cat /tmp/r.txt || true
+          curl -s -X DELETE "$SUPABASE_URL/rest/v1/items?edition_date=eq.2099-01-01" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" >/dev/null
+          echo "cleanup done"
+          if [ "$code" = "201" ]; then echo "WRITE OK (service_role key works)"; else echo "WRITE FAILED — key is not service_role (got $code)"; exit 1; fi
+
       - name: Install Claude Code
+        if: ${{ inputs.selftest != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
+
       - name: Curate and insert today's edition
+        if: ${{ inputs.selftest != 'true' }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
