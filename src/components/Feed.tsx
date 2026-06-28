@@ -290,17 +290,29 @@ export default function Feed({
             );
           })}
         </nav>
-        <div style={{ display: "flex", gap: 1, paddingBottom: 9 }}>
-          {days.map((d, i) => (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 14, paddingBottom: 9 }}>
+          {hasContent && (
             <button
-              key={d.label}
-              onClick={() => setSel(i)}
+              onClick={refresh}
+              aria-label="Refresh stories"
               className="mono"
-              style={{ fontSize: 12, letterSpacing: "0.03em", padding: "3px 8px", border: 0, background: "transparent", cursor: "pointer", color: i === sel ? "var(--ink)" : "var(--faint)", fontWeight: i === sel ? 700 : 400 }}
+              style={{ fontSize: 11, letterSpacing: "0.04em", padding: "3px 10px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: "pointer" }}
             >
-              {d.label}
+              &#8635; Refresh
             </button>
-          ))}
+          )}
+          <div style={{ display: "flex", gap: 1 }}>
+            {days.map((d, i) => (
+              <button
+                key={d.label}
+                onClick={() => setSel(i)}
+                className="mono"
+                style={{ fontSize: 12, letterSpacing: "0.03em", padding: "3px 8px", border: 0, background: "transparent", cursor: "pointer", color: i === sel ? "var(--ink)" : "var(--faint)", fontWeight: i === sel ? 700 : 400 }}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -370,6 +382,7 @@ export default function Feed({
                           {it.summary}
                         </p>
                       )}
+                      <div style={{ marginTop: 12 }}>{reactions(it, true)}</div>
                     </article>
                   ))}
                 </div>
@@ -403,6 +416,7 @@ export default function Feed({
                             {it.read_time} min read
                           </div>
                         )}
+                        <div style={{ marginTop: 12 }}>{reactions(it, true)}</div>
                       </article>
                     ))}
                   </div>
