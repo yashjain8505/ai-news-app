@@ -80,7 +80,6 @@ export default function Feed({
     null
   );
   const pendingRef = useRef<Pending | null>(null);
-  const promptCountRef = useRef(0);
 
   useEffect(() => {
     setCursor({ daily: 0, tools: 0, articles: 0 });
@@ -90,12 +89,7 @@ export default function Feed({
   // Return-time dwell: when the reader comes back to our tab after opening a
   // story, turn time-away into an engagement signal, and ask on that card.
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("sig_pending");
-      if (raw && !pendingRef.current) pendingRef.current = JSON.parse(raw);
-    } catch {}
-    function onReturn() {
-      if (document.visibilityState !== "visible") return;
+    function resolve() {
       const p = pendingRef.current;
       if (!p) return;
       const dwell = Date.now() - p.ts;
@@ -106,10 +100,16 @@ export default function Feed({
       } catch {}
       const mobile = /Mobi|Android/i.test(navigator.userAgent);
       recordEngagement(p.id, p.tags, "dwell", p.rank, dwell, mobile);
-      if (promptCountRef.current < 8 && (mobile || dwell >= 8000)) {
-        promptCountRef.current += 1;
-        setPromptItem({ id: p.id, tags: p.tags });
-      }
+      // Ask for feedback after every read (the reader actually left and came back).
+      setPromptItem({ id: p.id, tags: p.tags });
+    }
+    try {
+      const raw = sessionStorage.getItem("sig_pending");
+      if (raw && !pendingRef.current) pendingRef.current = JSON.parse(raw);
+    } catch {}
+    resolve(); // came back via same-tab navigation
+    function onReturn() {
+      if (document.visibilityState === "visible") resolve();
     }
     document.addEventListener("visibilitychange", onReturn);
     window.addEventListener("focus", onReturn);
