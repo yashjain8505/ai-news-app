@@ -216,7 +216,7 @@ export default function Feed({
   const day = days[sel];
 
   return (
-    <main style={{ maxWidth: 1180, margin: "0 auto", padding: "0 34px 90px", position: "relative" }}>
+    <main className="bs-main" style={{ position: "relative" }}>
       {/* utility line */}
       <div
         className="mono"
@@ -272,7 +272,7 @@ export default function Feed({
       </header>
 
       {/* controls */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, marginTop: 24, borderBottom: "1px solid var(--rule)" }}>
+      <div className="bs-controls">
         <nav style={{ display: "flex", gap: 26 }}>
           {SECTION_TABS.map((s) => {
             const a = s.key === active;
@@ -339,7 +339,7 @@ export default function Feed({
 
           {active === "daily" && (
             <section style={{ marginTop: 30 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.62fr) minmax(0,1fr)", gap: 44 }}>
+              <div className="bs-lead">
                 {lead && (
                   <article>
                     <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ display: "block" }}>
@@ -365,7 +365,7 @@ export default function Feed({
                   </article>
                 )}
 
-                <div style={{ display: "flex", flexDirection: "column", borderLeft: "1px solid var(--rule)", paddingLeft: 28 }}>
+                <div className="bs-rail">
                   {rail.map((it, i) => (
                     <article
                       key={it.id}
@@ -399,7 +399,7 @@ export default function Feed({
                       {more.length} stories
                     </span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 30 }}>
+                  <div className="bs-more">
                     {more.map((it) => (
                       <article key={it.id}>
                         <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: 13 }}>
