@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import {
-  Bricolage_Grotesque,
+  Libre_Caslon_Display,
+  Libre_Caslon_Text,
   Newsreader,
-  Playfair_Display,
+  Space_Mono,
 } from "next/font/google";
 import "./globals.css";
 
-const sans = Bricolage_Grotesque({
+const display = Libre_Caslon_Display({
   subsets: ["latin"],
-  variable: "--font-sans",
-  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-display",
+  weight: ["400"],
+});
+
+const text = Libre_Caslon_Text({
+  subsets: ["latin"],
+  variable: "--font-text",
+  weight: ["400", "700"],
 });
 
 const serif = Newsreader({
@@ -19,27 +27,30 @@ const serif = Newsreader({
   style: ["normal", "italic"],
 });
 
-const display = Playfair_Display({
+const mono = Space_Mono({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["600", "700", "800"],
+  variable: "--font-mono",
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Signal: AI, curated to your taste",
+  title: "Signal: the daily AI briefing",
   description:
-    "Daily AI updates, obscure new tools, and the most interesting AI reads, personalized.",
+    "Daily AI updates, obscure new tools, and the most interesting AI reads, curated to your taste.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const theme =
+    (await cookies()).get("sig_theme")?.value === "dark" ? "dark" : "light";
   return (
-    <html lang="en">
-      <body className={`${sans.variable} ${serif.variable} ${display.variable}`}>
-        <div className="h-0.5 w-full bg-[#cdff3a]" />
-        {children}
-      </body>
+    <html
+      lang="en"
+      data-theme={theme}
+      className={`${display.variable} ${text.variable} ${serif.variable} ${mono.variable}`}
+    >
+      <body>{children}</body>
     </html>
   );
 }

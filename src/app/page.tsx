@@ -12,13 +12,21 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+const MON3 = [
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+];
+const FULL = [
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+];
 const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default async function Home() {
   const jar = await cookies();
   const uid = jar.get("sig_uid")?.value;
   if (!uid) redirect("/welcome");
-  const name = jar.get("sig_name")?.value;
+  const name = jar.get("sig_name")?.value ?? null;
+  const initialMode = jar.get("sig_theme")?.value === "dark" ? "dark" : "light";
 
   const [{ data: itemsData }, { data: tasteData }] = await Promise.all([
     supabase.from("items").select("*").eq("is_active", true),
@@ -36,17 +44,17 @@ export default async function Home() {
     .map((x) => x.it);
 
   const now = Date.now();
-  const d = new Date(now);
-  const todayIdx = (d.getDay() + 6) % 7;
+  const today = new Date(now);
+  const todayIdx = (today.getDay() + 6) % 7;
   const days = LABELS.map((label, i) => {
     const dd = new Date(now);
-    dd.setDate(d.getDate() + (i - todayIdx));
+    dd.setDate(today.getDate() + (i - todayIdx));
     const iso = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
     return {
       label,
       date: iso,
       big: `${MONTHS[dd.getMonth()]} ${dd.getDate()}`,
-      full: `${MONTHS[dd.getMonth()]} ${dd.getDate()}, ${dd.getFullYear()}`,
+      full: `${FULL[i]}, ${MONTHS[dd.getMonth()]} ${dd.getDate()}, ${dd.getFullYear()}`,
     };
   });
 
@@ -55,40 +63,23 @@ export default async function Home() {
     null
   );
   const updatedAgo = timeAgo(newest, now);
+  const stampDate = `${MON3[today.getMonth()]} ${today.getDate()} ·${String(today.getFullYear()).slice(2)}`;
+  const editionNo = Math.max(
+    1,
+    Math.floor((now - Date.parse("2025-05-12T00:00:00Z")) / 86400000)
+  );
 
   return (
-    <main className="mx-auto max-w-[1120px] px-7 pb-[90px] pt-1">
-      <header className="flex items-center justify-between pb-[18px] pt-[22px]">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-block h-[13px] w-[13px] rounded-[3px] bg-[#cdff3a]" />
-          <span className="display text-[22px] font-extrabold tracking-[-0.01em] text-[#f5f3ec]">
-            Signal
-          </span>
-        </div>
-        <div className="flex items-center gap-3.5 text-[13px] text-[#807c72]">
-          <span className="inline-flex items-center gap-2">
-            <span
-              className="inline-block h-[7px] w-[7px] rounded-full bg-[#cdff3a]"
-              style={{ animation: "sigpulse 2s infinite" }}
-            />
-            <span>Live{updatedAgo ? ` · updated ${updatedAgo}` : ""}</span>
-          </span>
-          <span className="inline-block h-[13px] w-px bg-[#2a2825]" />
-          <span>{name ? `Welcome back, ${name}` : "Tuned to your taste"}</span>
-        </div>
-      </header>
-
-      <Feed items={items} days={days} todayIdx={todayIdx} now={now} />
-
-      <footer className="mt-[72px] flex items-center justify-between border-t border-[#232220] pt-[22px]">
-        <span className="serif text-[14px] italic text-[#56534c]">
-          The more you read and react, the sharper your feed gets.
-        </span>
-        <span className="inline-flex items-center gap-2 text-[12px] text-[#56534c]">
-          <span className="inline-block h-[11px] w-[11px] rounded-[2px] bg-[#cdff3a]" />
-          Signal
-        </span>
-      </footer>
-    </main>
+    <Feed
+      items={items}
+      days={days}
+      todayIdx={todayIdx}
+      now={now}
+      name={name}
+      updatedAgo={updatedAgo}
+      stampDate={stampDate}
+      editionNo={editionNo}
+      initialMode={initialMode}
+    />
   );
 }
