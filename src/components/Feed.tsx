@@ -1,23 +1,13 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useTransition,
-  type CSSProperties,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Item, Section } from "@/lib/types";
-import { recordSignal, getSectionItems } from "@/app/actions";
+import { recordEngagement, recordSignal, getSectionItems } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 
 type Day = { label: string; date: string; big: string; full: string };
 type Mode = "light" | "dark";
-
-const HEART =
-  "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z";
+type Pending = { id: string; tags: string[]; rank: number; ts: number };
 
 const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "daily", label: "Daily AI" },
@@ -90,17 +80,49 @@ export default function Feed({
     tools: 0,
     articles: 0,
   });
-  const [overrides, setOverrides] = useState<Partial<Record<Section, Item[]>>>(
-    {}
-  );
+  const [overrides, setOverrides] = useState<Partial<Record<Section, Item[]>>>({});
   const [loading, setLoading] = useState(false);
-  const [signals, setSignals] = useState<Record<string, "like" | "less">>({});
+  const [promptItem, setPromptItem] = useState<{ id: string; tags: string[] } | null>(null);
+
+  const pendingRef = useRef<Pending | null>(null);
+  const promptShownRef = useRef(false);
 
   useEffect(() => {
     setOverrides({});
     setCursor({ daily: 0, tools: 0, articles: 0 });
   }, [sel]);
-  const [, startTransition] = useTransition();
+
+  // Return-time dwell: when the reader comes back to our tab after opening a
+  // story, turn time-away into an engagement signal (and sometimes a prompt).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("sig_pending");
+      if (raw && !pendingRef.current) pendingRef.current = JSON.parse(raw);
+    } catch {}
+    function onReturn() {
+      if (document.visibilityState !== "visible") return;
+      const p = pendingRef.current;
+      if (!p) return;
+      const dwell = Date.now() - p.ts;
+      if (dwell < 1500) return; // never actually left
+      pendingRef.current = null;
+      try {
+        sessionStorage.removeItem("sig_pending");
+      } catch {}
+      const mobile = /Mobi|Android/i.test(navigator.userAgent);
+      recordEngagement(p.id, p.tags, "dwell", p.rank, dwell, mobile);
+      if (!promptShownRef.current && (mobile || (dwell >= 8000 && dwell < 30000))) {
+        promptShownRef.current = true;
+        setPromptItem({ id: p.id, tags: p.tags });
+      }
+    }
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
+    return () => {
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
+    };
+  }, []);
 
   const selectedDate = days[sel]?.date ?? null;
   const grouped = useMemo(() => {
@@ -126,6 +148,21 @@ export default function Feed({
           (_, i) => fullList[(start + i) % fullList.length]
         );
 
+  function onOpen(it: Item, rank: number) {
+    const tags = it.tags ?? [];
+    recordEngagement(it.id, tags, "click", rank);
+    const p: Pending = { id: it.id, tags, rank, ts: Date.now() };
+    pendingRef.current = p;
+    try {
+      sessionStorage.setItem("sig_pending", JSON.stringify(p));
+    } catch {}
+  }
+
+  function answerPrompt(action: "like" | "less") {
+    if (promptItem) recordSignal(promptItem.id, action, promptItem.tags);
+    setPromptItem(null);
+  }
+
   function toggleMode() {
     const next: Mode = mode === "dark" ? "light" : "dark";
     setMode(next);
@@ -133,15 +170,6 @@ export default function Feed({
       document.documentElement.setAttribute("data-theme", next);
       document.cookie = `sig_theme=${next}; path=/; max-age=31536000; samesite=lax`;
     }
-  }
-
-  function signal(it: Item, action: "like" | "less", e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setSignals((s) => ({ ...s, [it.id]: action }));
-    startTransition(() => {
-      recordSignal(it.id, action, it.tags ?? []);
-    });
   }
 
   async function refresh() {
@@ -155,58 +183,6 @@ export default function Feed({
     } finally {
       setLoading(false);
     }
-  }
-
-  const circle: CSSProperties = {
-    height: 32,
-    width: 32,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-    border: "1px solid var(--sep)",
-    background: "transparent",
-    cursor: "pointer",
-    padding: 0,
-  };
-
-  function reactions(it: Item, withLess: boolean) {
-    const s = signals[it.id];
-    return (
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          onClick={(e) => signal(it, "like", e)}
-          title="More like this"
-          aria-label="More like this"
-          style={{
-            ...circle,
-            background: s === "like" ? "var(--accent)" : "transparent",
-            borderColor: s === "like" ? "var(--accent)" : "var(--sep)",
-            color: s === "like" ? "var(--onAccent)" : "var(--muted)",
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill={s === "like" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d={HEART} />
-          </svg>
-        </button>
-        {withLess && (
-          <button
-            onClick={(e) => signal(it, "less", e)}
-            title="Less like this"
-            aria-label="Less like this"
-            style={{
-              ...circle,
-              background: s === "less" ? "var(--sep)" : "transparent",
-              color: s === "less" ? "var(--ink)" : "var(--muted)",
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-        )}
-      </div>
-    );
   }
 
   function meta(it: Item, sep: string, size: number, withRead: boolean) {
@@ -237,7 +213,6 @@ export default function Feed({
 
   return (
     <main className="bs-main" style={{ position: "relative" }}>
-      {/* utility line */}
       <div
         className="mono"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.04em", color: "var(--faint)", padding: "12px 0", borderBottom: "1px solid var(--rule)" }}
@@ -258,7 +233,6 @@ export default function Feed({
         </div>
       </div>
 
-      {/* masthead */}
       <header style={{ position: "relative", paddingTop: 12 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24 }}>
           <div>
@@ -291,7 +265,6 @@ export default function Feed({
         </div>
       </header>
 
-      {/* controls */}
       <div className="bs-controls">
         <nav style={{ display: "flex", gap: 26 }}>
           {SECTION_TABS.map((s) => {
@@ -370,11 +343,11 @@ export default function Feed({
               <div className="bs-lead">
                 {lead && (
                   <article>
-                    <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ display: "block" }}>
+                    <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ display: "block" }}>
                       <NewsPhoto it={lead} ratio="16/9" />
                     </a>
                     <div style={{ marginTop: 16 }}>{meta(lead, "—", 11, true)}</div>
-                    <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                    <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
                       </h2>
@@ -384,9 +357,8 @@ export default function Feed({
                         {lead.summary}
                       </p>
                     )}
-                    <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 18 }}>
-                      {reactions(lead, true)}
-                      <a href={lead.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ fontStyle: "italic", fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>
+                    <div style={{ marginTop: 18 }}>
+                      <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ fontStyle: "italic", fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>
                         Read the full story &rarr;
                       </a>
                     </div>
@@ -400,7 +372,7 @@ export default function Feed({
                       style={{ paddingBottom: 22, marginBottom: i === rail.length - 1 ? 0 : 22, borderBottom: i === rail.length - 1 ? "none" : "1px solid var(--rule)" }}
                     >
                       {meta(it, "·", 10, true)}
-                      <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                      <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 1)} target="_blank" rel="noopener noreferrer">
                         <h3 className="display" style={{ fontSize: 23, lineHeight: 1.14, margin: "8px 0 0", color: "var(--ink)" }}>
                           {withHighlight(it.title, it.highlight, 3)}
                         </h3>
@@ -410,7 +382,6 @@ export default function Feed({
                           {it.summary}
                         </p>
                       )}
-                      <div style={{ marginTop: 12 }}>{reactions(it, true)}</div>
                     </article>
                   ))}
                 </div>
@@ -428,13 +399,13 @@ export default function Feed({
                     </span>
                   </div>
                   <div className="bs-more">
-                    {more.map((it) => (
+                    {more.map((it, i) => (
                       <article key={it.id}>
-                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: 13 }}>
+                        <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: 13 }}>
                           <NewsPhoto it={it} ratio="16/10" />
                         </a>
                         <div>{meta(it, "·", 10, false)}</div>
-                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                        <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
                           <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "8px 0 0", color: "var(--ink)" }}>
                             {it.title}
                           </h4>
@@ -444,7 +415,6 @@ export default function Feed({
                             {it.read_time} min read
                           </div>
                         )}
-                        <div style={{ marginTop: 12 }}>{reactions(it, true)}</div>
                       </article>
                     ))}
                   </div>
@@ -468,7 +438,7 @@ export default function Feed({
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 11 }}>
-                          <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                          <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
                             <h3 className="display" style={{ fontSize: 21, margin: 0, color: "var(--ink)" }}>
                               {it.title.replace(/\s*\(Claude skill\)$/, "")}
                             </h3>
@@ -488,12 +458,9 @@ export default function Feed({
                           </p>
                         )}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                        {reactions(it, false)}
-                        <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ fontStyle: "italic", fontSize: 13, color: "var(--ink)", textDecoration: "none", border: "1px solid var(--sep)", padding: "7px 15px" }}>
-                          Open &#8599;
-                        </a>
-                      </div>
+                      <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, fontStyle: "italic", fontSize: 13, color: "var(--ink)", textDecoration: "none", border: "1px solid var(--sep)", padding: "7px 15px" }}>
+                        Open &#8599;
+                      </a>
                     </div>
                   </div>
                 );
@@ -518,7 +485,7 @@ export default function Feed({
                       </span>
                     )}
                   </div>
-                  <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                  <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
                     <h2 className="display" style={{ fontSize: 30, lineHeight: 1.16, margin: "10px 0 0", color: "var(--ink)" }}>
                       {withHighlight(it.title, it.highlight, 3)}
                     </h2>
@@ -528,14 +495,11 @@ export default function Feed({
                       {it.summary}
                     </p>
                   )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14 }}>
-                    {reactions(it, true)}
-                    {timeAgo(it.published_at, now) && (
-                      <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
-                        {timeAgo(it.published_at, now)}
-                      </span>
-                    )}
-                  </div>
+                  {timeAgo(it.published_at, now) && (
+                    <div className="mono" style={{ fontSize: 11, color: "var(--faint)", marginTop: 14 }}>
+                      {timeAgo(it.published_at, now)}
+                    </div>
+                  )}
                 </article>
               ))}
             </section>
@@ -549,6 +513,27 @@ export default function Feed({
         <span style={{ textTransform: "uppercase" }}>Signal &mdash; printed for one reader</span>
         <span>The more you read, the sharper it gets &middot; p. 1</span>
       </footer>
+
+      {promptItem && (
+        <div
+          style={{ position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 60, display: "flex", alignItems: "center", gap: 14, background: "var(--ink)", color: "var(--bg)", padding: "12px 18px", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}
+        >
+          <span style={{ fontSize: 14 }}>Worth your time?</span>
+          <button
+            onClick={() => answerPrompt("like")}
+            style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: "6px 14px", border: 0, background: "var(--accent)", color: "var(--onAccent)", cursor: "pointer" }}
+          >
+            Yes
+          </button>
+          <button
+            onClick={() => answerPrompt("less")}
+            className="mono"
+            style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--bg)", background: "transparent", color: "var(--bg)", cursor: "pointer", opacity: 0.8 }}
+          >
+            Meh
+          </button>
+        </div>
+      )}
     </main>
   );
 }

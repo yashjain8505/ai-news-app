@@ -2,8 +2,39 @@
 
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
-import { scoreItem, type Weights } from "@/lib/taste";
+import {
+  scoreItem,
+  applyAffinity,
+  normalizeMix,
+  clickPerTag,
+  dwellPerTag,
+  type Weights,
+} from "@/lib/taste";
 import type { Item, Section } from "@/lib/types";
+
+async function bumpAffinity(uid: string, tags: string[], perTag: number) {
+  const { data } = await supabase
+    .from("user_taste")
+    .select("affinity, prior, events")
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (!data) return;
+  const affinity = applyAffinity(
+    data.affinity as Weights,
+    data.prior as Weights,
+    tags,
+    perTag
+  );
+  await supabase
+    .from("user_taste")
+    .update({
+      affinity,
+      weights: normalizeMix(affinity),
+      events: (data.events ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", uid);
+}
 
 const UID = "sig_uid";
 const UNAME = "sig_name";
@@ -18,9 +49,14 @@ export async function completeOnboarding(input: {
   await supabase
     .from("users")
     .insert({ id: userId, name: input.name, email: input.email });
-  await supabase
-    .from("user_taste")
-    .insert({ user_id: userId, weights: input.weights, sources: [] });
+  await supabase.from("user_taste").insert({
+    user_id: userId,
+    weights: normalizeMix(input.weights),
+    prior: input.weights,
+    affinity: input.weights,
+    sources: [],
+    events: 0,
+  });
 
   const jar = await cookies();
   const opts = { path: "/", maxAge: YEAR, sameSite: "lax" as const };
@@ -31,29 +67,40 @@ export async function completeOnboarding(input: {
 
 export async function recordSignal(
   itemId: string,
-  action: "like" | "less" | "click",
+  action: "like" | "less",
   tags: string[]
 ) {
   const uid = (await cookies()).get(UID)?.value;
   if (!uid) return { ok: false };
-
   await supabase
     .from("interactions")
     .insert({ user_id: uid, item_id: itemId, action });
+  const n = tags.length || 1;
+  const perTag = action === "like" ? 1.2 / n : -0.6 / n;
+  if (tags.length) await bumpAffinity(uid, tags, perTag);
+  return { ok: true };
+}
 
-  if (action === "click") return { ok: true };
-
-  const delta = action === "like" ? 1 : -1;
-  const { data } = await supabase
-    .from("user_taste")
-    .select("weights")
-    .eq("user_id", uid)
-    .maybeSingle();
-  const w: Weights = (data?.weights as Weights) ?? {};
-  for (const t of tags) w[t] = (w[t] ?? 0) + delta;
+export async function recordEngagement(
+  itemId: string,
+  tags: string[],
+  kind: "click" | "dwell",
+  rank: number,
+  dwellMs?: number,
+  mobile?: boolean
+) {
+  const uid = (await cookies()).get(UID)?.value;
+  if (!uid) return { ok: false };
   await supabase
-    .from("user_taste")
-    .upsert({ user_id: uid, weights: w, updated_at: new Date().toISOString() });
+    .from("interactions")
+    .insert({ user_id: uid, item_id: itemId, action: kind, dwell_ms: dwellMs ?? null });
+
+  const n = tags.length || 1;
+  const perTag =
+    kind === "click"
+      ? clickPerTag(rank, n)
+      : dwellPerTag(dwellMs ?? 0, rank, n, !!mobile);
+  if (perTag !== null && tags.length) await bumpAffinity(uid, tags, perTag);
   return { ok: true };
 }
 
