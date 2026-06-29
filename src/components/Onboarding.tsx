@@ -55,6 +55,7 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [idx, setIdx] = useState(0);
+  const [slider, setSlider] = useState(3);
   const [scores, setScores] = useState<Record<string, number>>(emptyScores());
   const [mix, setMix] = useState<Record<string, number>>({});
 
@@ -76,9 +77,9 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
     return next;
   }
 
-  function rate(action: "skip" | "read" | "love") {
+  function advance() {
     const card = cards[idx];
-    const delta = action === "love" ? 2 : action === "read" ? 1 : -0.5;
+    const delta = slider - 3;
     const next = { ...scores };
     for (const t of card.tags ?? []) next[t] = (next[t] ?? 0) + delta;
     setScores(next);
@@ -87,6 +88,7 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
       setPhase("mix");
     } else {
       setIdx(idx + 1);
+      setSlider(3);
     }
   }
 
@@ -221,26 +223,32 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <button
-              onClick={() => rate("skip")}
-              style={{ flex: 1, padding: "12px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}
-            >
-              Skip
-            </button>
-            <button
-              onClick={() => rate("read")}
-              style={{ flex: 1, padding: "12px", border: "1px solid var(--accent)", background: "transparent", color: "var(--accent)", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}
-            >
-              Read it
-            </button>
-            <button
-              onClick={() => rate("love")}
-              style={{ flex: 1, padding: "12px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}
-            >
-              Love it
-            </button>
+          <div style={{ marginTop: 22 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <span style={{ fontSize: 15, color: "var(--ink)" }}>How likely are you to read this?</span>
+              <span className="mono" style={{ fontSize: 14, color: "var(--accent)" }}>{slider}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={6}
+              step={1}
+              value={slider}
+              onChange={(e) => setSlider(Number(e.target.value))}
+              style={{ width: "100%", accentColor: "var(--accent)" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <span className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>Skip</span>
+              <span className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>Definitely</span>
+            </div>
           </div>
+
+          <button
+            onClick={advance}
+            style={{ marginTop: 24, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}
+          >
+            {idx + 1 >= cards.length ? "See my mix" : "Next"}
+          </button>
         </div>
       )}
 
