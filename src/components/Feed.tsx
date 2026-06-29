@@ -14,8 +14,9 @@ const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "daily", label: "Daily AI" },
   { key: "tools", label: "New Tools" },
   { key: "articles", label: "Articles" },
+  { key: "funding", label: "Funding" },
 ];
-const PAGES: Record<Section, number> = { daily: 9, tools: 8, articles: 6 };
+const PAGES: Record<Section, number> = { daily: 9, tools: 8, articles: 6, funding: 8 };
 
 function withHighlight(title: string, h: string | null, px: number): ReactNode {
   if (!h) return title;
@@ -76,6 +77,7 @@ export default function Feed({
     daily: 0,
     tools: 0,
     articles: 0,
+    funding: 0,
   });
   const [promptItem, setPromptItem] = useState<{ id: string; tags: string[] } | null>(
     null
@@ -86,14 +88,14 @@ export default function Feed({
   const prevItemCount = useRef(items.length);
 
   useEffect(() => {
-    setCursor({ daily: 0, tools: 0, articles: 0 });
+    setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
     setPromptItem(null);
   }, [sel]);
 
   // When a fresh drop lands (more items than before), jump to the top so the newest shows.
   useEffect(() => {
     if (items.length > prevItemCount.current) {
-      setCursor({ daily: 0, tools: 0, articles: 0 });
+      setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
     }
     prevItemCount.current = items.length;
   }, [items.length]);
@@ -133,7 +135,7 @@ export default function Feed({
 
   const selectedDate = days[sel]?.date ?? null;
   const grouped = useMemo(() => {
-    const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [] };
+    const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
     for (const it of items)
       if (it.edition_date === selectedDate) g[it.section]?.push(it);
     return g;
@@ -170,6 +172,7 @@ export default function Feed({
       daily: c.daily + PAGES.daily,
       tools: c.tools + PAGES.tools,
       articles: c.articles + PAGES.articles,
+      funding: c.funding + PAGES.funding,
     }));
     setPromptItem(null);
     startRefresh(() => router.refresh());
@@ -514,7 +517,7 @@ export default function Feed({
             </section>
           )}
 
-          {active === "articles" && (
+          {(active === "articles" || active === "funding") && (
             <section style={{ maxWidth: 800 }}>
               {list.map((it, i) => (
                 <article

@@ -1,4 +1,4 @@
-export type Section = "daily" | "tools" | "articles";
+export type Section = "daily" | "tools" | "articles" | "funding";
 
 export interface Item {
   id: string;
