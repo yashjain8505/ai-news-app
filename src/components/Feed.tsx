@@ -83,11 +83,20 @@ export default function Feed({
   const pendingRef = useRef<Pending | null>(null);
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
+  const prevItemCount = useRef(items.length);
 
   useEffect(() => {
     setCursor({ daily: 0, tools: 0, articles: 0 });
     setPromptItem(null);
   }, [sel]);
+
+  // When a fresh drop lands (more items than before), jump to the top so the newest shows.
+  useEffect(() => {
+    if (items.length > prevItemCount.current) {
+      setCursor({ daily: 0, tools: 0, articles: 0 });
+    }
+    prevItemCount.current = items.length;
+  }, [items.length]);
 
   // Return-time dwell: when the reader comes back to our tab after opening a
   // story, turn time-away into an engagement signal, and ask on that card.
@@ -155,7 +164,13 @@ export default function Feed({
   }
 
   function refresh() {
-    setCursor({ daily: 0, tools: 0, articles: 0 });
+    // Cycle to a fresh set on each click; if a new drop arrived, the effect
+    // above snaps back to the top so the newest stories show.
+    setCursor((c) => ({
+      daily: c.daily + PAGES.daily,
+      tools: c.tools + PAGES.tools,
+      articles: c.articles + PAGES.articles,
+    }));
     setPromptItem(null);
     startRefresh(() => router.refresh());
   }

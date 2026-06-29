@@ -41,7 +41,12 @@ export default async function Home() {
   const sources = (tasteData?.sources as string[]) ?? null;
   const items = ((itemsData ?? []) as Item[])
     .map((it) => ({ it, s: scoreItem(it.tags, weights, it.source, sources) }))
-    .sort((a, b) => b.s - a.s || a.it.rank - b.it.rank)
+    .sort(
+      (a, b) =>
+        b.s - a.s ||
+        (Date.parse(b.it.published_at ?? "") || 0) -
+          (Date.parse(a.it.published_at ?? "") || 0)
+    )
     .map((x) => x.it);
 
   const now = Date.now();

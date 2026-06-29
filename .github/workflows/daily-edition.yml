@@ -2,9 +2,14 @@ name: Daily edition
 
 on:
   schedule:
-    - cron: "37 1 * * *" # ~07:07 IST (01:37 UTC) attempt 1 — odd minute, off the congested :00/:30 marks
-    - cron: "12 2 * * *" # ~07:42 IST (02:12 UTC) attempt 2
-    - cron: "47 2 * * *" # ~08:17 IST (02:47 UTC) attempt 3 — redundancy vs GitHub dropping scheduled runs; all no-ops once filled
+    # Three drops a day (IST): ~07:00, ~13:00, ~19:00. Two attempts per slot for
+    # redundancy; the recent-drop guard below makes the 2nd attempt a no-op.
+    - cron: "32 1 * * *"  # ~07:02 IST (01:32 UTC) morning
+    - cron: "52 1 * * *"  # ~07:22 IST (01:52 UTC) morning backup
+    - cron: "32 7 * * *"  # ~13:02 IST (07:32 UTC) midday
+    - cron: "52 7 * * *"  # ~13:22 IST (07:52 UTC) midday backup
+    - cron: "32 13 * * *" # ~19:02 IST (13:32 UTC) evening
+    - cron: "52 13 * * *" # ~19:22 IST (13:52 UTC) evening backup
   workflow_dispatch:
     inputs:
       selftest:
@@ -42,7 +47,7 @@ jobs:
           echo "cleanup done"
           if [ "$code" = "201" ]; then echo "WRITE OK (service_role key works)"; else echo "WRITE FAILED — key is not service_role (got $code)"; exit 1; fi
 
-      - name: Skip if this edition already exists
+      - name: Skip if a drop happened recently
         id: check
         if: ${{ github.event.inputs.selftest != 'true' }}
         env:
@@ -51,20 +56,25 @@ jobs:
           EDITION_DATE: ${{ github.event.inputs.target_date }}
         run: |
           DAY="${EDITION_DATE:-$(date -u +%F)}"
-          rows=$(curl -s "$SUPABASE_URL/rest/v1/items?select=id&edition_date=eq.$DAY&limit=1" \
-            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
-          if [ "$rows" = "[]" ]; then
-            echo "exists=false" >> "$GITHUB_OUTPUT"; echo "edition $DAY is empty -> will curate"
+          latest=$(curl -s "$SUPABASE_URL/rest/v1/items?select=created_at&edition_date=eq.$DAY&order=created_at.desc&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].created_at // empty')
+          if [ -z "$latest" ]; then
+            echo "recent=false" >> "$GITHUB_OUTPUT"; echo "no items yet for $DAY -> will add a drop"
           else
-            echo "exists=true" >> "$GITHUB_OUTPUT"; echo "edition $DAY already filled -> skipping (no-op)"
+            age=$(( $(date -u +%s) - $(date -u -d "$latest" +%s) ))
+            if [ "$age" -ge 12600 ]; then
+              echo "recent=false" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (>=3.5h) -> will add a fresh drop"
+            else
+              echo "recent=true" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (<3.5h) -> skipping (recent drop)"
+            fi
           fi
 
       - name: Install Claude Code
-        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.exists != 'true' }}
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Curate and insert today's edition
-        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.exists != 'true' }}
+      - name: Curate and add a fresh drop
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
