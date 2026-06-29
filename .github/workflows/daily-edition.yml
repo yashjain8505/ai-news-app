@@ -2,8 +2,9 @@ name: Daily edition
 
 on:
   schedule:
-    - cron: "37 1 * * *" # ~07:07 IST (01:37 UTC) primary — odd minute, off the congested :00/:30 marks
-    - cron: "12 2 * * *" # ~07:42 IST (02:12 UTC) backup — idempotent no-op if the primary already filled today
+    - cron: "37 1 * * *" # ~07:07 IST (01:37 UTC) attempt 1 — odd minute, off the congested :00/:30 marks
+    - cron: "12 2 * * *" # ~07:42 IST (02:12 UTC) attempt 2
+    - cron: "47 2 * * *" # ~08:17 IST (02:47 UTC) attempt 3 — redundancy vs GitHub dropping scheduled runs; all no-ops once filled
   workflow_dispatch:
     inputs:
       selftest:
@@ -41,12 +42,29 @@ jobs:
           echo "cleanup done"
           if [ "$code" = "201" ]; then echo "WRITE OK (service_role key works)"; else echo "WRITE FAILED — key is not service_role (got $code)"; exit 1; fi
 
-      - name: Install Claude Code
+      - name: Skip if this edition already exists
+        id: check
         if: ${{ github.event.inputs.selftest != 'true' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          EDITION_DATE: ${{ github.event.inputs.target_date }}
+        run: |
+          DAY="${EDITION_DATE:-$(date -u +%F)}"
+          rows=$(curl -s "$SUPABASE_URL/rest/v1/items?select=id&edition_date=eq.$DAY&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
+          if [ "$rows" = "[]" ]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"; echo "edition $DAY is empty -> will curate"
+          else
+            echo "exists=true" >> "$GITHUB_OUTPUT"; echo "edition $DAY already filled -> skipping (no-op)"
+          fi
+
+      - name: Install Claude Code
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.exists != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Curate and insert today's edition
-        if: ${{ github.event.inputs.selftest != 'true' }}
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.exists != 'true' }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
