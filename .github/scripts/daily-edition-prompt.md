@@ -5,7 +5,7 @@ ENVIRONMENT: `$SUPABASE_URL` and `$SUPABASE_SERVICE_KEY` (service-role) are set.
 TABLE `public.items`. Each row needs: `section` ('daily' | 'tools' | 'articles'), `title`, `summary`, `url`, `source`, `image_url`, `highlight` (a short EXACT substring of the title to underline; null for tools), `tags` (JSON array from this taxonomy only: lab-power, drama, tools, economics, policy, strategy, culture, technical, future-of-work, regional), `read_time` (int 3-9), `published_at` (ISO timestamp, now), `edition_date` (YYYY-MM-DD, today in UTC), `rank` (1..n within each section), `is_active` true.
 
 STEPS:
-1. `TODAY=$(date -u +%F)`.
+1. `TODAY="${EDITION_DATE:-$(date -u +%F)}"` (use the `$EDITION_DATE` env var if it is set and non-empty, otherwise today's date in UTC).
 2. IDEMPOTENCY — do not duplicate: `curl -s "$SUPABASE_URL/rest/v1/items?select=id&edition_date=eq.$TODAY&limit=1" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`. If the JSON array is NOT empty, STOP now (today's edition already exists).
 3. CURATE fresh content from roughly the last 48 hours using WebSearch + WebFetch:
    - **Daily AI Updates (6-8):** niche but READABLE big-lab power moves, regulation/policy, insider stories, and surprising consequences of AI. NOT deeply technical, NOT robot demos. Diverse outlets (The Verge, TechCrunch, Semafor, Axios, 404 Media, The Register, Platformer, Maginative, TechNode, Analytics India). Do NOT over-use CNBC or Bloomberg.
