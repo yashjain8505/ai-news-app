@@ -85,6 +85,12 @@ body {
   }
 }
 
+@keyframes sigspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .news-photo {
   position: relative;
   overflow: hidden;

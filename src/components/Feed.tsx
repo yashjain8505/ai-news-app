@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Item, Section } from "@/lib/types";
 import { recordEngagement, recordSignal } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
@@ -80,6 +81,8 @@ export default function Feed({
     null
   );
   const pendingRef = useRef<Pending | null>(null);
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
 
   useEffect(() => {
     setCursor({ daily: 0, tools: 0, articles: 0 });
@@ -149,6 +152,12 @@ export default function Feed({
       document.documentElement.setAttribute("data-theme", next);
       document.cookie = `sig_theme=${next}; path=/; max-age=31536000; samesite=lax`;
     }
+  }
+
+  function refresh() {
+    setCursor({ daily: 0, tools: 0, articles: 0 });
+    setPromptItem(null);
+    startRefresh(() => router.refresh());
   }
 
   function onOpen(it: Item, rank: number) {
@@ -246,6 +255,16 @@ export default function Feed({
             <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
             {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
           </span>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            className="mono"
+            style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
+            aria-label="Refresh feed"
+          >
+            <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
+            {refreshing ? "Refreshing" : "Refresh"}
+          </button>
           <a
             href="/tune"
             className="mono"
