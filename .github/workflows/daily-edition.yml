@@ -89,3 +89,19 @@ jobs:
           claude -p "$(cat .github/scripts/daily-edition-prompt.md)" \
             --dangerously-skip-permissions \
             --max-turns 80
+
+      # Auto-notify search engines (Bing, Yandex, Seznam, Naver) of the fresh URLs
+      # so indexing happens without manual submission. Update HOST when a custom
+      # domain is connected.
+      - name: Notify IndexNow
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
+        env:
+          EDITION_DATE: ${{ github.event.inputs.target_date }}
+        run: |
+          DAY="${EDITION_DATE:-$(date -u +%F)}"
+          HOST="ai-news-app-wheat-three.vercel.app"
+          KEY="a3d9f17c4b2e84605f1a9c7e2b6d0834"
+          curl -s -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json" \
+            -d "{\"host\":\"$HOST\",\"key\":\"$KEY\",\"keyLocation\":\"https://$HOST/$KEY.txt\",\"urlList\":[\"https://$HOST/\",\"https://$HOST/edition/$DAY\",\"https://$HOST/section/daily\",\"https://$HOST/section/funding\",\"https://$HOST/section/tools\",\"https://$HOST/section/articles\"]}" \
+            -o /tmp/indexnow.txt -w "IndexNow HTTP %{http_code}\n"; cat /tmp/indexnow.txt || true
