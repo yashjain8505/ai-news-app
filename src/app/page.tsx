@@ -1,12 +1,90 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Item } from "@/lib/types";
 import { scoreItem, type Weights } from "@/lib/taste";
 import { timeAgo } from "@/lib/time";
+import { SITE, absoluteUrl } from "@/lib/seo";
+import { getLatestEditionDate, getEditionItems, getEditionSynopsis } from "@/lib/publicData";
 import Feed from "@/components/Feed";
+import PublicChrome from "@/components/PublicChrome";
+import PublicEdition from "@/components/PublicEdition";
+import EditionLede from "@/components/EditionLede";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: { absolute: `${SITE.name} — ${SITE.tagline}` },
+  description: SITE.description,
+  alternates: { canonical: absoluteUrl("/") },
+  openGraph: {
+    title: `${SITE.name} — ${SITE.tagline}`,
+    description: SITE.description,
+    url: absoluteUrl("/"),
+    type: "website",
+    siteName: SITE.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE.name} — ${SITE.tagline}`,
+    description: SITE.description,
+  },
+};
+
+// Logged-out visitors and crawlers get the latest public edition (indexable),
+// not a redirect to onboarding.
+async function PublicHome() {
+  const date = await getLatestEditionDate();
+  const [items, syn] = await Promise.all([
+    date ? getEditionItems(date) : Promise.resolve([]),
+    date ? getEditionSynopsis(date) : Promise.resolve(null),
+  ]);
+  const now = Date.now();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${SITE.name} — ${SITE.tagline}`,
+    url: SITE.url,
+    isPartOf: { "@type": "WebSite", name: SITE.name, url: SITE.url },
+    dateModified: items.find((i) => i.published_at)?.published_at ?? undefined,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: items.length,
+      itemListElement: items.map((it, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: it.url ?? SITE.url,
+        name: it.title,
+      })),
+    },
+  };
+  return (
+    <>
+      <JsonLd data={jsonLd} />
+      <PublicChrome subtitle="Today&#8217;s AI briefing">
+        <h1 className="display" style={{ fontSize: "clamp(28px,4vw,42px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 16px" }}>
+          {syn?.headline ?? "Today in AI, curated"}
+        </h1>
+        {syn?.synopsis ? (
+          <EditionLede synopsis={syn.synopsis} />
+        ) : (
+          <p className="serif" style={{ fontSize: 19, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 16px", maxWidth: "62ch" }}>
+            The day&#8217;s AI news, curated and refreshed three times a day: big-lab
+            power moves, notable funding and deals, obscure new tools, and the
+            sharpest reads.
+          </p>
+        )}
+        <p className="mono" style={{ fontSize: 12, letterSpacing: "0.04em", color: "var(--dim)", margin: "0 0 30px" }}>
+          <a href="/welcome" style={{ color: "var(--accent)", textDecoration: "none" }}>
+            Personalize your edition &rarr;
+          </a>
+        </p>
+        <PublicEdition items={items} now={now} />
+      </PublicChrome>
+    </>
+  );
+}
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -24,7 +102,7 @@ const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export default async function Home() {
   const jar = await cookies();
   const uid = jar.get("sig_uid")?.value;
-  if (!uid) redirect("/welcome");
+  if (!uid) return <PublicHome />;
   const name = jar.get("sig_name")?.value ?? null;
   const initialMode = jar.get("sig_theme")?.value === "dark" ? "dark" : "light";
 

@@ -18,6 +18,11 @@ STEPS:
 4. INSERT (APPEND, never overwrite): write only the NEW rows to `rows.json` (a JSON array), then:
    `curl -s -X POST "$SUPABASE_URL/rest/v1/items" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" --data-binary @rows.json`
    On every new row: `edition_date` = $TODAY, `published_at` = now (so the new drop sorts as the freshest), and `rank` continues from the existing per-section max from step 2 (e.g. if daily's max rank was 10, your new daily rows are 11, 12, ...).
-5. VERIFY: curl the per-section counts for $TODAY and print them.
+5. WRITE THE EDITION SYNOPSIS (original synthesis, this is what makes the public pages citable for SEO/GEO). Looking across ALL of today's items, UPSERT one row into `public.editions`:
+   - `edition_date` = $TODAY
+   - `headline` = a punchy 6 to 10 word title capturing the day's throughline (no em-dashes)
+   - `synopsis` = 2 to 3 ORIGINAL sentences in Signal's voice: the connective story of the day (the AI power struggle, who is winning or losing, the surprising second-order consequence), NOT a list of headlines, no em-dashes.
+   Upsert: `curl -s -X POST "$SUPABASE_URL/rest/v1/editions" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" -H "Content-Type: application/json" -H "Prefer: resolution=merge-duplicates" --data-binary @synopsis.json` (write the single-object row to `synopsis.json` first; include an `updated_at` ISO timestamp).
+6. VERIFY: curl the per-section counts for $TODAY and print them.
 
 TASTE PROFILE (match exactly): the reader is fascinated by the big AI labs as characters in a power struggle (strategy, competition, regulation, intrigue, drama) and by the surprising second-order consequences of AI. They dislike anything abstract, dry/technical, B2B-plumbing, or mundane. For tools they want the OPPOSITE of famous: obscure, novel, conceptually fresh. Dedupe within your drop AND against everything already in today's edition (from step 2); never repeat the same story across sections; one-line summaries; no em-dashes anywhere. If you cannot find enough NEW on-taste items for a section, insert fewer rather than padding with off-taste filler or repeats.

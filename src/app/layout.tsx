@@ -7,6 +7,8 @@ import {
   Space_Mono,
 } from "next/font/google";
 import "./globals.css";
+import { SITE } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
 
 const display = Libre_Caslon_Display({
   subsets: ["latin"],
@@ -34,9 +36,21 @@ const mono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Signal: the daily AI briefing",
-  description:
-    "Daily AI updates, obscure new tools, and the most interesting AI reads, curated to your taste.",
+  metadataBase: new URL(SITE.url),
+  title: {
+    default: `${SITE.name} — ${SITE.tagline}`,
+    template: `%s | ${SITE.name}`,
+  },
+  description: SITE.description,
+  applicationName: SITE.name,
+  openGraph: {
+    siteName: SITE.name,
+    type: "website",
+    locale: SITE.locale,
+    url: SITE.url,
+  },
+  twitter: { card: "summary_large_image", site: SITE.twitter },
+  robots: { index: true, follow: true },
 };
 
 export default async function RootLayout({
@@ -50,7 +64,28 @@ export default async function RootLayout({
       data-theme={theme}
       className={`${display.variable} ${text.variable} ${serif.variable} ${mono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                name: SITE.name,
+                url: SITE.url,
+                description: SITE.description,
+              },
+              {
+                "@type": "WebSite",
+                name: SITE.name,
+                url: SITE.url,
+                description: SITE.description,
+              },
+            ],
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
