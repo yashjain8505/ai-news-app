@@ -16,7 +16,7 @@ const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "articles", label: "Articles" },
   { key: "funding", label: "Funding" },
 ];
-const PAGES: Record<Section, number> = { daily: 9, tools: 8, articles: 6, funding: 8 };
+const PAGES: Record<Section, number> = { daily: 12, tools: 8, articles: 8, funding: 8 };
 
 function withHighlight(title: string, h: string | null, px: number): ReactNode {
   if (!h) return title;
