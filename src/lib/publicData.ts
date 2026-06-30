@@ -65,6 +65,21 @@ export function newestPublishedAt(items: Item[]): string | null {
   return max;
 }
 
+// All edition headlines in one query, for the archive list (date -> headline).
+export async function getEditionHeadlines(): Promise<Map<string, string>> {
+  const { data } = await supabase
+    .from("editions")
+    .select("edition_date, headline");
+  const m = new Map<string, string>();
+  for (const r of (data ?? []) as {
+    edition_date: string;
+    headline: string | null;
+  }[]) {
+    if (r.headline) m.set(r.edition_date, r.headline);
+  }
+  return m;
+}
+
 export type EditionMeta = { headline: string | null; synopsis: string | null };
 
 // Original per-edition synthesis (the curator's "read" of the day) — the

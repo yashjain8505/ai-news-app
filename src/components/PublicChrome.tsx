@@ -3,10 +3,11 @@ import { SITE } from "@/lib/seo";
 // Shared masthead + section nav + footer for the public (logged-out) pages.
 // Plain anchors keep it server-only and fully crawlable.
 const NAV = [
-  { key: "daily", label: "Daily AI" },
-  { key: "funding", label: "Funding" },
-  { key: "tools", label: "New Tools" },
-  { key: "articles", label: "Articles" },
+  { href: "/section/daily", label: "Daily AI" },
+  { href: "/section/funding", label: "Funding" },
+  { href: "/section/tools", label: "New Tools" },
+  { href: "/section/articles", label: "Articles" },
+  { href: "/editions", label: "Archive" },
 ];
 
 export default function PublicChrome({
@@ -43,8 +44,8 @@ export default function PublicChrome({
         <nav style={{ display: "flex", gap: 22, flexWrap: "wrap", padding: "12px 0 0" }}>
           {NAV.map((n) => (
             <a
-              key={n.key}
-              href={`/section/${n.key}`}
+              key={n.href}
+              href={n.href}
               className="mono"
               style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)", textDecoration: "none" }}
             >

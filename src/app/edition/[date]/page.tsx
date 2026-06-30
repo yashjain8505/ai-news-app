@@ -58,11 +58,16 @@ export default async function EditionPage({
 }) {
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
-  const [items, syn] = await Promise.all([
+  const [items, syn, allDates] = await Promise.all([
     getEditionItems(date),
     getEditionSynopsis(date),
+    getAllEditionDates(),
   ]);
   if (items.length === 0) notFound();
+
+  const idx = allDates.indexOf(date);
+  const newer = idx > 0 ? allDates[idx - 1] : null;
+  const older = idx >= 0 && idx < allDates.length - 1 ? allDates[idx + 1] : null;
 
   const now = Date.now();
   const pretty = prettyDate(date);
@@ -110,6 +115,28 @@ export default async function EditionPage({
         </h1>
         <EditionLede synopsis={syn?.synopsis ?? null} />
         <PublicEdition items={items} now={now} />
+        <nav
+          className="mono"
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 44, paddingTop: 18, borderTop: "1px solid var(--rule)", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}
+        >
+          {older ? (
+            <a href={`/edition/${older}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
+              &larr; {prettyDate(older)}
+            </a>
+          ) : (
+            <span />
+          )}
+          <a href="/editions" style={{ color: "var(--dim)", textDecoration: "none" }}>
+            All editions
+          </a>
+          {newer ? (
+            <a href={`/edition/${newer}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
+              {prettyDate(newer)} &rarr;
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
       </PublicChrome>
     </>
   );

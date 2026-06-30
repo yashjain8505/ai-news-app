@@ -24,6 +24,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.8,
     })),
+    {
+      url: absoluteUrl("/editions"),
+      lastModified: latest,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    },
     ...dates.map((d) => ({
       url: absoluteUrl(`/edition/${d}`),
       lastModified: new Date(`${d}T12:00:00Z`),
