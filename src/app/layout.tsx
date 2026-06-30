@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import {
   Libre_Caslon_Display,
@@ -58,6 +58,10 @@ export const metadata: Metadata = {
     "max-video-preview": -1,
   },
   alternates: { types: { "application/rss+xml": "/feed.xml" } },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f3ecda",
 };
 
 export default async function RootLayout({

@@ -7,7 +7,7 @@ export const SITE = {
     "Wortins is a daily AI briefing refreshed through the day: emerging startups, real product launches, applied AI, and genuine breakthroughs across the AI world.",
   url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wortins.com").replace(/\/+$/, ""),
   locale: "en_US",
-  twitter: "@wotins",
+  twitter: "@wortins",
 };
 
 export function absoluteUrl(path = "/"): string {
