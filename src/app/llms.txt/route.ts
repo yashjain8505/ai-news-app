@@ -12,7 +12,7 @@ export async function GET() {
     "",
     `> ${SITE.description}`,
     "",
-    "Signal curates AI news three times a day across four sections, each item linking to its original source. Use it to find what happened in AI today, notable AI funding and deals, and newly launched AI tools.",
+    `${SITE.name} curates AI news across four sections, each item linking to its original source. Use it to find emerging startups, new AI products and launches, applied real-world AI, notable funding, and genuine breakthroughs.`,
     "",
     "## Sections",
     `- [Daily AI Updates](${absoluteUrl("/section/daily")}): big-lab power moves, regulation, and the surprising second-order consequences of AI.`,
@@ -21,7 +21,7 @@ export async function GET() {
     `- [Interesting AI Articles](${absoluteUrl("/section/articles")}): strategy, analysis, and sharp takes on the AI industry.`,
     "",
     "## Recent editions",
-    ...dates.map((d) => `- [Signal for ${d}](${absoluteUrl(`/edition/${d}`)})`),
+    ...dates.map((d) => `- [${SITE.name} for ${d}](${absoluteUrl(`/edition/${d}`)})`),
     "",
   ].join("\n");
 

@@ -324,14 +324,12 @@ export default function Feed({
       <header style={{ position: "relative", paddingTop: 12 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24 }}>
           <div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 13 }}>
-              <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 3, paddingBottom: 7 }}>
-                <span style={{ width: 6, height: 13, background: "var(--accent)" }} />
-                <span style={{ width: 6, height: 22, background: "var(--accent)" }} />
-                <span style={{ width: 6, height: 31, background: "var(--accent)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, background: "var(--accent)", color: "var(--onAccent)", fontSize: 32, lineHeight: 1 }}>
+                W
               </span>
               <h1 className="display" style={{ fontSize: "clamp(40px,6vw,58px)", lineHeight: 0.9, letterSpacing: "0.13em", textTransform: "uppercase", margin: 0, color: "var(--ink)" }}>
-                Signal
+                Wotins
               </h1>
             </div>
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
@@ -574,7 +572,7 @@ export default function Feed({
       )}
 
       <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.08em", color: "var(--faint)" }}>
-        <span style={{ textTransform: "uppercase" }}>Signal &mdash; printed for one reader</span>
+        <span style={{ textTransform: "uppercase" }}>Wotins &mdash; printed for one reader</span>
         <span>The more you read, the sharper it gets &middot; p. 1</span>
       </footer>
     </main>

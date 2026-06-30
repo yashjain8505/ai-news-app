@@ -129,13 +129,11 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
   return (
     <main style={wrap}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 36 }}>
-        <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 3 }}>
-          <span style={{ width: 5, height: 11, background: "var(--accent)" }} />
-          <span style={{ width: 5, height: 18, background: "var(--accent)" }} />
-          <span style={{ width: 5, height: 25, background: "var(--accent)" }} />
+        <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "var(--accent)", color: "var(--onAccent)", fontSize: 18, lineHeight: 1 }}>
+          W
         </span>
         <span className="display" style={{ fontSize: 24, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)" }}>
-          Signal
+          Wotins
         </span>
       </div>
 
@@ -310,7 +308,7 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
             onClick={finish}
             style={{ marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: pending ? 0.5 : 1 }}
           >
-            {pending ? "Building your briefing…" : "Enter Signal"}
+            {pending ? "Building your briefing…" : "Enter Wotins"}
           </button>
         </div>
       )}

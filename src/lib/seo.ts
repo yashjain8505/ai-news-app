@@ -1,13 +1,13 @@
 // Central SEO/GEO config. Override the canonical origin with NEXT_PUBLIC_SITE_URL
 // once a custom domain is connected (a real domain ranks far better than *.vercel.app).
 export const SITE = {
-  name: "Signal",
+  name: "Wotins",
   tagline: "The daily AI briefing",
   description:
-    "Signal is a daily AI briefing, refreshed three times a day: big-lab power moves, notable funding and deals, obscure new tools, and the sharpest reads on the AI industry.",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ai-news-app-wheat-three.vercel.app").replace(/\/+$/, ""),
+    "Wotins is a daily AI briefing refreshed through the day: emerging startups, real product launches, applied AI, and genuine breakthroughs across the AI world.",
+  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wotins.com").replace(/\/+$/, ""),
   locale: "en_US",
-  twitter: "@signalai",
+  twitter: "@wotins",
 };
 
 export function absoluteUrl(path = "/"): string {

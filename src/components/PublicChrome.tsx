@@ -20,14 +20,12 @@ export default function PublicChrome({
     <main className="bs-main" style={{ position: "relative" }}>
       <header style={{ paddingTop: 18 }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <a href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "flex-end", gap: 12 }}>
-            <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 3, paddingBottom: 6 }}>
-              <span style={{ width: 6, height: 13, background: "var(--accent)" }} />
-              <span style={{ width: 6, height: 22, background: "var(--accent)" }} />
-              <span style={{ width: 6, height: 31, background: "var(--accent)" }} />
+          <a href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 12 }}>
+            <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, background: "var(--accent)", color: "var(--onAccent)", fontSize: 28, lineHeight: 1 }}>
+              W
             </span>
             <span className="display" style={{ fontSize: "clamp(34px,5vw,50px)", lineHeight: 0.9, letterSpacing: "0.13em", textTransform: "uppercase", color: "var(--ink)" }}>
-              Signal
+              {SITE.name}
             </span>
           </a>
           <a
