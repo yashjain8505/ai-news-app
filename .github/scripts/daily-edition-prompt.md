@@ -21,7 +21,7 @@ STEPS:
 5. WRITE THE EDITION SYNOPSIS (original synthesis, this is what makes the public pages citable for SEO/GEO). Looking across ALL of today's items, UPSERT one row into `public.editions`:
    - `edition_date` = $TODAY
    - `headline` = a punchy 6 to 10 word title capturing the day's throughline (no em-dashes)
-   - `synopsis` = 2 to 3 ORIGINAL sentences in Wotins' voice: the connective story of the day (the throughline across the day's startups, products, applications and breakthroughs, and any surprising consequence), NOT a list of headlines, no em-dashes.
+   - `synopsis` = 2 to 3 ORIGINAL sentences in Wortins' voice: the connective story of the day (the throughline across the day's startups, products, applications and breakthroughs, and any surprising consequence), NOT a list of headlines, no em-dashes.
    Upsert: `curl -s -X POST "$SUPABASE_URL/rest/v1/editions" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" -H "Content-Type: application/json" -H "Prefer: resolution=merge-duplicates" --data-binary @synopsis.json` (write the single-object row to `synopsis.json` first; include an `updated_at` ISO timestamp).
 6. VERIFY: curl the per-section counts for $TODAY and print them.
 

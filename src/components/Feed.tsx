@@ -329,7 +329,7 @@ export default function Feed({
                 W
               </span>
               <h1 className="display" style={{ fontSize: "clamp(40px,6vw,58px)", lineHeight: 0.9, letterSpacing: "0.13em", textTransform: "uppercase", margin: 0, color: "var(--ink)" }}>
-                Wotins
+                Wortins
               </h1>
             </div>
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
@@ -572,7 +572,7 @@ export default function Feed({
       )}
 
       <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.08em", color: "var(--faint)" }}>
-        <span style={{ textTransform: "uppercase" }}>Wotins &mdash; printed for one reader</span>
+        <span style={{ textTransform: "uppercase" }}>Wortins &mdash; printed for one reader</span>
         <span>The more you read, the sharper it gets &middot; p. 1</span>
       </footer>
     </main>

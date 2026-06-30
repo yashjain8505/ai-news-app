@@ -133,7 +133,7 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
           W
         </span>
         <span className="display" style={{ fontSize: 24, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)" }}>
-          Wotins
+          Wortins
         </span>
       </div>
 
@@ -308,7 +308,7 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
             onClick={finish}
             style={{ marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: pending ? 0.5 : 1 }}
           >
-            {pending ? "Building your briefing…" : "Enter Wotins"}
+            {pending ? "Building your briefing…" : "Enter Wortins"}
           </button>
         </div>
       )}
