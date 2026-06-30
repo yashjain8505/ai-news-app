@@ -85,6 +85,9 @@ export default function Feed({
   const pendingRef = useRef<Pending | null>(null);
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
+  const [toast, setToast] = useState<string | null>(null);
+  const refreshedRef = useRef(false);
+  const baseCountRef = useRef(0);
   const prevItemCount = useRef(items.length);
 
   useEffect(() => {
@@ -99,6 +102,20 @@ export default function Feed({
     }
     prevItemCount.current = items.length;
   }, [items.length]);
+
+  // After a user-initiated Refresh settles, confirm what happened so it never feels dead.
+  useEffect(() => {
+    if (refreshing || !refreshedRef.current) return;
+    refreshedRef.current = false;
+    const delta = items.length - baseCountRef.current;
+    setToast(
+      delta > 0
+        ? `${delta} new ${delta === 1 ? "story" : "stories"}`
+        : `You’re up to date${updatedAgo ? ` · latest ${updatedAgo}` : ""}`
+    );
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [refreshing, items.length, updatedAgo]);
 
   // Return-time dwell: when the reader comes back to our tab after opening a
   // story, turn time-away into an engagement signal, and ask on that card.
@@ -166,9 +183,11 @@ export default function Feed({
   }
 
   // Instant: content is curated continuously in the background, so Refresh just
-  // re-fetches the latest edition and jumps back to the top.
+  // re-fetches the latest edition, jumps to the top, and confirms what changed.
   function refresh() {
     setPromptItem(null);
+    refreshedRef.current = true;
+    baseCountRef.current = items.length;
     setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
     startRefresh(() => router.refresh());
   }
@@ -294,6 +313,12 @@ export default function Feed({
           </button>
         </div>
       </div>
+
+      {toast && (
+        <div className="mono" style={{ fontSize: 11, letterSpacing: "0.05em", color: "var(--accent)", padding: "8px 0", borderBottom: "1px solid var(--rule)" }}>
+          {toast}
+        </div>
+      )}
 
       {/* masthead */}
       <header style={{ position: "relative", paddingTop: 12 }}>

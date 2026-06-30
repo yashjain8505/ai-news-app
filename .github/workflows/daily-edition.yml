@@ -67,10 +67,10 @@ jobs:
             echo "recent=false" >> "$GITHUB_OUTPUT"; echo "no items yet for $DAY -> will add a drop"
           else
             age=$(( $(date -u +%s) - $(date -u -d "$latest" +%s) ))
-            if [ "$age" -ge 5400 ]; then
-              echo "recent=false" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (>=90m) -> will add a fresh drop"
+            if [ "$age" -ge 3600 ]; then
+              echo "recent=false" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (>=60m) -> will add a fresh drop"
             else
-              echo "recent=true" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (<90m) -> skipping (recent drop)"
+              echo "recent=true" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (<60m) -> skipping (recent drop)"
             fi
           fi
 
