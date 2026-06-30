@@ -5,7 +5,7 @@ export const SITE = {
   tagline: "The daily AI briefing",
   description:
     "Wortins is a daily AI briefing refreshed through the day: emerging startups, real product launches, applied AI, and genuine breakthroughs across the AI world.",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wotins.com").replace(/\/+$/, ""),
+  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wortins.com").replace(/\/+$/, ""),
   locale: "en_US",
   twitter: "@wotins",
 };
@@ -21,9 +21,9 @@ export const SECTION_SEO: Record<
 > = {
   daily: {
     label: "Daily AI Updates",
-    title: "Daily AI News — big-lab power moves and consequences",
+    title: "Daily AI News — startups, products, applied AI and breakthroughs",
     description:
-      "The day's most readable AI news: lab power plays, regulation, insider stories, and the surprising second-order consequences of AI.",
+      "The day's most interesting AI news beyond the giants: emerging startups, real product launches, applied real-world AI, and genuine breakthroughs.",
   },
   funding: {
     label: "AI Funding Tracker",
