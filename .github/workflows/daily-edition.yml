@@ -2,14 +2,11 @@ name: Daily edition
 
 on:
   schedule:
-    # Three drops a day (IST): ~07:00, ~13:00, ~19:00. Two attempts per slot for
-    # redundancy; the recent-drop guard below makes the 2nd attempt a no-op.
-    - cron: "32 1 * * *"  # ~07:02 IST (01:32 UTC) morning
-    - cron: "52 1 * * *"  # ~07:22 IST (01:52 UTC) morning backup
-    - cron: "32 7 * * *"  # ~13:02 IST (07:32 UTC) midday
-    - cron: "52 7 * * *"  # ~13:22 IST (07:52 UTC) midday backup
-    - cron: "32 13 * * *" # ~19:02 IST (13:32 UTC) evening
-    - cron: "52 13 * * *" # ~19:22 IST (13:52 UTC) evening backup
+    # Every 2 hours across IST waking hours (~06:00-24:00 IST = 00:30-18:30 UTC)
+    # so content stays continuously fresh and the in-app Refresh just loads the
+    # latest instantly. The 90-minute drop-guard below keeps near-simultaneous
+    # triggers from double-dropping.
+    - cron: "30 0,2,4,6,8,10,12,14,16,18 * * *"
   workflow_dispatch:
     inputs:
       selftest:
@@ -70,10 +67,10 @@ jobs:
             echo "recent=false" >> "$GITHUB_OUTPUT"; echo "no items yet for $DAY -> will add a drop"
           else
             age=$(( $(date -u +%s) - $(date -u -d "$latest" +%s) ))
-            if [ "$age" -ge 12600 ]; then
-              echo "recent=false" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (>=3.5h) -> will add a fresh drop"
+            if [ "$age" -ge 5400 ]; then
+              echo "recent=false" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (>=90m) -> will add a fresh drop"
             else
-              echo "recent=true" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (<3.5h) -> skipping (recent drop)"
+              echo "recent=true" >> "$GITHUB_OUTPUT"; echo "last drop ${age}s ago (<90m) -> skipping (recent drop)"
             fi
           fi
 
