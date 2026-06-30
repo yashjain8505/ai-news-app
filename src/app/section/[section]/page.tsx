@@ -66,9 +66,18 @@ export default async function SectionPage({
     },
   };
 
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE.url },
+      { "@type": "ListItem", position: 2, name: meta.label, item: absoluteUrl(`/section/${section}`) },
+    ],
+  };
+
   return (
     <>
-      <JsonLd data={jsonLd} />
+      <JsonLd data={[jsonLd, breadcrumb]} />
       <PublicChrome subtitle={meta.label}>
         <h1 className="display" style={{ fontSize: "clamp(28px,4vw,42px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 10px" }}>
           {meta.label}

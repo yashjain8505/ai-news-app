@@ -89,9 +89,18 @@ export default async function EditionPage({
     },
   };
 
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE.url },
+      { "@type": "ListItem", position: 2, name: `AI news for ${pretty}`, item: absoluteUrl(`/edition/${date}`) },
+    ],
+  };
+
   return (
     <>
-      <JsonLd data={jsonLd} />
+      <JsonLd data={[jsonLd, breadcrumb]} />
       <PublicChrome subtitle={`Edition — ${pretty}`}>
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
           AI Briefing &middot; {pretty}

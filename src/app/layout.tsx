@@ -51,6 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary_large_image", site: SITE.twitter },
   robots: { index: true, follow: true },
+  alternates: { types: { "application/rss+xml": "/feed.xml" } },
 };
 
 export default async function RootLayout({
@@ -73,6 +74,7 @@ export default async function RootLayout({
                 "@type": "Organization",
                 name: SITE.name,
                 url: SITE.url,
+                logo: `${SITE.url}/icon.svg`,
                 description: SITE.description,
               },
               {
