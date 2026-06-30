@@ -103,9 +103,34 @@ export default async function EditionPage({
     ],
   };
 
+  // The synopsis ("Wortins' read") is original, citable editorial content —
+  // mark it up as a NewsArticle so answer engines attribute it to Wortins.
+  const ld: Record<string, unknown>[] = [jsonLd, breadcrumb];
+  if (syn?.synopsis) {
+    ld.unshift({
+      "@context": "https://schema.org",
+      "@type": "NewsArticle",
+      headline: syn.headline ?? `AI news for ${pretty}`,
+      description: syn.synopsis,
+      articleBody: syn.synopsis,
+      url: absoluteUrl(`/edition/${date}`),
+      mainEntityOfPage: absoluteUrl(`/edition/${date}`),
+      datePublished: `${date}T12:00:00Z`,
+      dateModified: modified,
+      image: [absoluteUrl(`/edition/${date}/opengraph-image`)],
+      author: { "@type": "Organization", name: SITE.name, url: SITE.url },
+      publisher: {
+        "@type": "Organization",
+        name: SITE.name,
+        url: SITE.url,
+        logo: { "@type": "ImageObject", url: `${SITE.url}/icon.svg` },
+      },
+    });
+  }
+
   return (
     <>
-      <JsonLd data={[jsonLd, breadcrumb]} />
+      <JsonLd data={ld} />
       <PublicChrome subtitle={`Edition — ${pretty}`}>
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
           AI Briefing &middot; {pretty}
