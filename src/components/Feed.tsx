@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Item, Section } from "@/lib/types";
-import { recordEngagement, recordSignal } from "@/app/actions";
+import { recordEngagement, recordSignal, requestFreshNews, latestItemAt } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 
 type Day = { label: string; date: string; big: string; full: string };
@@ -85,6 +85,8 @@ export default function Feed({
   const pendingRef = useRef<Pending | null>(null);
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
+  const [fetching, setFetching] = useState(false);
+  const [fetchMsg, setFetchMsg] = useState<string | null>(null);
   const prevItemCount = useRef(items.length);
 
   useEffect(() => {
@@ -165,17 +167,46 @@ export default function Feed({
     }
   }
 
-  function refresh() {
-    // Cycle to a fresh set on each click; if a new drop arrived, the effect
-    // above snaps back to the top so the newest stories show.
-    setCursor((c) => ({
-      daily: c.daily + PAGES.daily,
-      tools: c.tools + PAGES.tools,
-      articles: c.articles + PAGES.articles,
-      funding: c.funding + PAGES.funding,
-    }));
+  // On-demand: trigger the cloud curator to scrape + curate fresh news, then
+  // poll until the new drop lands and reload the feed.
+  async function refresh() {
+    if (fetching) return;
     setPromptItem(null);
-    startRefresh(() => router.refresh());
+    setFetching(true);
+    setFetchMsg("Scanning the web for fresh AI news… this takes a couple of minutes.");
+    const { status, since } = await requestFreshNews();
+    if (status === "unconfigured" || status === "error") {
+      setFetching(false);
+      setFetchMsg(
+        status === "unconfigured"
+          ? "On-demand refresh isn’t configured yet (missing GitHub token)."
+          : "Couldn’t start a refresh, try again in a moment."
+      );
+      setTimeout(() => setFetchMsg(null), 7000);
+      return;
+    }
+    if (status === "already-running")
+      setFetchMsg("A refresh is already running, waiting for the fresh drop…");
+    const deadline = Date.now() + 6 * 60 * 1000;
+    const poll = async () => {
+      const latest = await latestItemAt();
+      if (latest && Date.parse(latest) > Date.parse(since)) {
+        setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
+        setFetching(false);
+        setFetchMsg("Fresh news is in.");
+        startRefresh(() => router.refresh());
+        setTimeout(() => setFetchMsg(null), 4000);
+        return;
+      }
+      if (Date.now() > deadline) {
+        setFetching(false);
+        setFetchMsg("Still curating — check back in a minute.");
+        setTimeout(() => setFetchMsg(null), 8000);
+        return;
+      }
+      setTimeout(poll, 8000);
+    };
+    setTimeout(poll, 10000);
   }
 
   function onOpen(it: Item, rank: number) {
@@ -275,13 +306,13 @@ export default function Feed({
           </span>
           <button
             onClick={refresh}
-            disabled={refreshing}
+            disabled={fetching || refreshing}
             className="mono"
-            style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
-            aria-label="Refresh feed"
+            style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: fetching || refreshing ? "default" : "pointer", opacity: fetching || refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
+            aria-label="Fetch fresh news"
           >
-            <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
-            {refreshing ? "Refreshing" : "Refresh"}
+            <span style={{ display: "inline-block", animation: fetching || refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
+            {fetching ? "Fetching" : "Refresh"}
           </button>
           <a
             href="/tune"
@@ -299,6 +330,13 @@ export default function Feed({
           </button>
         </div>
       </div>
+
+      {fetchMsg && (
+        <div className="mono" style={{ fontSize: 11, letterSpacing: "0.05em", color: "var(--accent)", padding: "9px 0", borderBottom: "1px solid var(--rule)", display: "flex", alignItems: "center", gap: 8 }}>
+          {fetching && <span style={{ display: "inline-block", animation: "sigspin 0.8s linear infinite" }}>↻</span>}
+          {fetchMsg}
+        </div>
+      )}
 
       {/* masthead */}
       <header style={{ position: "relative", paddingTop: 12 }}>

@@ -20,6 +20,10 @@ on:
         description: "Curate for a specific date (YYYY-MM-DD); blank = today (UTC)"
         type: string
         default: ""
+      force:
+        description: "Force a curate run even if a drop happened recently (on-demand refresh)"
+        type: boolean
+        default: false
 
 jobs:
   curate:
@@ -54,7 +58,11 @@ jobs:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           EDITION_DATE: ${{ github.event.inputs.target_date }}
+          FORCE: ${{ github.event.inputs.force }}
         run: |
+          if [ "$FORCE" = "true" ]; then
+            echo "recent=false" >> "$GITHUB_OUTPUT"; echo "force=true -> on-demand curate"; exit 0
+          fi
           DAY="${EDITION_DATE:-$(date -u +%F)}"
           latest=$(curl -s "$SUPABASE_URL/rest/v1/items?select=created_at&edition_date=eq.$DAY&order=created_at.desc&limit=1" \
             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].created_at // empty')

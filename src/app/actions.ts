@@ -172,3 +172,57 @@ export async function reviseReaction(
   if (perTag !== 0 && tags.length) await bumpAffinity(uid, tags, perTag);
   return { ok: true };
 }
+
+// --- On-demand "fetch fresh news" (free path: triggers the cloud curator) ---
+const GH_REPO = "yashjain8505/ai-news-app";
+const GH_WORKFLOW = "daily-edition.yml";
+
+export async function requestFreshNews(): Promise<{
+  status: "started" | "already-running" | "unconfigured" | "error";
+  since: string;
+}> {
+  const since = new Date().toISOString();
+  const token = process.env.GITHUB_DISPATCH_TOKEN;
+  if (!token) return { status: "unconfigured", since };
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "signal-app",
+  };
+  try {
+    // Don't stack runs: if a curate is already going, just wait on that one.
+    const runsRes = await fetch(
+      `https://api.github.com/repos/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/runs?status=in_progress&per_page=1`,
+      { headers, cache: "no-store" }
+    );
+    if (runsRes.ok) {
+      const runs = await runsRes.json();
+      if ((runs.total_count ?? 0) > 0) return { status: "already-running", since };
+    }
+    const res = await fetch(
+      `https://api.github.com/repos/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
+      {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ ref: "main", inputs: { force: "true" } }),
+        cache: "no-store",
+      }
+    );
+    return { status: res.ok ? "started" : "error", since };
+  } catch {
+    return { status: "error", since };
+  }
+}
+
+// Newest active item time, so the client can detect when a fresh drop has landed.
+export async function latestItemAt(): Promise<string | null> {
+  const { data } = await supabase
+    .from("items")
+    .select("created_at")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.created_at as string | undefined) ?? null;
+}
