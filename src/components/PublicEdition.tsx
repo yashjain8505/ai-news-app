@@ -42,6 +42,9 @@ export default function PublicEdition({
   limit?: number;
 }) {
   const g = group(items);
+  // The lead image of the first non-empty section is the LCP element — load it
+  // eagerly with high priority instead of lazily.
+  const firstSection = ORDER.find((s) => (g[s]?.length ?? 0) > 0);
   return (
     <div>
       {ORDER.map((sec) => {
@@ -49,6 +52,7 @@ export default function PublicEdition({
         if (!all || all.length === 0) return null;
         const list = limit ? all.slice(0, limit) : all;
         const hasMore = limit != null && all.length > limit;
+        const eagerLead = sec === firstSection;
         return (
           <section key={sec} style={{ marginBottom: 44 }}>
             {showSectionHeaders && (
@@ -72,7 +76,7 @@ export default function PublicEdition({
                       <article>
                         {it.image_url && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img className="news-photo" src={it.image_url} alt={it.title} loading="lazy" style={{ width: "100%", height: 230, objectFit: "cover", marginBottom: 12 }} />
+                          <img className="news-photo" src={it.image_url} alt={it.title} loading={eagerLead ? "eager" : "lazy"} fetchPriority={eagerLead ? "high" : "auto"} style={{ width: "100%", height: 230, objectFit: "cover", marginBottom: 12 }} />
                         )}
                         <Meta it={it} now={now} size={11} />
                         <h3 className="display" style={{ fontSize: "clamp(23px,3vw,31px)", lineHeight: 1.1, margin: "8px 0 0", color: "var(--ink)" }}>
