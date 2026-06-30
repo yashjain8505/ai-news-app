@@ -63,24 +63,27 @@ async function PublicHome() {
     <>
       <JsonLd data={jsonLd} />
       <PublicChrome subtitle="Today&#8217;s AI briefing">
-        <h1 className="display" style={{ fontSize: "clamp(28px,4vw,42px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 16px" }}>
-          {syn?.headline ?? "Today in AI, curated"}
+        <div style={{ border: "1px solid var(--accent)", background: "var(--ph1)", padding: "12px 16px", margin: "0 0 28px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span className="serif" style={{ fontSize: 15, color: "var(--ink)" }}>
+            You&#8217;re reading the public edition. Answer 6 quick questions and we&#8217;ll tune it to your taste.
+          </span>
+          <a href="/welcome" className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 16px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", whiteSpace: "nowrap" }}>
+            Personalize &rarr;
+          </a>
+        </div>
+        <h1 className="display" style={{ fontSize: "clamp(28px,4vw,42px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 14px" }}>
+          {syn?.headline ?? "Today in AI"}
         </h1>
-        {syn?.synopsis ? (
-          <EditionLede synopsis={syn.synopsis} />
-        ) : (
-          <p className="serif" style={{ fontSize: 19, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 16px", maxWidth: "62ch" }}>
-            The day&#8217;s AI news, curated and refreshed three times a day: big-lab
-            power moves, notable funding and deals, obscure new tools, and the
-            sharpest reads.
+        {syn?.synopsis && <EditionLede synopsis={syn.synopsis} />}
+        <PublicEdition items={items} now={now} limit={5} />
+        <div style={{ marginTop: 8, borderTop: "3px double var(--ruleStrong)", paddingTop: 26, textAlign: "center" }}>
+          <p className="serif" style={{ fontSize: 18, color: "var(--ink)", margin: "0 0 14px" }}>
+            Like what you see? Get an edition tuned to what you actually care about.
           </p>
-        )}
-        <p className="mono" style={{ fontSize: 12, letterSpacing: "0.04em", color: "var(--dim)", margin: "0 0 30px" }}>
-          <a href="/welcome" style={{ color: "var(--accent)", textDecoration: "none" }}>
+          <a href="/welcome" className="mono" style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", padding: "12px 24px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", display: "inline-block" }}>
             Personalize your edition &rarr;
           </a>
-        </p>
-        <PublicEdition items={items} now={now} />
+        </div>
       </PublicChrome>
     </>
   );
