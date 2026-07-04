@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { QuizArticle } from "@/lib/types";
 import { completeOnboarding } from "@/app/actions";
 import { optImg } from "@/lib/img";
@@ -54,8 +53,8 @@ export default function Onboarding({
   articles: QuizArticle[];
   name: string;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<"calibrate" | "mix" | "done">("calibrate");
   const [idx, setIdx] = useState(0);
   const [slider, setSlider] = useState(3);
@@ -108,10 +107,18 @@ export default function Onboarding({
   function finish() {
     const weights: Record<string, number> = {};
     for (const t of TAGS) weights[t] = Math.round(mix[t] ?? 0);
+    setError(null);
     startTransition(async () => {
-      await completeOnboarding({ weights });
-      router.push("/");
-      router.refresh();
+      const res = await completeOnboarding({ weights });
+      if (res?.ok) {
+        // Hard navigation: guarantees a fresh server render of "/" so we land in
+        // the feed. A soft router.push can serve the cached "redirect to
+        // onboarding" payload and strand the user on this screen (they had to
+        // refresh manually). A full load re-evaluates the session + taste.
+        window.location.assign("/");
+      } else {
+        setError("Something went wrong saving your taste. Please try again.");
+      }
     });
   }
 
@@ -266,6 +273,11 @@ export default function Onboarding({
           >
             {pending ? "Building your briefing…" : "Enter Wortins"}
           </button>
+          {error && (
+            <p className="serif" style={{ fontSize: 14, color: "var(--accent)", margin: "14px 0 0" }}>
+              {error}
+            </p>
+          )}
         </div>
       )}
     </main>

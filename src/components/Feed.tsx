@@ -17,7 +17,14 @@ const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "articles", label: "Articles" },
   { key: "funding", label: "Funding" },
 ];
+// How many stories to reveal per "Explore more" click (also the first-page size).
 const PAGES: Record<Section, number> = { daily: 12, tools: 8, articles: 8, funding: 8 };
+const INITIAL_SHOWN: Record<Section, number> = {
+  daily: PAGES.daily,
+  tools: PAGES.tools,
+  articles: PAGES.articles,
+  funding: PAGES.funding,
+};
 
 function withHighlight(title: string, h: string | null, px: number): ReactNode {
   if (!h) return title;
@@ -34,26 +41,38 @@ function withHighlight(title: string, h: string | null, px: number): ReactNode {
   );
 }
 
-function NewsPhoto({ it, ratio }: { it: Item; ratio: string }) {
+// Clickable story photo. Renders NOTHING when there's no image (or it fails to
+// load) — so image-less stories become clean text-forward cards instead of an
+// awkward placeholder tile. The headline stays clickable independently.
+function CardPhoto({
+  it,
+  ratio,
+  rank,
+  onOpen,
+  style,
+}: {
+  it: Item;
+  ratio: string;
+  rank: number;
+  onOpen: (it: Item, rank: number) => void;
+  style?: React.CSSProperties;
+}) {
   const [failed, setFailed] = useState(false);
-  const ok = it.image_url && !failed;
+  if (!it.image_url || failed) return null;
   return (
-    <div className="news-photo" style={{ aspectRatio: ratio }}>
-      {ok ? (
-        // eslint-disable-next-line @next/next/no-img-element
+    <a
+      href={it.url ?? "#"}
+      onClick={() => onOpen(it, rank)}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ display: "block", ...style }}
+    >
+      <div className="news-photo" style={{ aspectRatio: ratio }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={optImg(it.image_url, 1200)} alt="" onError={() => setFailed(true)} />
-      ) : (
-        // Branded fallback so a missing/broken image reads as intentional,
-        // not a blank box (many source images are null or hotlink-blocked).
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "var(--ph1)" }}>
-          <span aria-hidden className="display" style={{ fontSize: "clamp(30px,6vw,52px)", lineHeight: 1, color: "var(--rule)" }}>W</span>
-          <span className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", padding: "0 14px", textAlign: "center" }}>
-            {it.source ?? "Wortins"}
-          </span>
-        </div>
-      )}
-      <div className="news-photo__screen" />
-    </div>
+        <div className="news-photo__screen" />
+      </div>
+    </a>
   );
 }
 
@@ -81,12 +100,9 @@ export default function Feed({
   const [active, setActive] = useState<Section>("daily");
   const [sel, setSel] = useState(todayIdx);
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [cursor, setCursor] = useState<Record<Section, number>>({
-    daily: 0,
-    tools: 0,
-    articles: 0,
-    funding: 0,
-  });
+  // How many stories are revealed per section. "Explore more" grows this; it
+  // never rotates, so stories are appended below, never swapped out.
+  const [shown, setShown] = useState<Record<Section, number>>(INITIAL_SHOWN);
   const [promptItem, setPromptItem] = useState<{ id: string; tags: string[] } | null>(
     null
   );
@@ -98,15 +114,12 @@ export default function Feed({
   const baseCountRef = useRef(0);
   const prevItemCount = useRef(items.length);
 
-  useEffect(() => {
-    setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
-    setPromptItem(null);
-  }, [sel]);
-
-  // When a fresh drop lands (more items than before), jump to the top so the newest shows.
+  // When a fresh drop lands (more items than before), collapse back to page one
+  // so the newest stories show at the top.
   useEffect(() => {
     if (items.length > prevItemCount.current) {
-      setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
+      setShown(INITIAL_SHOWN);
+      setPromptItem(null);
     }
     prevItemCount.current = items.length;
   }, [items.length]);
@@ -158,28 +171,30 @@ export default function Feed({
     };
   }, []);
 
-  const selectedDate = days[sel]?.date ?? null;
-  const grouped = useMemo(() => {
-    const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
-    for (const it of items)
-      if (it.edition_date === selectedDate) g[it.section]?.push(it);
-    return g;
-  }, [items, selectedDate]);
+  const todayDate = days[todayIdx]?.date ?? null;
 
-  const total =
-    grouped.daily.length + grouped.tools.length + grouped.articles.length;
-  const hasContent = total > 0;
-  const fullList = grouped[active] ?? [];
-  const pageSize = PAGES[active];
-  const startAt = fullList.length ? cursor[active] % fullList.length : 0;
-  const list =
-    fullList.length <= pageSize
-      ? fullList
-      : Array.from(
-          { length: pageSize },
-          (_, i) => fullList[(startAt + i) % fullList.length]
-        );
-  const canExplore = fullList.length > pageSize;
+  // Per-section pools spanning EVERY loaded edition, today's stories first (so
+  // the lead/rail are always today's), then older editions in taste order. This
+  // is what lets "Explore more" pull in older days once today's run out.
+  const pools = useMemo(() => {
+    const today: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
+    const older: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
+    for (const it of items) {
+      const bucket = it.edition_date === todayDate ? today : older;
+      bucket[it.section]?.push(it);
+    }
+    return {
+      daily: [...today.daily, ...older.daily],
+      tools: [...today.tools, ...older.tools],
+      articles: [...today.articles, ...older.articles],
+      funding: [...today.funding, ...older.funding],
+    } as Record<Section, Item[]>;
+  }, [items, todayDate]);
+
+  const fullList = pools[active] ?? [];
+  const list = fullList.slice(0, shown[active]);
+  const canExplore = fullList.length > shown[active];
+  const hasContent = fullList.length > 0;
 
   function toggleMode() {
     const next: Mode = mode === "dark" ? "light" : "dark";
@@ -198,7 +213,7 @@ export default function Feed({
     baseCountRef.current = items.length;
     setActive("daily");
     setSel(todayIdx);
-    setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
+    setShown(INITIAL_SHOWN);
     startRefresh(() => router.refresh());
   }
 
@@ -212,9 +227,9 @@ export default function Feed({
     } catch {}
   }
 
+  // Reveal the next batch BELOW the current ones (append, never swap).
   function exploreMore() {
-    const len = fullList.length || 1;
-    setCursor((c) => ({ ...c, [active]: (c[active] + pageSize) % len }));
+    setShown((s) => ({ ...s, [active]: s[active] + PAGES[active] }));
     setPromptItem(null);
   }
 
@@ -290,8 +305,6 @@ export default function Feed({
 
   return (
     <main className="bs-main" style={{ position: "relative" }}>
-      {/* controls moved to the dateline row below */}
-
       {toast && (
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.05em", color: "var(--accent)", padding: "8px 0", borderBottom: "1px solid var(--rule)" }}>
           {toast}
@@ -373,16 +386,16 @@ export default function Feed({
       {!hasContent ? (
         <div style={{ marginTop: 36, border: "1px solid var(--ruleStrong)", padding: "60px 24px", textAlign: "center", background: "var(--ph1)" }}>
           <p className="display" style={{ fontSize: 22, color: "var(--ink)", margin: 0 }}>
-            No stories filed for {day?.big} yet.
+            No stories in this section yet.
           </p>
           <p className="serif" style={{ fontStyle: "italic", fontSize: 15, color: "var(--dim)", margin: "8px 0 0" }}>
-            We only began keeping the archive recently.
+            Fresh editions land every morning — check back soon.
           </p>
           <button
-            onClick={() => setSel(todayIdx)}
+            onClick={refresh}
             style={{ marginTop: 20, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "10px 20px", fontFamily: "inherit", fontSize: 13, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}
           >
-            Back to Today
+            Refresh
           </button>
         </div>
       ) : (
@@ -392,10 +405,8 @@ export default function Feed({
               <div className="bs-lead">
                 {lead && (
                   <article>
-                    <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ display: "block" }}>
-                      <NewsPhoto it={lead} ratio="16/9" />
-                    </a>
-                    <div style={{ marginTop: 16 }}>{meta(lead, "—", 11, true)}</div>
+                    <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
+                    <div style={{ marginTop: lead.image_url ? 16 : 0 }}>{meta(lead, "—", 11, true)}</div>
                     <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
@@ -442,22 +453,25 @@ export default function Feed({
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 24 }}>
                     <span className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", whiteSpace: "nowrap" }}>
-                      More Today
+                      More stories
                     </span>
                     <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
                   </div>
                   <div className="bs-more">
                     {more.map((it, i) => (
                       <article key={it.id}>
-                        <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: 13 }}>
-                          <NewsPhoto it={it} ratio="16/10" />
-                        </a>
+                        <CardPhoto it={it} ratio="16/10" rank={i + 3} onOpen={onOpen} style={{ marginBottom: 13 }} />
                         <div>{meta(it, "·", 10, false)}</div>
                         <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
                           <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "8px 0 0", color: "var(--ink)" }}>
                             {it.title}
                           </h4>
                         </a>
+                        {it.summary && (
+                          <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "8px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                            {it.summary}
+                          </p>
+                        )}
                         {it.read_time && (
                           <div className="mono" style={{ fontSize: 11, color: "var(--faint)", marginTop: 9 }}>
                             {it.read_time} min read

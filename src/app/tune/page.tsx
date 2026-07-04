@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import type { Weights } from "@/lib/taste";
 import Tune from "@/components/Tune";
@@ -15,8 +15,12 @@ type Reaction = {
 };
 
 export default async function TunePage() {
-  const uid = (await cookies()).get("sig_uid")?.value;
-  if (!uid) redirect("/welcome");
+  // Identity comes from the Google session (Supabase Auth) — NOT the old
+  // `sig_uid` cookie. Reading the stale cookie looked up the wrong user and
+  // rendered every taste bar at 0%.
+  const user = await getSessionUser();
+  if (!user) redirect("/welcome");
+  const uid = user.id;
 
   const [{ data: taste }, { data: rows }] = await Promise.all([
     supabase.from("user_taste").select("weights").eq("user_id", uid).maybeSingle(),
