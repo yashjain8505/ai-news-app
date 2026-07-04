@@ -9,6 +9,7 @@ import { getLatestEditionDate, getEditionItems, getEditionSynopsis } from "@/lib
 import Feed from "@/components/Feed";
 import PublicChrome from "@/components/PublicChrome";
 import PublicEdition from "@/components/PublicEdition";
+import OnboardingHero from "@/components/OnboardingHero";
 import EditionLede from "@/components/EditionLede";
 import JsonLd from "@/components/JsonLd";
 
@@ -62,18 +63,28 @@ async function PublicHome() {
   return (
     <>
       <JsonLd data={jsonLd} />
+      <OnboardingHero />
       <PublicChrome subtitle="Today&#8217;s AI briefing">
-        <div style={{ border: "1px solid var(--accent)", background: "var(--ph1)", padding: "12px 16px", margin: "0 0 28px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <span className="serif" style={{ fontSize: 15, color: "var(--ink)" }}>
-            You&#8217;re reading the public edition. Answer 6 quick questions and we&#8217;ll tune it to your taste.
-          </span>
-          <a href="/welcome" className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 16px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", whiteSpace: "nowrap" }}>
-            Personalize &rarr;
+        {/* Prominent personalize hero — the conversion-forward top of the page. */}
+        <section style={{ border: "1px solid var(--ruleStrong)", background: "var(--ph1)", padding: "clamp(24px,4vw,40px)", margin: "0 0 40px" }}>
+          <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 14 }}>
+            Your edition, your way
+          </div>
+          <h1 className="display" style={{ fontSize: "clamp(30px,5.2vw,50px)", lineHeight: 1.03, color: "var(--ink)", margin: 0, maxWidth: "18ch" }}>
+            AI news, tuned to what you actually care about.
+          </h1>
+          <p className="serif" style={{ fontSize: 18, lineHeight: 1.5, color: "var(--muted)", margin: "16px 0 26px", maxWidth: "56ch" }}>
+            Skip the firehose. Tell us your taste in six quick questions and we&#8217;ll build a daily edition around the labs, tools and stories you follow.
+          </p>
+          <a href="/welcome" className="mono" style={{ display: "inline-block", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", padding: "15px 28px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none" }}>
+            Answer 6 quick questions &rarr; your edition
           </a>
-        </div>
-        <h1 className="display" style={{ fontSize: "clamp(28px,4vw,42px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 14px" }}>
+        </section>
+
+        {/* Full day's edition — always server-rendered for crawlers and scroll-readers. */}
+        <h2 className="display" style={{ fontSize: "clamp(26px,4vw,40px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 14px" }}>
           {syn?.headline ?? "Today in AI"}
-        </h1>
+        </h2>
         {syn?.synopsis && <EditionLede synopsis={syn.synopsis} />}
         <PublicEdition items={items} now={now} limit={5} />
         <div style={{ marginTop: 8, borderTop: "3px double var(--ruleStrong)", paddingTop: 26, textAlign: "center" }}>
