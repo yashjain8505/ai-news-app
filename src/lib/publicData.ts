@@ -149,6 +149,35 @@ export async function getIndexableStorySlugs(
   return (data ?? []) as IndexableStorySlug[];
 }
 
+// Recent stories that carry an original take — title + take + link — so
+// /llms.txt can hand AI models actual readable content, not just links.
+export async function getRecentTakes(limit = 30): Promise<
+  {
+    slug: string;
+    title: string;
+    source: string | null;
+    section: Section;
+    wortins_take: string;
+  }[]
+> {
+  const { data } = await supabase
+    .from("items")
+    .select("slug, title, source, section, wortins_take")
+    .eq("is_active", true)
+    .not("wortins_take", "is", null)
+    .neq("wortins_take", "")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as {
+    slug: string;
+    title: string;
+    source: string | null;
+    section: Section;
+    wortins_take: string;
+  }[];
+}
+
 export type EditionMeta = { headline: string | null; synopsis: string | null };
 
 // Original per-edition synthesis (the curator's "read" of the day) — the
