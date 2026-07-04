@@ -99,15 +99,19 @@ export default function OnboardingHero() {
           className="mono"
           style={{
             position: "absolute",
-            top: 12,
-            right: 14,
+            top: 8,
+            right: 8,
+            width: 36,
+            height: 36,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             background: "transparent",
             border: 0,
             color: "var(--dim)",
-            fontSize: 20,
+            fontSize: 24,
             lineHeight: 1,
             cursor: "pointer",
-            padding: 4,
           }}
         >
           &times;
