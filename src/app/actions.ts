@@ -82,6 +82,28 @@ export async function recordSignal(
   return { ok: true };
 }
 
+// Explicit 1-6 rating from the on-card prompt after a read. Maps to a graded
+// affinity nudge (1 = strong dislike ... 6 = strong like) and stores a coarse
+// like/less/neutral in the interactions log.
+export async function recordRating(
+  itemId: string,
+  rating: number,
+  tags: string[]
+) {
+  const uid = (await cookies()).get(UID)?.value;
+  if (!uid) return { ok: false };
+  const r = Math.max(1, Math.min(6, Math.round(rating)));
+  const action = r <= 2 ? "less" : r >= 5 ? "like" : "neutral";
+  await supabase
+    .from("interactions")
+    .insert({ user_id: uid, item_id: itemId, action });
+  const n = tags.length || 1;
+  // Centre at 3.5: 6 -> +1.2/n, 1 -> -1.2/n, 4 -> slight up, 3 -> slight down.
+  const perTag = ((r - 3.5) / 2.5) * (1.2 / n);
+  if (tags.length) await bumpAffinity(uid, tags, perTag);
+  return { ok: true };
+}
+
 export async function recordEngagement(
   itemId: string,
   tags: string[],

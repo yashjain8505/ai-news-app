@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Item, Section } from "@/lib/types";
-import { recordEngagement, recordSignal } from "@/app/actions";
+import { recordEngagement, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 
 type Day = { label: string; date: string; big: string; full: string };
@@ -33,16 +33,23 @@ function withHighlight(title: string, h: string | null, px: number): ReactNode {
   );
 }
 
-function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
-  e.currentTarget.style.display = "none";
-}
-
 function NewsPhoto({ it, ratio }: { it: Item; ratio: string }) {
+  const [failed, setFailed] = useState(false);
+  const ok = it.image_url && !failed;
   return (
     <div className="news-photo" style={{ aspectRatio: ratio }}>
-      {it.image_url && (
+      {ok ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={it.image_url} alt="" onError={hideImg} />
+        <img src={it.image_url!} alt="" onError={() => setFailed(true)} />
+      ) : (
+        // Branded fallback so a missing/broken image reads as intentional,
+        // not a blank box (many source images are null or hotlink-blocked).
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "var(--ph1)" }}>
+          <span aria-hidden className="display" style={{ fontSize: "clamp(30px,6vw,52px)", lineHeight: 1, color: "var(--rule)" }}>W</span>
+          <span className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", padding: "0 14px", textAlign: "center" }}>
+            {it.source ?? "Wortins"}
+          </span>
+        </div>
       )}
       <div className="news-photo__screen" />
     </div>
@@ -188,6 +195,8 @@ export default function Feed({
     setPromptItem(null);
     refreshedRef.current = true;
     baseCountRef.current = items.length;
+    setActive("daily");
+    setSel(todayIdx);
     setCursor({ daily: 0, tools: 0, articles: 0, funding: 0 });
     startRefresh(() => router.refresh());
   }
@@ -208,30 +217,34 @@ export default function Feed({
     setPromptItem(null);
   }
 
-  function answer(a: "like" | "less" | "neutral") {
-    if (promptItem) recordSignal(promptItem.id, a, promptItem.tags);
+  function rate(r: number) {
+    if (promptItem) recordRating(promptItem.id, r, promptItem.tags);
     setPromptItem(null);
   }
 
   function cardPrompt(it: Item) {
     if (promptItem?.id !== it.id) return null;
-    const btn: React.CSSProperties = {
-      fontFamily: "inherit",
-      fontSize: 12,
-      padding: "5px 13px",
-      border: "1px solid var(--sep)",
-      background: "transparent",
-      color: "var(--ink)",
-      cursor: "pointer",
-    };
     return (
-      <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, border: "1px solid var(--accent)", padding: "10px 12px", background: "var(--ph1)" }}>
-        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", marginRight: 4 }}>
-          How was this read?
+      <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, border: "1px solid var(--accent)", padding: "10px 12px", background: "var(--ph1)" }}>
+        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)" }}>
+          Rate this read
         </span>
-        <button onClick={() => answer("less")} style={btn}>Bad</button>
-        <button onClick={() => answer("neutral")} style={btn}>Neutral</button>
-        <button onClick={() => answer("like")} style={{ ...btn, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)" }}>Good</button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {[1, 2, 3, 4, 5, 6].map((r) => (
+            <button
+              key={r}
+              onClick={() => rate(r)}
+              aria-label={`Rate ${r} out of 6`}
+              className="mono"
+              style={{ width: 30, height: 30, fontSize: 13, border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <span className="mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--faint)" }}>
+          1 skip · 6 loved it
+        </span>
       </div>
     );
   }

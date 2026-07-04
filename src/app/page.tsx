@@ -131,14 +131,21 @@ export default async function Home() {
 
   const weights = (tasteData?.weights as Weights) ?? null;
   const sources = (tasteData?.sources as string[]) ?? null;
+  const nowMs = Date.now();
   const items = ((itemsData ?? []) as Item[])
-    .map((it) => ({ it, s: scoreItem(it.tags, weights, it.source, sources) }))
-    .sort(
-      (a, b) =>
-        b.s - a.s ||
-        (Date.parse(b.it.published_at ?? "") || 0) -
-          (Date.parse(a.it.published_at ?? "") || 0)
-    )
+    .map((it) => {
+      const pub = Date.parse(it.published_at ?? "") || 0;
+      const hoursAgo = pub ? (nowMs - pub) / 3_600_000 : 999;
+      // Freshness boost so genuinely new stories surface near the top without
+      // abandoning taste (peaks ~+26 for brand-new, ~half at 3.5h, fades by ~12h).
+      const recency = 26 * Math.exp(-hoursAgo / 5);
+      return {
+        it,
+        s: scoreItem(it.tags, weights, it.source, sources) + recency,
+        pub,
+      };
+    })
+    .sort((a, b) => b.s - a.s || b.pub - a.pub)
     .map((x) => x.it);
 
   const now = Date.now();
