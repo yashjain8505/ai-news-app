@@ -276,43 +276,7 @@ export default function Feed({
 
   return (
     <main className="bs-main" style={{ position: "relative" }}>
-      {/* utility line */}
-      <div
-        className="mono"
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.04em", color: "var(--faint)", padding: "12px 0", borderBottom: "1px solid var(--rule)" }}
-      >
-        <span>{name ? `Welcome back, ${name}` : "Welcome back"}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
-            {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
-          </span>
-          <button
-            onClick={refresh}
-            disabled={refreshing}
-            className="mono"
-            style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
-            aria-label="Refresh feed"
-          >
-            <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
-            {refreshing ? "Refreshing" : "Refresh"}
-          </button>
-          <a
-            href="/tune"
-            className="mono"
-            style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
-          >
-            Tune
-          </a>
-          <button
-            onClick={toggleMode}
-            className="mono"
-            style={{ fontSize: 11, letterSpacing: "0.04em", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: "pointer" }}
-          >
-            {mode === "dark" ? "☀ Light" : "☾ Dark"}
-          </button>
-        </div>
-      </div>
+      {/* controls moved to the dateline row below */}
 
       {toast && (
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.05em", color: "var(--accent)", padding: "8px 0", borderBottom: "1px solid var(--rule)" }}>
@@ -335,6 +299,11 @@ export default function Feed({
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
               The daily AI briefing, curated to your taste
             </div>
+            {name && (
+              <div className="mono" style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--faint)", marginTop: 8 }}>
+                Welcome back, {name}
+              </div>
+            )}
           </div>
           <div className="mono" style={{ flexShrink: 0, transform: "rotate(-7deg)", marginTop: 6, border: "2px solid var(--accent)", color: "var(--accent)", fontWeight: 700, fontSize: 10, letterSpacing: "0.06em", lineHeight: 1.35, padding: "6px 9px", textAlign: "center" }}>
             EDITION&#8470; {editionNo}
@@ -345,25 +314,57 @@ export default function Feed({
           </div>
         </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
-        {/* dateline with prev/next-day arrows */}
-        <div className="mono" style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
-          <button
-            onClick={() => setSel(Math.max(0, sel - 1))}
-            aria-label="Previous day"
-            disabled={sel <= 0}
-            style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel <= 0 ? "default" : "pointer", opacity: sel <= 0 ? 0.3 : 1, padding: 0 }}
-          >
-            &#8249;
-          </button>
-          <span style={{ color: "var(--strong)", fontWeight: 700 }}>{day?.full}</span>
-          <button
-            onClick={() => setSel(Math.min(todayIdx, sel + 1))}
-            aria-label="Next day"
-            disabled={sel >= todayIdx}
-            style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel >= todayIdx ? "default" : "pointer", opacity: sel >= todayIdx ? 0.3 : 1, padding: 0 }}
-          >
-            &#8250;
-          </button>
+        {/* dateline (day nav) + controls, on the row below the thick rule */}
+        <div className="mono" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, rowGap: 8, flexWrap: "wrap", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => setSel(Math.max(0, sel - 1))}
+              aria-label="Previous day"
+              disabled={sel <= 0}
+              style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel <= 0 ? "default" : "pointer", opacity: sel <= 0 ? 0.3 : 1, padding: 0 }}
+            >
+              &#8249;
+            </button>
+            <span style={{ color: "var(--strong)", fontWeight: 700 }}>{day?.full}</span>
+            <button
+              onClick={() => setSel(Math.min(todayIdx, sel + 1))}
+              aria-label="Next day"
+              disabled={sel >= todayIdx}
+              style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel >= todayIdx ? "default" : "pointer", opacity: sel >= todayIdx ? 0.3 : 1, padding: 0 }}
+            >
+              &#8250;
+            </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--faint)", letterSpacing: "0.04em" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
+              {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
+            </span>
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="mono"
+              style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
+              aria-label="Refresh feed"
+            >
+              <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
+              {refreshing ? "Refreshing" : "Refresh"}
+            </button>
+            <a
+              href="/tune"
+              className="mono"
+              style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
+            >
+              Tune
+            </a>
+            <button
+              onClick={toggleMode}
+              className="mono"
+              style={{ fontSize: 11, letterSpacing: "0.04em", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: "pointer" }}
+            >
+              {mode === "dark" ? "☀ Light" : "☾ Dark"}
+            </button>
+          </div>
         </div>
       </header>
 
