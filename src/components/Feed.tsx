@@ -50,12 +50,16 @@ function CardPhoto({
   rank,
   onOpen,
   style,
+  className,
+  imgWidth = 1200,
 }: {
   it: Item;
   ratio: string;
   rank: number;
   onOpen: (it: Item, rank: number) => void;
   style?: React.CSSProperties;
+  className?: string;
+  imgWidth?: number;
 }) {
   const [failed, setFailed] = useState(false);
   if (!it.image_url || failed) return null;
@@ -65,11 +69,12 @@ function CardPhoto({
       onClick={() => onOpen(it, rank)}
       target="_blank"
       rel="noopener noreferrer"
+      className={className}
       style={{ display: "block", ...style }}
     >
       <div className="news-photo" style={{ aspectRatio: ratio }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={optImg(it.image_url, 1200)} alt="" onError={() => setFailed(true)} />
+        <img src={optImg(it.image_url, imgWidth)} alt="" onError={() => setFailed(true)} />
         <div className="news-photo__screen" />
       </div>
     </a>
@@ -451,33 +456,38 @@ export default function Feed({
 
               {more.length > 0 && (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 10 }}>
                     <span className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", whiteSpace: "nowrap" }}>
                       More stories
                     </span>
                     <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
                   </div>
+                  {/* Row list: text-forward, with a small thumbnail on the right only
+                      when the story has an image. Row height follows the text, so
+                      image-less stories never leave a hole (no equal-height grid). */}
                   <div className="bs-more">
                     {more.map((it, i) => (
-                      <article key={it.id}>
-                        <CardPhoto it={it} ratio="16/10" rank={i + 3} onOpen={onOpen} style={{ marginBottom: 13 }} />
-                        <div>{meta(it, "·", 10, false)}</div>
-                        <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
-                          <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "8px 0 0", color: "var(--ink)" }}>
-                            {it.title}
-                          </h4>
-                        </a>
-                        {it.summary && (
-                          <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "8px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                            {it.summary}
-                          </p>
-                        )}
-                        {it.read_time && (
-                          <div className="mono" style={{ fontSize: 11, color: "var(--faint)", marginTop: 9 }}>
-                            {it.read_time} min read
-                          </div>
-                        )}
-                        {cardPrompt(it)}
+                      <article className="bs-story" key={it.id}>
+                        <div className="bs-story__body">
+                          <div>{meta(it, "·", 10, false)}</div>
+                          <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
+                            <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
+                              {it.title}
+                            </h4>
+                          </a>
+                          {it.summary && (
+                            <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {it.summary}
+                            </p>
+                          )}
+                          {it.read_time && (
+                            <div className="mono" style={{ fontSize: 11, color: "var(--faint)", marginTop: 9 }}>
+                              {it.read_time} min read
+                            </div>
+                          )}
+                          {cardPrompt(it)}
+                        </div>
+                        <CardPhoto it={it} ratio="4/3" rank={i + 3} onOpen={onOpen} className="bs-story__thumb" imgWidth={400} />
                       </article>
                     ))}
                   </div>
