@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import {
   scoreItem,
@@ -36,32 +36,31 @@ async function bumpAffinity(uid: string, tags: string[], perTag: number) {
     .eq("user_id", uid);
 }
 
-const UID = "sig_uid";
-const UNAME = "sig_name";
-const YEAR = 60 * 60 * 24 * 365;
+export async function completeOnboarding(input: { weights: Weights }) {
+  const user = await getSessionUser();
+  if (!user) return { ok: false };
+  const userId = user.id;
+  const m = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const name =
+    (m.full_name as string) ||
+    (m.name as string) ||
+    user.email?.split("@")[0] ||
+    "Reader";
 
-export async function completeOnboarding(input: {
-  name: string;
-  email: string;
-  weights: Weights;
-}) {
-  const userId = crypto.randomUUID();
   await supabase
     .from("users")
-    .insert({ id: userId, name: input.name, email: input.email });
-  await supabase.from("user_taste").insert({
-    user_id: userId,
-    weights: normalizeMix(input.weights),
-    prior: input.weights,
-    affinity: input.weights,
-    sources: [],
-    events: 0,
-  });
-
-  const jar = await cookies();
-  const opts = { path: "/", maxAge: YEAR, sameSite: "lax" as const };
-  jar.set(UID, userId, opts);
-  jar.set(UNAME, input.name, opts);
+    .upsert({ id: userId, name, email: user.email ?? null }, { onConflict: "id" });
+  await supabase.from("user_taste").upsert(
+    {
+      user_id: userId,
+      weights: normalizeMix(input.weights),
+      prior: input.weights,
+      affinity: input.weights,
+      sources: [],
+      events: 0,
+    },
+    { onConflict: "user_id" }
+  );
   return { ok: true };
 }
 
@@ -70,7 +69,7 @@ export async function recordSignal(
   action: "like" | "less" | "neutral",
   tags: string[]
 ) {
-  const uid = (await cookies()).get(UID)?.value;
+  const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   await supabase
     .from("interactions")
@@ -90,7 +89,7 @@ export async function recordRating(
   rating: number,
   tags: string[]
 ) {
-  const uid = (await cookies()).get(UID)?.value;
+  const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   const r = Math.max(1, Math.min(6, Math.round(rating)));
   const action = r <= 2 ? "less" : r >= 5 ? "like" : "neutral";
@@ -112,7 +111,7 @@ export async function recordEngagement(
   dwellMs?: number,
   mobile?: boolean
 ) {
-  const uid = (await cookies()).get(UID)?.value;
+  const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   await supabase
     .from("interactions")
@@ -131,7 +130,7 @@ export async function getSectionItems(
   section: Section,
   dateISO: string
 ): Promise<Item[]> {
-  const uid = (await cookies()).get(UID)?.value;
+  const uid = (await getSessionUser())?.id;
   const [itemsRes, tasteRes] = await Promise.all([
     supabase
       .from("items")
@@ -158,7 +157,7 @@ export async function getSectionItems(
 // Manual edit of the taste mix from the Tune page: this is an explicit baseline,
 // so set weights + affinity + the decay-target prior all to the edited mix.
 export async function saveMix(weights: Weights) {
-  const uid = (await cookies()).get(UID)?.value;
+  const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   const norm = normalizeMix(weights);
   await supabase
@@ -184,7 +183,7 @@ export async function reviseReaction(
   prev: "like" | "less" | "neutral",
   next: "like" | "less" | "neutral"
 ) {
-  const uid = (await cookies()).get(UID)?.value;
+  const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   await supabase
     .from("interactions")

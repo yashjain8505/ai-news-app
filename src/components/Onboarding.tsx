@@ -46,24 +46,22 @@ function emptyScores(): Record<string, number> {
   return Object.fromEntries(TAGS.map((t) => [t, 0]));
 }
 
-export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
+export default function Onboarding({
+  articles,
+  name,
+}: {
+  articles: QuizArticle[];
+  name: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [phase, setPhase] = useState<"details" | "calibrate" | "mix" | "done">(
-    "details"
-  );
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [phase, setPhase] = useState<"calibrate" | "mix" | "done">("calibrate");
   const [idx, setIdx] = useState(0);
   const [slider, setSlider] = useState(3);
   const [scores, setScores] = useState<Record<string, number>>(emptyScores());
   const [mix, setMix] = useState<Record<string, number>>({});
 
-  const cards = useMemo(
-    () => shuffle(articles).slice(0, CARDS),
-    [articles]
-  );
-  const emailOk = /\S+@\S+\.\S+/.test(email);
+  const cards = useMemo(() => shuffle(articles).slice(0, CARDS), [articles]);
 
   function computeMix(s: Record<string, number>) {
     const raw = TAGS.map((t) => Math.max(0, s[t] ?? 0));
@@ -110,7 +108,7 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
     const weights: Record<string, number> = {};
     for (const t of TAGS) weights[t] = Math.round(mix[t] ?? 0);
     startTransition(async () => {
-      await completeOnboarding({ name, email, weights });
+      await completeOnboarding({ weights });
       router.push("/");
       router.refresh();
     });
@@ -136,49 +134,6 @@ export default function Onboarding({ articles }: { articles: QuizArticle[] }) {
           Wortins
         </span>
       </div>
-
-      {phase === "details" && (
-        <div>
-          <h1 className="display" style={{ fontSize: 34, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
-            Let&#8217;s tune your briefing.
-          </h1>
-          <p className="serif" style={{ fontSize: 17, fontStyle: "italic", color: "var(--muted)", marginTop: 10 }}>
-            Two minutes. We&#8217;ll learn your taste from real headlines, no jargon.
-          </p>
-          <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 16 }}>
-            <label style={{ display: "block" }}>
-              <span className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>
-                Your name
-              </span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jane Doe"
-                style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "11px 14px", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", fontFamily: "inherit", fontSize: 16 }}
-              />
-            </label>
-            <label style={{ display: "block" }}>
-              <span className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>
-                Email
-              </span>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                placeholder="jane@email.com"
-                style={{ marginTop: 6, width: "100%", boxSizing: "border-box", padding: "11px 14px", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", fontFamily: "inherit", fontSize: 16 }}
-              />
-            </label>
-          </div>
-          <button
-            disabled={!name.trim() || !emailOk}
-            onClick={() => setPhase("calibrate")}
-            style={{ marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: !name.trim() || !emailOk ? 0.4 : 1 }}
-          >
-            Start
-          </button>
-        </div>
-      )}
 
       {phase === "calibrate" && cards[idx] && (
         <div>

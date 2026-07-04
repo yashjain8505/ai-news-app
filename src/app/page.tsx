@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { Item } from "@/lib/types";
 import { scoreItem, type Weights } from "@/lib/taste";
@@ -114,10 +116,10 @@ const FULL = [
 const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default async function Home() {
+  const user = await getSessionUser();
+  if (!user) return <PublicHome />;
+  const uid = user.id;
   const jar = await cookies();
-  const uid = jar.get("sig_uid")?.value;
-  if (!uid) return <PublicHome />;
-  const name = jar.get("sig_name")?.value ?? null;
   const initialMode = jar.get("sig_theme")?.value === "dark" ? "dark" : "light";
 
   const [{ data: itemsData }, { data: tasteData }] = await Promise.all([
@@ -128,6 +130,16 @@ export default async function Home() {
       .eq("user_id", uid)
       .maybeSingle(),
   ]);
+
+  // Signed in but no taste profile yet → send to calibration.
+  if (!tasteData) redirect("/welcome");
+
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const name =
+    (meta.full_name as string) ||
+    (meta.name as string) ||
+    user.email?.split("@")[0] ||
+    null;
 
   const weights = (tasteData?.weights as Weights) ?? null;
   const sources = (tasteData?.sources as string[]) ?? null;
