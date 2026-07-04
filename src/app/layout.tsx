@@ -9,6 +9,7 @@ import {
 import "./globals.css";
 import { SITE } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
+import Script from "next/script";
 
 const display = Libre_Caslon_Display({
   subsets: ["latin"],
@@ -96,6 +97,16 @@ export default async function RootLayout({
             ],
           }}
         />
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-2FVE41J49X"
+          strategy="afterInteractive"
+        />
+        <Script id="ga4" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-2FVE41J49X');`}
+        </Script>
         {children}
       </body>
     </html>
