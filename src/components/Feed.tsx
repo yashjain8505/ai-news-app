@@ -312,42 +312,14 @@ export default function Feed({
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
               The daily AI briefing, curated to your taste
             </div>
-            {name && (
-              <div className="mono" style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--faint)", marginTop: 8 }}>
-                Welcome back, {name}
-              </div>
-            )}
-          </div>
-          <div className="mono" style={{ flexShrink: 0, transform: "rotate(-7deg)", marginTop: 6, border: "2px solid var(--accent)", color: "var(--accent)", fontWeight: 700, fontSize: 10, letterSpacing: "0.06em", lineHeight: 1.35, padding: "6px 9px", textAlign: "center" }}>
-            EDITION&#8470; {editionNo}
-            <br />
-            {stampDate}
-            <br />
-            &#9733; TODAY &#9733;
+            <div className="mono" style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)", fontWeight: 700, marginTop: 10 }}>
+              {day?.full}
+            </div>
           </div>
         </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
-        {/* dateline (day nav) + controls, on the row below the thick rule */}
-        <div className="mono" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, rowGap: 8, flexWrap: "wrap", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              onClick={() => setSel(Math.max(0, sel - 1))}
-              aria-label="Previous day"
-              disabled={sel <= 0}
-              style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel <= 0 ? "default" : "pointer", opacity: sel <= 0 ? 0.3 : 1, padding: 0 }}
-            >
-              &#8249;
-            </button>
-            <span style={{ color: "var(--strong)", fontWeight: 700 }}>{day?.full}</span>
-            <button
-              onClick={() => setSel(Math.min(todayIdx, sel + 1))}
-              aria-label="Next day"
-              disabled={sel >= todayIdx}
-              style={{ fontFamily: "inherit", fontSize: 16, lineHeight: 1, border: 0, background: "transparent", color: "var(--dim)", cursor: sel >= todayIdx ? "default" : "pointer", opacity: sel >= todayIdx ? 0.3 : 1, padding: 0 }}
-            >
-              &#8250;
-            </button>
-          </div>
+        {/* controls row (Refresh / Tune / theme), below the thick rule */}
+        <div className="mono" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, rowGap: 8, flexWrap: "wrap", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--faint)", letterSpacing: "0.04em" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
