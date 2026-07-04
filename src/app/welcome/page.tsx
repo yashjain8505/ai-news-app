@@ -7,6 +7,8 @@ import SignInButton from "@/components/SignInButton";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Sign in" };
+
 function displayName(user: {
   email?: string | null;
   user_metadata?: Record<string, unknown>;

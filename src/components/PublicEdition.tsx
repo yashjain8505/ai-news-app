@@ -22,6 +22,12 @@ function headlineLink(it: Item): {
   return { href: it.url ?? "#", target: "_blank", rel: "noopener noreferrer" };
 }
 
+// Prefer our original take (fuller, TLDR-style) over the one-line source dek, so
+// every listing item carries real, readable, original content.
+function blurb(it: Item): string | null {
+  return it.wortins_take || it.summary || null;
+}
+
 function group(items: Item[]): Record<Section, Item[]> {
   const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) g[it.section]?.push(it);
@@ -97,9 +103,9 @@ export default function PublicEdition({
                             {it.title}
                           </a>
                         </h3>
-                        {it.summary && (
+                        {blurb(it) && (
                           <p className="serif" style={{ fontSize: 17, lineHeight: 1.55, color: "var(--muted)", margin: "10px 0 0", maxWidth: "62ch" }}>
-                            {it.summary}
+                            {blurb(it)}
                           </p>
                         )}
                       </article>
@@ -116,6 +122,11 @@ export default function PublicEdition({
                               {it.title}
                             </a>
                           </h3>
+                          {blurb(it) && (
+                            <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {blurb(it)}
+                            </p>
+                          )}
                         </div>
                       </article>
                     )}
