@@ -271,8 +271,8 @@ export default function Feed({
   }
 
   const lead = list[0];
-  const rail = list.slice(1, 3);
-  const more = list.slice(3);
+  const rail = list.slice(1, 4);
+  const more = list.slice(4);
   const day = days[sel];
 
   const exploreBtn = canExplore ? (
@@ -299,7 +299,7 @@ export default function Feed({
 
       {/* masthead */}
       <header style={{ position: "relative", paddingTop: 12 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", rowGap: 12 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, background: "var(--accent)", color: "var(--onAccent)", fontSize: 32, lineHeight: 1 }}>
@@ -316,11 +316,8 @@ export default function Feed({
               {day?.full}
             </div>
           </div>
-        </div>
-        <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
-        {/* controls row (Refresh / Tune / theme), below the thick rule */}
-        <div className="mono" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, rowGap: 8, flexWrap: "wrap", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 9 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--faint)", letterSpacing: "0.04em" }}>
+          {/* utility controls — top-right of the masthead */}
+          <div className="mono" style={{ display: "flex", alignItems: "center", gap: 12, rowGap: 8, flexWrap: "wrap", justifyContent: "flex-end", color: "var(--faint)", fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", marginTop: 4 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
               {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
@@ -340,7 +337,7 @@ export default function Feed({
               className="mono"
               style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
             >
-              Tune
+              Taste
             </a>
             <button
               onClick={toggleMode}
@@ -351,6 +348,7 @@ export default function Feed({
             </button>
           </div>
         </div>
+        <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
       </header>
 
       {/* section tabs (no counts) */}
