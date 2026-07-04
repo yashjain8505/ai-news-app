@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QuizArticle } from "@/lib/types";
 import { completeOnboarding } from "@/app/actions";
+import { optImg } from "@/lib/img";
 
 const CARDS = 12;
 
@@ -152,7 +153,7 @@ export default function Onboarding({
               <div className="news-photo" style={{ aspectRatio: "16/9" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={cards[idx].image_url ?? ""}
+                  src={optImg(cards[idx].image_url, 900) ?? ""}
                   alt=""
                   onError={(e) => {
                     e.currentTarget.style.display = "none";

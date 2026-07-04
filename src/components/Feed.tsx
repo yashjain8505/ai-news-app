@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Item, Section } from "@/lib/types";
 import { recordEngagement, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
+import { optImg } from "@/lib/img";
 
 type Day = { label: string; date: string; big: string; full: string };
 type Mode = "light" | "dark";
@@ -40,7 +41,7 @@ function NewsPhoto({ it, ratio }: { it: Item; ratio: string }) {
     <div className="news-photo" style={{ aspectRatio: ratio }}>
       {ok ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={it.image_url!} alt="" onError={() => setFailed(true)} />
+        <img src={optImg(it.image_url, 1200)} alt="" onError={() => setFailed(true)} />
       ) : (
         // Branded fallback so a missing/broken image reads as intentional,
         // not a blank box (many source images are null or hotlink-blocked).

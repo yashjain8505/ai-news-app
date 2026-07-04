@@ -1,6 +1,7 @@
 import { Item, Section } from "@/lib/types";
 import { SECTION_SEO } from "@/lib/seo";
 import { timeAgo } from "@/lib/time";
+import { optImg } from "@/lib/img";
 
 // Server-rendered, non-personalized, semantic view for the public/crawlable pages.
 // Plain HTML (no client JS) for fast LCP and clean extraction by crawlers + AI engines.
@@ -95,7 +96,7 @@ export default function PublicEdition({
                       <article>
                         {it.image_url && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img className="news-photo" src={it.image_url} alt={it.title} loading={eagerLead ? "eager" : "lazy"} fetchPriority={eagerLead ? "high" : "auto"} style={{ width: "100%", height: 230, objectFit: "cover", marginBottom: 12 }} />
+                          <img className="news-photo" src={optImg(it.image_url, 1200)} alt={it.title} loading={eagerLead ? "eager" : "lazy"} fetchPriority={eagerLead ? "high" : "auto"} style={{ width: "100%", height: 230, objectFit: "cover", marginBottom: 12 }} />
                         )}
                         <Meta it={it} now={now} size={11} />
                         <h3 className="display" style={{ fontSize: "clamp(23px,3vw,31px)", lineHeight: 1.1, margin: "8px 0 0", color: "var(--ink)" }}>
@@ -113,7 +114,7 @@ export default function PublicEdition({
                       <article style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
                         {it.image_url && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img className="news-photo" src={it.image_url} alt={it.title} loading="lazy" width={96} height={66} style={{ width: 96, height: 66, objectFit: "cover", flexShrink: 0 }} />
+                          <img className="news-photo" src={optImg(it.image_url, 200)} alt={it.title} loading="lazy" width={96} height={66} style={{ width: 96, height: 66, objectFit: "cover", flexShrink: 0 }} />
                         )}
                         <div style={{ minWidth: 0 }}>
                           <Meta it={it} now={now} size={10} />
