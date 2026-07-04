@@ -47,10 +47,19 @@ export async function completeOnboarding(input: { weights: Weights }) {
     user.email?.split("@")[0] ||
     "Reader";
 
-  await supabase
+  // `users` is INSERT-only for the public key (no UPDATE/SELECT policy, so emails
+  // can't be read back via the anon key). A merge upsert is rejected because it
+  // needs UPDATE even for a brand-new row — so insert-or-ignore, which needs only
+  // INSERT. id/name/email don't need refreshing on a repeat onboard.
+  const { error: uErr } = await supabase
     .from("users")
-    .upsert({ id: userId, name, email: user.email ?? null }, { onConflict: "id" });
-  await supabase.from("user_taste").upsert(
+    .upsert(
+      { id: userId, name, email: user.email ?? null },
+      { onConflict: "id", ignoreDuplicates: true }
+    );
+  if (uErr) return { ok: false, error: uErr.message };
+
+  const { error: tErr } = await supabase.from("user_taste").upsert(
     {
       user_id: userId,
       weights: normalizeMix(input.weights),
@@ -61,6 +70,8 @@ export async function completeOnboarding(input: { weights: Weights }) {
     },
     { onConflict: "user_id" }
   );
+  if (tErr) return { ok: false, error: tErr.message };
+
   return { ok: true };
 }
 
