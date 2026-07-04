@@ -2,6 +2,7 @@
 
 import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
+import { supabaseService } from "@/lib/supabase-service";
 import {
   scoreItem,
   applyAffinity,
@@ -47,11 +48,15 @@ export async function completeOnboarding(input: { weights: Weights }) {
     user.email?.split("@")[0] ||
     "Reader";
 
-  // `users` is INSERT-only for the public key (no UPDATE/SELECT policy, so emails
-  // can't be read back via the anon key). A merge upsert is rejected because it
-  // needs UPDATE even for a brand-new row — so insert-or-ignore, which needs only
-  // INSERT. id/name/email don't need refreshing on a repeat onboard.
-  const { error: uErr } = await supabase
+  // `users` is a private table — it has an INSERT policy but no SELECT policy, so
+  // the public anon key can't write it at all (RLS rejects the insert). Profile
+  // creation runs through the service-role client server-side, after the Google
+  // session is verified above. Same key the admin DAL uses; never exposed to the
+  // browser. user_taste goes through it too so both writes succeed together.
+  const svc = supabaseService();
+  if (!svc) return { ok: false, error: "service-unavailable" };
+
+  const { error: uErr } = await svc
     .from("users")
     .upsert(
       { id: userId, name, email: user.email ?? null },
@@ -59,7 +64,7 @@ export async function completeOnboarding(input: { weights: Weights }) {
     );
   if (uErr) return { ok: false, error: uErr.message };
 
-  const { error: tErr } = await supabase.from("user_taste").upsert(
+  const { error: tErr } = await svc.from("user_taste").upsert(
     {
       user_id: userId,
       weights: normalizeMix(input.weights),
