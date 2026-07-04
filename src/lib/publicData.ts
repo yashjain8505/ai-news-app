@@ -80,6 +80,75 @@ export async function getEditionHeadlines(): Promise<Map<string, string>> {
   return m;
 }
 
+// ---- Per-story (per-item) reads for the /story/[slug] page engine ----
+
+// One active story by its stable slug (unique). Null if missing/inactive.
+export async function getStoryBySlug(slug: string): Promise<Item | null> {
+  const { data } = await supabase
+    .from("items")
+    .select("*")
+    .eq("is_active", true)
+    .eq("slug", slug)
+    .maybeSingle();
+  return (data as Item | null) ?? null;
+}
+
+// Recent active stories related to `item` — same section OR sharing a tag —
+// excluding the item itself, newest-first. Powers the "Related stories" list
+// and internal linking (the SEO crawl graph).
+export async function getRelatedStories(
+  item: Item,
+  limit = 6
+): Promise<Item[]> {
+  // Supabase PostgREST `.or()` filter: same section, OR tags share a value.
+  // `tags` is a JSONB array, so array-overlap (`ov`) doesn't apply — use the
+  // JSONB "contains" operator (`cs` -> `@>`) once per tag: a row matches if its
+  // tags contain any of this item's tags. Values are wrapped in a single-element
+  // JSON array; inner double-quotes are escaped so `.or()` parsing stays intact.
+  const orClauses = [`section.eq.${item.section}`];
+  if (item.tags && item.tags.length > 0) {
+    for (const t of item.tags) {
+      const esc = t.replace(/"/g, '\\"');
+      orClauses.push(`tags.cs.["${esc}"]`);
+    }
+  }
+  const { data } = await supabase
+    .from("items")
+    .select("*")
+    .eq("is_active", true)
+    .neq("id", item.id)
+    .or(orClauses.join(","))
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as Item[];
+}
+
+export type IndexableStorySlug = {
+  slug: string;
+  section: Section;
+  published_at: string | null;
+  created_at: string;
+};
+
+// Active stories that carry an ORIGINAL editorial take (wortins_take present &
+// non-empty) — the only ones thin/duplicate-safe to index. Feeds the sitemap.
+// Empty right now (takes not yet backfilled); that's the intended rollout state.
+export async function getIndexableStorySlugs(
+  limit = 5000
+): Promise<IndexableStorySlug[]> {
+  const { data } = await supabase
+    .from("items")
+    .select("slug, section, published_at, created_at")
+    .eq("is_active", true)
+    .not("wortins_take", "is", null)
+    .neq("wortins_take", "")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as IndexableStorySlug[];
+}
+
 export type EditionMeta = { headline: string | null; synopsis: string | null };
 
 // Original per-edition synthesis (the curator's "read" of the day) — the

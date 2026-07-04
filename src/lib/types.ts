@@ -3,8 +3,10 @@ export type Section = "daily" | "tools" | "articles" | "funding";
 export interface Item {
   id: string;
   section: Section;
+  slug: string;
   title: string;
   summary: string | null;
+  wortins_take: string | null;
   url: string | null;
   source: string | null;
   author: string | null;

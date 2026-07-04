@@ -9,6 +9,19 @@ import { timeAgo } from "@/lib/time";
 
 const ORDER: Section[] = ["daily", "funding", "tools", "articles"];
 
+// Route a headline to its /story page only once that page is a real landing
+// (i.e. it carries an original take). Until then, link out to the source — a
+// safe progressive rollout. Internal story links open in the same tab; external
+// source links open in a new tab.
+function headlineLink(it: Item): {
+  href: string;
+  target?: string;
+  rel?: string;
+} {
+  if (it.wortins_take) return { href: `/story/${it.slug}` };
+  return { href: it.url ?? "#", target: "_blank", rel: "noopener noreferrer" };
+}
+
 function group(items: Item[]): Record<Section, Item[]> {
   const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) g[it.section]?.push(it);
@@ -80,7 +93,7 @@ export default function PublicEdition({
                         )}
                         <Meta it={it} now={now} size={11} />
                         <h3 className="display" style={{ fontSize: "clamp(23px,3vw,31px)", lineHeight: 1.1, margin: "8px 0 0", color: "var(--ink)" }}>
-                          <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
+                          <a {...headlineLink(it)} style={{ color: "inherit", textDecoration: "none" }}>
                             {it.title}
                           </a>
                         </h3>
@@ -99,7 +112,7 @@ export default function PublicEdition({
                         <div style={{ minWidth: 0 }}>
                           <Meta it={it} now={now} size={10} />
                           <h3 className="display" style={{ fontSize: 18, lineHeight: 1.2, margin: "5px 0 0", color: "var(--ink)" }}>
-                            <a href={it.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
+                            <a {...headlineLink(it)} style={{ color: "inherit", textDecoration: "none" }}>
                               {it.title}
                             </a>
                           </h3>
