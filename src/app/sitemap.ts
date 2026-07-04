@@ -33,6 +33,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.7,
     },
+    {
+      url: absoluteUrl("/about"),
+      lastModified: latest,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    },
+    {
+      url: absoluteUrl("/contact"),
+      lastModified: latest,
+      changeFrequency: "yearly" as const,
+      priority: 0.3,
+    },
     // The latest edition accumulates drops through the day; older ones are
     // effectively immutable once the day closes.
     ...dates.map((d, i) => ({

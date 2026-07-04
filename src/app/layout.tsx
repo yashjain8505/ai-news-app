@@ -87,6 +87,13 @@ export default async function RootLayout({
                 url: SITE.url,
                 logo: `${SITE.url}/icon.svg`,
                 description: SITE.description,
+                email: "hello@wortins.com",
+                sameAs: ["https://x.com/wortins"],
+                contactPoint: {
+                  "@type": "ContactPoint",
+                  contactType: "customer support",
+                  email: "hello@wortins.com",
+                },
               },
               {
                 "@type": "WebSite",

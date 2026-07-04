@@ -57,13 +57,16 @@ export default function PublicChrome({
 
       <div style={{ marginTop: 28 }}>{children}</div>
 
-      <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--faint)", flexWrap: "wrap", gap: 8 }}>
+      <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--faint)", flexWrap: "wrap", gap: 12 }}>
         <span style={{ textTransform: "uppercase" }}>
           {SITE.name} &mdash; {SITE.tagline}
         </span>
-        <a href="/welcome" style={{ color: "var(--accent)", textDecoration: "none" }}>
-          Get your personalized edition &rarr;
-        </a>
+        <nav style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
+          <a href="/about" style={{ color: "var(--dim)", textDecoration: "none" }}>About</a>
+          <a href="/contact" style={{ color: "var(--dim)", textDecoration: "none" }}>Contact</a>
+          <a href="/editions" style={{ color: "var(--dim)", textDecoration: "none" }}>Archive</a>
+          <a href="/welcome" style={{ color: "var(--accent)", textDecoration: "none" }}>Personalize &rarr;</a>
+        </nav>
       </footer>
     </main>
   );
