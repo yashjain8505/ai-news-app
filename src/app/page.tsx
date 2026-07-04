@@ -18,7 +18,7 @@ import JsonLd from "@/components/JsonLd";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: { absolute: `${SITE.name} — ${SITE.tagline}` },
+  title: { absolute: `${SITE.name} — ${SITE.tagline}, tuned to your taste` },
   description: SITE.description,
   alternates: { canonical: absoluteUrl("/") },
   openGraph: {

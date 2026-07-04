@@ -84,6 +84,12 @@ export default async function EditionsArchive() {
         >
           Every edition of the {SITE.name} briefing, newest first &mdash; {dates.length} in all.
         </p>
+        <p className="serif" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 30px", maxWidth: "66ch" }}>
+          Each edition is a dated snapshot of the day in AI: the emerging startups, real product
+          launches, applied real-world AI, notable funding, and genuine breakthroughs we found most
+          interesting, each with an original {SITE.name} take. Browse the archive to see how the
+          story of AI has developed, day by day.
+        </p>
         <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {dates.map((d) => (
             <li key={d} style={{ borderBottom: "1px solid var(--rule)" }}>

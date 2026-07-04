@@ -13,18 +13,21 @@ import Script from "next/script";
 
 const display = Libre_Caslon_Display({
   subsets: ["latin"],
+  display: "swap",
   variable: "--font-display",
   weight: ["400"],
 });
 
 const text = Libre_Caslon_Text({
   subsets: ["latin"],
+  display: "swap",
   variable: "--font-text",
   weight: ["400", "700"],
 });
 
 const serif = Newsreader({
   subsets: ["latin"],
+  display: "swap",
   variable: "--font-serif",
   weight: ["400", "500"],
   style: ["normal", "italic"],
@@ -32,6 +35,7 @@ const serif = Newsreader({
 
 const mono = Space_Mono({
   subsets: ["latin"],
+  display: "swap",
   variable: "--font-mono",
   weight: ["400", "700"],
 });
