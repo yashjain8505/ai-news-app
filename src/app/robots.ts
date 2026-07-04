@@ -23,7 +23,7 @@ const AI_BOTS = [
 ];
 
 export default function robots(): MetadataRoute.Robots {
-  const disallow = ["/tune", "/welcome"];
+  const disallow = ["/tune", "/welcome", "/admin"];
   return {
     rules: [
       { userAgent: "*", allow: "/", disallow },
