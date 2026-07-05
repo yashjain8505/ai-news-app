@@ -1,8 +1,6 @@
-import SectionReader, { sectionMetadata } from "@/components/SectionReader";
+import { redirect } from "next/navigation";
 
-export const revalidate = 1800; // 30 min ISR
-export const metadata = sectionMetadata("daily");
-
+// Daily lives at the home ("/"); keep the pretty slug working by redirecting.
 export default function Page() {
-  return <SectionReader section="daily" />;
+  redirect("/");
 }

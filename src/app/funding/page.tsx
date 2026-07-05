@@ -1,8 +1,8 @@
-import SectionReader, { sectionMetadata } from "@/components/SectionReader";
+import FeedPage, { sectionMetadata } from "@/components/FeedPage";
 
-export const revalidate = 1800; // 30 min ISR
+export const dynamic = "force-dynamic";
 export const metadata = sectionMetadata("funding");
 
 export default function Page() {
-  return <SectionReader section="funding" />;
+  return <FeedPage section="funding" />;
 }

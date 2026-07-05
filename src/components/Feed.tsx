@@ -26,6 +26,14 @@ const INITIAL_SHOWN: Record<Section, number> = {
   articles: PAGES.articles,
   funding: PAGES.funding,
 };
+// Each section is its own URL, so tabs are real links (the address bar reflects
+// the section, for signed-in and logged-out alike). Daily lives at the home.
+const SECTION_HREF: Record<Section, string> = {
+  daily: "/",
+  tools: "/new-tools",
+  articles: "/articles",
+  funding: "/funding",
+};
 
 function withHighlight(title: string, h: string | null, px: number): ReactNode {
   if (!h) return title;
@@ -99,6 +107,8 @@ export default function Feed({
   stampDate,
   editionNo,
   initialMode,
+  signedIn = true,
+  initialActive = "daily",
 }: {
   items: Item[];
   days: Day[];
@@ -109,9 +119,10 @@ export default function Feed({
   stampDate: string;
   editionNo: number;
   initialMode: Mode;
+  signedIn?: boolean;
+  initialActive?: Section;
 }) {
-  const [active, setActive] = useState<Section>("daily");
-  const [sel, setSel] = useState(todayIdx);
+  const active = initialActive;
   const [mode, setMode] = useState<Mode>(initialMode);
   // How many stories are revealed per section. "Explore more" grows this; it
   // never rotates, so stories are appended below, never swapped out.
@@ -154,6 +165,7 @@ export default function Feed({
   // Return-time dwell: when the reader comes back to our tab after opening a
   // story, turn time-away into an engagement signal, and ask on that card.
   useEffect(() => {
+    if (!signedIn) return;
     function resolve() {
       const p = pendingRef.current;
       if (!p) return;
@@ -182,7 +194,7 @@ export default function Feed({
       document.removeEventListener("visibilitychange", onReturn);
       window.removeEventListener("focus", onReturn);
     };
-  }, []);
+  }, [signedIn]);
 
   const todayDate = days[todayIdx]?.date ?? null;
 
@@ -249,13 +261,12 @@ export default function Feed({
     setPromptItem(null);
     refreshedRef.current = true;
     baseCountRef.current = items.length;
-    setActive("daily");
-    setSel(todayIdx);
     setShown(INITIAL_SHOWN);
     startRefresh(() => router.refresh());
   }
 
   function onOpen(it: Item, rank: number) {
+    if (!signedIn) return;
     const tags = it.tags ?? [];
     recordEngagement(it.id, tags, "click", rank);
     const p: Pending = { id: it.id, tags, rank, ts: Date.now() };
@@ -277,7 +288,7 @@ export default function Feed({
   }
 
   function cardPrompt(it: Item) {
-    if (promptItem?.id !== it.id) return null;
+    if (!signedIn || promptItem?.id !== it.id) return null;
     return (
       <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, border: "1px solid var(--accent)", padding: "10px 12px", background: "var(--ph1)" }}>
         <span className="mono" style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)" }}>
@@ -327,7 +338,7 @@ export default function Feed({
   const lead = list[0];
   const rail = list.slice(1, 4);
   const more = list.slice(4);
-  const day = days[sel];
+  const day = days[todayIdx];
 
   const exploreBtn = canExplore ? (
     <div style={{ textAlign: "center", marginTop: 44 }}>
@@ -362,7 +373,7 @@ export default function Feed({
               </h1>
             </div>
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
-              The daily AI briefing, curated to your taste
+              {signedIn ? "The daily AI briefing, curated to your taste" : "The daily AI briefing"}
             </div>
             <div className="mono" style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)", fontWeight: 700, marginTop: 10 }}>
               {day?.full}
@@ -374,23 +385,35 @@ export default function Feed({
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
               {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
             </span>
-            <button
-              onClick={refresh}
-              disabled={refreshing}
-              className="mono"
-              style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
-              aria-label="Refresh feed"
-            >
-              <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
-              {refreshing ? "Refreshing" : "Refresh"}
-            </button>
-            <a
-              href="/tune"
-              className="mono"
-              style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
-            >
-              Taste
-            </a>
+            {signedIn ? (
+              <>
+                <button
+                  onClick={refresh}
+                  disabled={refreshing}
+                  className="mono"
+                  style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
+                  aria-label="Refresh feed"
+                >
+                  <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
+                  {refreshing ? "Refreshing" : "Refresh"}
+                </button>
+                <a
+                  href="/tune"
+                  className="mono"
+                  style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
+                >
+                  Taste
+                </a>
+              </>
+            ) : (
+              <a
+                href="/welcome"
+                className="mono"
+                style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "5px 13px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none" }}
+              >
+                Sign in &#8599;
+              </a>
+            )}
             <button
               onClick={toggleMode}
               className="mono"
@@ -409,13 +432,13 @@ export default function Feed({
           {SECTION_TABS.map((s) => {
             const a = s.key === active;
             return (
-              <button
+              <a
                 key={s.key}
-                onClick={() => setActive(s.key)}
-                style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", border: 0, borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, background: "transparent", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer" }}
+                href={SECTION_HREF[s.key]}
+                style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, textDecoration: "none", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer" }}
               >
                 {s.label}
-              </button>
+              </a>
             );
           })}
         </nav>
