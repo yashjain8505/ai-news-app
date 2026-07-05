@@ -44,17 +44,20 @@ async function PublicHome() {
     date ? getEditionSynopsis(date) : Promise.resolve(null),
   ]);
   const now = Date.now();
+  // Home shows only the Daily section (not all four stacked into one long
+  // scroll); the nav + links below lead to the other sections.
+  const dailyItems = items.filter((it) => it.section === "daily");
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: `${SITE.name} — ${SITE.tagline}`,
     url: SITE.url,
     isPartOf: { "@type": "WebSite", name: SITE.name, url: SITE.url },
-    dateModified: items.find((i) => i.published_at)?.published_at ?? undefined,
+    dateModified: dailyItems.find((i) => i.published_at)?.published_at ?? undefined,
     mainEntity: {
       "@type": "ItemList",
-      numberOfItems: items.length,
-      itemListElement: items.map((it, i) => ({
+      numberOfItems: dailyItems.length,
+      itemListElement: dailyItems.map((it, i) => ({
         "@type": "ListItem",
         position: i + 1,
         url: it.url ?? SITE.url,
@@ -66,7 +69,7 @@ async function PublicHome() {
     <>
       <JsonLd data={jsonLd} />
       <OnboardingHero />
-      <PublicChrome subtitle="Today&#8217;s AI briefing">
+      <PublicChrome subtitle="Today&#8217;s AI briefing" active="daily">
         {/* Prominent personalize hero — the conversion-forward top of the page. */}
         <section style={{ border: "1px solid var(--ruleStrong)", background: "var(--ph1)", padding: "clamp(24px,4vw,40px)", margin: "0 0 40px" }}>
           <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 14 }}>
@@ -88,7 +91,13 @@ async function PublicHome() {
           {syn?.headline ?? "Today in AI"}
         </h2>
         {syn?.synopsis && <EditionLede synopsis={syn.synopsis} />}
-        <PublicEdition items={items} now={now} limit={5} />
+        <PublicEdition items={dailyItems} now={now} />
+        <nav style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 10, paddingTop: 20, borderTop: "1px solid var(--rule)" }}>
+          <span className="mono" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)" }}>More sections:</span>
+          <a href="/new-tools" className="mono" style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}>New Tools &rarr;</a>
+          <a href="/funding" className="mono" style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}>Funding &rarr;</a>
+          <a href="/articles" className="mono" style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}>Articles &rarr;</a>
+        </nav>
         <div style={{ marginTop: 8, borderTop: "3px double var(--ruleStrong)", paddingTop: 26, textAlign: "center" }}>
           <p className="serif" style={{ fontSize: 18, color: "var(--ink)", margin: "0 0 14px" }}>
             Like what you see? Get an edition tuned to what you actually care about.

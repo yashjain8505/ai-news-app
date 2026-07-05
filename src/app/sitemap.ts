@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteUrl, sectionPath } from "@/lib/seo";
 import { getAllEditionDates, getIndexableStorySlugs } from "@/lib/publicData";
 
 // Cached for an hour so crawlers don't hit Supabase on every fetch.
@@ -22,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     ...SECTIONS.map((s) => ({
-      url: absoluteUrl(`/section/${s}`),
+      url: absoluteUrl(sectionPath(s)),
       lastModified: latest,
       changeFrequency: "daily" as const,
       priority: 0.8,

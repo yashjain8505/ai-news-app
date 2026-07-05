@@ -3,19 +3,21 @@ import { SITE } from "@/lib/seo";
 // Shared masthead + section nav + footer for the public (logged-out) pages.
 // Plain anchors keep it server-only and fully crawlable.
 const NAV = [
-  { href: "/section/daily", label: "Daily AI" },
-  { href: "/section/funding", label: "Funding" },
-  { href: "/section/tools", label: "New Tools" },
-  { href: "/section/articles", label: "Articles" },
-  { href: "/editions", label: "Archive" },
+  { key: "daily", href: "/daily-ai", label: "Daily AI" },
+  { key: "funding", href: "/funding", label: "Funding" },
+  { key: "tools", href: "/new-tools", label: "New Tools" },
+  { key: "articles", href: "/articles", label: "Articles" },
+  { key: "archive", href: "/editions", label: "Archive" },
 ];
 
 export default function PublicChrome({
   children,
   subtitle,
+  active,
 }: {
   children: React.ReactNode;
   subtitle?: string;
+  active?: string;
 }) {
   return (
     <main className="bs-main" style={{ position: "relative" }}>
@@ -42,16 +44,19 @@ export default function PublicChrome({
         </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
         <nav style={{ display: "flex", gap: 22, flexWrap: "wrap", padding: "12px 0 0" }}>
-          {NAV.map((n) => (
-            <a
-              key={n.href}
-              href={n.href}
-              className="mono"
-              style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--dim)", textDecoration: "none" }}
-            >
-              {n.label}
-            </a>
-          ))}
+          {NAV.map((n) => {
+            const on = n.key === active;
+            return (
+              <a
+                key={n.href}
+                href={n.href}
+                className="mono"
+                style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: on ? "var(--accent)" : "var(--dim)", textDecoration: "none", borderBottom: on ? "2px solid var(--accent)" : "2px solid transparent", paddingBottom: 4 }}
+              >
+                {n.label}
+              </a>
+            );
+          })}
         </nav>
       </header>
 

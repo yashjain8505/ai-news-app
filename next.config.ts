@@ -21,6 +21,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Old /section/<x> URLs now live at clean, SEO-friendly slugs.
+  async redirects() {
+    return [
+      { source: "/section/daily", destination: "/daily-ai", permanent: true },
+      { source: "/section/tools", destination: "/new-tools", permanent: true },
+      { source: "/section/articles", destination: "/articles", permanent: true },
+      { source: "/section/funding", destination: "/funding", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

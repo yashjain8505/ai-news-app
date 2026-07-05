@@ -44,3 +44,23 @@ export const SECTION_SEO: Record<
       "The most interesting essays on the AI industry: competitive dynamics, strategic parallels, and insider analysis worth reading.",
   },
 };
+
+// Clean, SEO-friendly URL slug per section (e.g. /daily-ai instead of
+// /section/daily). Kept in one place so nav, routes, sitemap and redirects agree.
+export const SECTION_SLUG: Record<string, string> = {
+  daily: "daily-ai",
+  tools: "new-tools",
+  articles: "articles",
+  funding: "funding",
+};
+
+export const SLUG_SECTION: Record<string, string> = {
+  "daily-ai": "daily",
+  "new-tools": "tools",
+  articles: "articles",
+  funding: "funding",
+};
+
+export function sectionPath(section: string): string {
+  return `/${SECTION_SLUG[section] ?? section}`;
+}
