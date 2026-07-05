@@ -409,7 +409,7 @@ export default function Feed({
                 </a>
               </>
             ) : (
-              <OnboardingHero />
+              <OnboardingHero signedIn={signedIn} />
             )}
             <button
               onClick={toggleMode}

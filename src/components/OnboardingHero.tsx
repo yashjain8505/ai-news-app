@@ -2,20 +2,44 @@
 
 import { useEffect, useState } from "react";
 
-// "Personalize" button + opt-in modal for logged-out visitors.
+// "Personalize" button + modal for visitors who haven't personalized yet.
 //
-// NO auto-popup: a first-time visitor just reads the news. The modal opens ONLY
-// when they click "Personalize". From there the CTA goes to /welcome, which
-// signs them in with Google and then runs onboarding. The full public edition is
-// always readable underneath — this is a pure opt-in overlay.
-export default function OnboardingHero() {
+// The modal AUTO-OPENS once on first landing (gated by localStorage so it never
+// nags on every reload), and can be reopened any time from the "Personalize"
+// button. The full news edition is always readable underneath — this is an
+// overlay, not a redirect. Its CTA goes to /welcome, which signs the visitor in
+// (if needed) and then runs onboarding.
+const STORAGE_KEY = "wortins_personalize_seen";
+
+export default function OnboardingHero({ signedIn = false }: { signedIn?: boolean }) {
   const [open, setOpen] = useState(false);
+
+  // Auto-open once per browser on first visit. Runs only on the client so the
+  // server HTML stays identical for crawlers.
+  useEffect(() => {
+    let seen = false;
+    try {
+      seen = localStorage.getItem(STORAGE_KEY) === "1";
+    } catch {
+      seen = true; // storage blocked (private mode) — just skip the auto-open.
+    }
+    if (!seen) setOpen(true);
+  }, []);
+
+  function dismiss() {
+    setOpen(false);
+    try {
+      localStorage.setItem(STORAGE_KEY, "1");
+    } catch {
+      // ignore — a returning visitor may see it again, which is acceptable.
+    }
+  }
 
   // Close on Escape while open.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -37,7 +61,7 @@ export default function OnboardingHero() {
         type="button"
         onClick={() => setOpen(true)}
         className="mono"
-        style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "5px 13px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", cursor: "pointer" }}
+        style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", padding: "9px 20px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", cursor: "pointer" }}
       >
         Personalize
       </button>
@@ -47,8 +71,7 @@ export default function OnboardingHero() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="wortins-hero-title"
-          aria-describedby="wortins-hero-desc"
-          onClick={() => setOpen(false)}
+          onClick={dismiss}
           style={{
             position: "fixed",
             inset: 0,
@@ -65,97 +88,51 @@ export default function OnboardingHero() {
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 460,
+              maxWidth: 420,
               background: "var(--bg)",
               border: "1px solid var(--ruleStrong)",
               boxShadow: "0 24px 60px rgba(27,23,18,0.35)",
-              padding: "40px 34px 34px",
+              padding: "34px 30px 28px",
               boxSizing: "border-box",
             }}
           >
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={dismiss}
               aria-label="Close"
               className="mono"
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                width: 36,
-                height: 36,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "transparent",
-                border: 0,
-                color: "var(--dim)",
-                fontSize: 24,
-                lineHeight: 1,
-                cursor: "pointer",
-              }}
+              style={{ position: "absolute", top: 8, right: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: 0, color: "var(--dim)", fontSize: 22, lineHeight: 1, cursor: "pointer" }}
             >
               &times;
             </button>
 
-            <div
-              className="mono"
-              style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--accent)" }}
-            >
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--accent)" }}>
               Wortins
             </div>
 
-            <h2
-              id="wortins-hero-title"
-              className="display"
-              style={{ fontSize: "clamp(26px,5vw,34px)", lineHeight: 1.08, color: "var(--ink)", margin: "12px 0 0" }}
-            >
-              AI news, tuned to what you actually care about.
+            <h2 id="wortins-hero-title" className="display" style={{ fontSize: "clamp(24px,4.5vw,30px)", lineHeight: 1.1, color: "var(--ink)", margin: "10px 0 8px" }}>
+              AI news, tuned to you.
             </h2>
 
-            <p
-              id="wortins-hero-desc"
-              className="serif"
-              style={{ fontSize: 16, lineHeight: 1.55, color: "var(--muted)", margin: "12px 0 24px" }}
-            >
-              Sign in, tell us how technical you want it and which topics you like &mdash; and we&#8217;ll build a daily edition around what you care about, nothing you don&#8217;t.
+            <p className="serif" style={{ fontSize: 15, lineHeight: 1.5, color: "var(--muted)", margin: "0 0 20px" }}>
+              {signedIn
+                ? "Pick the topics you want, skip the ones you don’t."
+                : "Sign in and pick your topics — we’ll build your daily edition."}
             </p>
 
             <a
               href="/welcome"
               className="mono"
-              style={{
-                display: "block",
-                textAlign: "center",
-                fontSize: 12,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                padding: "14px 20px",
-                background: "var(--accent)",
-                color: "var(--onAccent)",
-                textDecoration: "none",
-              }}
+              style={{ display: "block", textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "14px 20px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none" }}
             >
-              Sign in &amp; personalize &rarr;
+              {signedIn ? "Personalize" : "Sign in & personalize"} &rarr;
             </a>
 
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={dismiss}
               className="mono"
-              style={{
-                display: "block",
-                width: "100%",
-                marginTop: 14,
-                background: "transparent",
-                border: 0,
-                color: "var(--dim)",
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                padding: "4px 0",
-              }}
+              style={{ display: "block", width: "100%", marginTop: 12, background: "transparent", border: 0, color: "var(--dim)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", padding: "4px 0" }}
             >
               Just read today&#8217;s edition
             </button>
