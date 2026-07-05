@@ -4,20 +4,11 @@ import { useMemo, useState, useTransition } from "react";
 import { QuizArticle } from "@/lib/types";
 import { completeOnboarding } from "@/app/actions";
 import { optImg } from "@/lib/img";
+import { TOPICS as APPETITES } from "@/lib/topics";
 
 const CARDS = 5; // real stories to rate after picking topics
 const TOPIC_SEED = 3; // base weight each topic you pick starts with
 
-const APPETITES: { tag: string; label: string }[] = [
-  { tag: "lab-power", label: "Big-lab power plays" },
-  { tag: "strategy", label: "Strategy & analysis" },
-  { tag: "drama", label: "Drama & personalities" },
-  { tag: "policy", label: "Policy & regulation" },
-  { tag: "regional", label: "Global & regional" },
-  { tag: "technical", label: "Technical & research" },
-  { tag: "culture", label: "Culture & society" },
-  { tag: "future-of-work", label: "Jobs & future of work" },
-];
 const TAGS = APPETITES.map((a) => a.tag);
 const LABEL: Record<string, string> = Object.fromEntries(
   APPETITES.map((a) => [a.tag, a.label])
@@ -174,9 +165,12 @@ export default function Onboarding({
                 <button
                   key={a.tag}
                   onClick={() => toggleTopic(a.tag)}
-                  style={{ textAlign: "left", padding: "16px 16px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit", fontSize: 15, lineHeight: 1.2 }}
+                  style={{ textAlign: "left", padding: "14px 16px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit" }}
                 >
-                  {a.label}
+                  <div style={{ fontSize: 16, lineHeight: 1.15 }}>{a.label}</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.3, marginTop: 4, color: on ? "rgba(255,255,255,0.82)" : "var(--dim)" }}>
+                    {a.hint}
+                  </div>
                 </button>
               );
             })}

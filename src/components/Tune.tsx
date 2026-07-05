@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMix, reviseReaction } from "@/app/actions";
+import { TOPICS as APPETITES } from "@/lib/topics";
 
 type Reaction = {
   itemId: string;
@@ -12,16 +13,6 @@ type Reaction = {
   tags: string[];
 };
 
-const APPETITES: { tag: string; label: string }[] = [
-  { tag: "lab-power", label: "Big-lab power plays" },
-  { tag: "strategy", label: "Strategy & analysis" },
-  { tag: "drama", label: "Drama & personalities" },
-  { tag: "policy", label: "Policy & regulation" },
-  { tag: "regional", label: "Global & regional" },
-  { tag: "technical", label: "Technical & research" },
-  { tag: "culture", label: "Culture & society" },
-  { tag: "future-of-work", label: "Jobs & future of work" },
-];
 const TAGS = APPETITES.map((a) => a.tag);
 const CHOICES: { v: "less" | "neutral" | "like"; label: string }[] = [
   { v: "less", label: "Bad" },
