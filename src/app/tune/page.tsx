@@ -23,7 +23,7 @@ export default async function TunePage() {
   const uid = user.id;
 
   const [{ data: taste }, { data: rows }] = await Promise.all([
-    supabase.from("user_taste").select("weights, tech_pref").eq("user_id", uid).maybeSingle(),
+    supabase.from("user_taste").select("weights, tech_pref, dislikes").eq("user_id", uid).maybeSingle(),
     supabase
       .from("interactions")
       .select("item_id, action, created_at, items(title, source, tags)")
@@ -57,5 +57,5 @@ export default async function TunePage() {
     if (reactions.length >= 25) break;
   }
 
-  return <Tune weights={weights} reactions={reactions} techPref={(taste?.tech_pref as number) ?? 2} />;
+  return <Tune weights={weights} reactions={reactions} techPref={(taste?.tech_pref as number) ?? 2} dislikes={(taste?.dislikes as string[]) ?? []} />;
 }

@@ -8,7 +8,6 @@ import { scoreItem, type Weights } from "@/lib/taste";
 import { timeAgo } from "@/lib/time";
 import { SITE, SECTION_SEO, sectionPath, absoluteUrl } from "@/lib/seo";
 import Feed from "@/components/Feed";
-import OnboardingHero from "@/components/OnboardingHero";
 import JsonLd from "@/components/JsonLd";
 
 const MONTHS = [
@@ -43,7 +42,7 @@ export default async function FeedPage({ section }: { section: Section }) {
   const [{ data: itemsData }, tasteRes] = await Promise.all([
     supabase.from("items").select("*").eq("is_active", true),
     user
-      ? supabase.from("user_taste").select("weights, sources, tech_pref").eq("user_id", user.id).maybeSingle()
+      ? supabase.from("user_taste").select("weights, sources, tech_pref, dislikes").eq("user_id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -53,6 +52,7 @@ export default async function FeedPage({ section }: { section: Section }) {
   const weights = (tasteRes.data?.weights as Weights) ?? null;
   const sources = (tasteRes.data?.sources as string[]) ?? null;
   const techPref = (tasteRes.data?.tech_pref as number | null) ?? null;
+  const dislikes = (tasteRes.data?.dislikes as string[]) ?? [];
   const nowMs = Date.now();
   const items = ((itemsData ?? []) as Item[])
     .map((it) => {
@@ -65,7 +65,11 @@ export default async function FeedPage({ section }: { section: Section }) {
       // Down-rank stories more technical than the reader asked for; a story
       // simpler than their chosen level is never penalized.
       const techPenalty = techPref ? Math.max(0, (it.tech_level ?? 2) - techPref) * 40 : 0;
-      return { it, s: taste + recency - techPenalty, pub };
+      // Muted topics sink below everything else, so in practice they drop out of
+      // the feed — but aren't hard-removed, so a section never goes empty.
+      const muted = dislikes.length > 0 && (it.tags ?? []).some((t) => dislikes.includes(t));
+      const dislikePenalty = muted ? 200 : 0;
+      return { it, s: taste + recency - techPenalty - dislikePenalty, pub };
     })
     .sort((a, b) => b.s - a.s || b.pub - a.pub)
     .map((x) => x.it);
@@ -141,10 +145,11 @@ export default async function FeedPage({ section }: { section: Section }) {
     },
   };
 
+  // No auto-popup: logged-out visitors just read the news. Personalizing starts
+  // only when they click "Sign in" in the masthead.
   return (
     <>
       <JsonLd data={jsonLd} />
-      <OnboardingHero />
       {feed}
     </>
   );

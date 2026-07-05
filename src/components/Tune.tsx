@@ -24,14 +24,17 @@ export default function Tune({
   weights,
   reactions,
   techPref,
+  dislikes,
 }: {
   weights: Record<string, number>;
   reactions: Reaction[];
   techPref: number;
+  dislikes: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [level, setLevel] = useState<number>(techPref);
+  const [muted, setMuted] = useState<Set<string>>(new Set(dislikes));
   const [mix, setMix] = useState<Record<string, number>>(() => {
     const m: Record<string, number> = {};
     TAGS.forEach((t) => (m[t] = Math.round(weights[t] ?? 0)));
@@ -54,9 +57,19 @@ export default function Tune({
 
   function save() {
     startTransition(async () => {
-      await saveMix(mix, level);
+      await saveMix(mix, level, [...muted]);
       setSaved(true);
     });
+  }
+
+  function toggleMute(tag: string) {
+    setMuted((cur) => {
+      const next = new Set(cur);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+    setSaved(false);
   }
 
   function flip(i: number, next: "like" | "less" | "neutral") {
@@ -126,12 +139,32 @@ export default function Tune({
           </div>
         ))}
       </div>
+      <h2 className="display" style={{ fontSize: 22, lineHeight: 1.1, color: "var(--ink)", margin: "34px 0 4px" }}>
+        Muted topics
+      </h2>
+      <p className="serif" style={{ fontSize: 15, fontStyle: "italic", color: "var(--muted)", margin: "0 0 14px" }}>
+        Tap a topic to keep it out of your feed.
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {APPETITES.map((a) => {
+          const on = muted.has(a.tag);
+          return (
+            <button
+              key={a.tag}
+              onClick={() => toggleMute(a.tag)}
+              style={{ padding: "8px 13px", border: on ? "1px solid var(--ink)" : "1px solid var(--sep)", background: on ? "var(--ink)" : "transparent", color: on ? "var(--bg)" : "var(--dim)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, textDecoration: on ? "line-through" : "none" }}
+            >
+              {a.label}
+            </button>
+          );
+        })}
+      </div>
       <button
         onClick={save}
         disabled={pending}
         style={{ marginTop: 22, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "11px 22px", fontFamily: "inherit", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: pending ? 0.5 : 1 }}
       >
-        {pending ? "Saving…" : saved ? "Saved ✓" : "Save mix"}
+        {pending ? "Saving…" : saved ? "Saved ✓" : "Save all"}
       </button>
 
       <div style={{ borderTop: "3px double var(--ruleStrong)", margin: "44px 0 0" }} />

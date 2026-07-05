@@ -9,7 +9,7 @@ const LABEL: Record<string, string> = Object.fromEntries(
   APPETITES.map((a) => [a.tag, a.label])
 );
 
-// Topics chosen become the taste mix: each picked topic gets an equal share.
+// Liked topics become the taste mix: each liked topic gets an equal share.
 function computeMix(picks: Set<string>): Record<string, number> {
   const next: Record<string, number> = {};
   const n = picks.size;
@@ -24,18 +24,19 @@ function computeMix(picks: Set<string>): Record<string, number> {
 export default function Onboarding({ name }: { name: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"level" | "topics" | "done">("level");
+  const [phase, setPhase] = useState<"level" | "like" | "dislike" | "done">("level");
   const [techPref, setTechPref] = useState<number>(2);
-  const [picks, setPicks] = useState<Set<string>>(new Set());
+  const [likes, setLikes] = useState<Set<string>>(new Set());
+  const [dislikes, setDislikes] = useState<Set<string>>(new Set());
   const [mix, setMix] = useState<Record<string, number>>({});
 
   function pickLevel(pref: number) {
     setTechPref(pref);
-    setPhase("topics");
+    setPhase("like");
   }
 
-  function toggleTopic(tag: string) {
-    setPicks((cur) => {
+  function toggleLike(tag: string) {
+    setLikes((cur) => {
       const next = new Set(cur);
       if (next.has(tag)) next.delete(tag);
       else next.add(tag);
@@ -43,8 +44,28 @@ export default function Onboarding({ name }: { name: string }) {
     });
   }
 
-  function finishTopics() {
-    setMix(computeMix(picks));
+  function toggleDislike(tag: string) {
+    setDislikes((cur) => {
+      const next = new Set(cur);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+
+  function finishLike() {
+    // If they liked everything there's nothing left to exclude — skip ahead.
+    const remaining = TAGS.filter((t) => !likes.has(t));
+    if (remaining.length === 0) {
+      setMix(computeMix(likes));
+      setPhase("done");
+    } else {
+      setPhase("dislike");
+    }
+  }
+
+  function finishDislike() {
+    setMix(computeMix(likes));
     setPhase("done");
   }
 
@@ -53,7 +74,11 @@ export default function Onboarding({ name }: { name: string }) {
     for (const t of TAGS) weights[t] = Math.round(mix[t] ?? 0);
     setError(null);
     startTransition(async () => {
-      const res = await completeOnboarding({ weights, techPref });
+      const res = await completeOnboarding({
+        weights,
+        techPref,
+        dislikes: [...dislikes],
+      });
       if (res?.ok) {
         window.location.assign("/");
       } else {
@@ -62,6 +87,7 @@ export default function Onboarding({ name }: { name: string }) {
     });
   }
 
+  const remaining = APPETITES.filter((a) => !likes.has(a.tag));
   const topThree = [...TAGS]
     .sort((a, b) => (mix[b] ?? 0) - (mix[a] ?? 0))
     .slice(0, 3)
@@ -73,6 +99,15 @@ export default function Onboarding({ name }: { name: string }) {
     marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0,
     padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em",
     textTransform: "uppercase", cursor: "pointer",
+  };
+  const stepLabel: React.CSSProperties = {
+    fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10,
+  };
+  const h2: React.CSSProperties = {
+    fontSize: 26, lineHeight: 1.12, color: "var(--ink)", margin: "0 0 8px",
+  };
+  const lede: React.CSSProperties = {
+    fontSize: 16, color: "var(--muted)", margin: "0 0 22px",
   };
 
   return (
@@ -88,13 +123,9 @@ export default function Onboarding({ name }: { name: string }) {
 
       {phase === "level" && (
         <div>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
-            Step 1 of 2
-          </div>
-          <h2 className="display" style={{ fontSize: 26, lineHeight: 1.12, color: "var(--ink)", margin: "0 0 8px" }}>
-            How technical do you want your AI news?
-          </h2>
-          <p className="serif" style={{ fontSize: 16, color: "var(--muted)", margin: "0 0 22px" }}>
+          <div className="mono" style={stepLabel}>Step 1 of 3</div>
+          <h2 className="display" style={h2}>How technical do you want your AI news?</h2>
+          <p className="serif" style={lede}>
             This just sets how deep the stories go — a new model launch is simple news either way; only the jargon-heavy deep dives change.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -112,24 +143,20 @@ export default function Onboarding({ name }: { name: string }) {
         </div>
       )}
 
-      {phase === "topics" && (
+      {phase === "like" && (
         <div>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
-            Step 2 of 2
-          </div>
-          <h2 className="display" style={{ fontSize: 26, lineHeight: 1.12, color: "var(--ink)", margin: "0 0 8px" }}>
-            Which topics are you into?
-          </h2>
-          <p className="serif" style={{ fontSize: 16, color: "var(--muted)", margin: "0 0 22px" }}>
-            Tap the ones you want in your feed. Pick as many as you like — you can change this anytime.
+          <div className="mono" style={stepLabel}>Step 2 of 3</div>
+          <h2 className="display" style={h2}>What do you like reading about?</h2>
+          <p className="serif" style={lede}>
+            Tap the ones you actually want more of. Pick as many as you like.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
             {APPETITES.map((a) => {
-              const on = picks.has(a.tag);
+              const on = likes.has(a.tag);
               return (
                 <button
                   key={a.tag}
-                  onClick={() => toggleTopic(a.tag)}
+                  onClick={() => toggleLike(a.tag)}
                   style={{ textAlign: "left", padding: "14px 16px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   <div style={{ fontSize: 16, lineHeight: 1.15 }}>{a.label}</div>
@@ -140,8 +167,38 @@ export default function Onboarding({ name }: { name: string }) {
               );
             })}
           </div>
-          <button onClick={finishTopics} disabled={picks.size === 0} style={{ ...ctaBtn, opacity: picks.size === 0 ? 0.4 : 1, cursor: picks.size === 0 ? "not-allowed" : "pointer" }}>
-            Done &rarr;
+          <button onClick={finishLike} disabled={likes.size === 0} style={{ ...ctaBtn, opacity: likes.size === 0 ? 0.4 : 1, cursor: likes.size === 0 ? "not-allowed" : "pointer" }}>
+            Next &rarr;
+          </button>
+        </div>
+      )}
+
+      {phase === "dislike" && (
+        <div>
+          <div className="mono" style={stepLabel}>Step 3 of 3</div>
+          <h2 className="display" style={h2}>Anything you&#8217;d rather not read about?</h2>
+          <p className="serif" style={lede}>
+            Tap anything you want to see less of — we&#8217;ll keep it out of your feed. Or skip this; it&#8217;s optional.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+            {remaining.map((a) => {
+              const on = dislikes.has(a.tag);
+              return (
+                <button
+                  key={a.tag}
+                  onClick={() => toggleDislike(a.tag)}
+                  style={{ textAlign: "left", padding: "14px 16px", border: on ? "1px solid var(--ink)" : "1px solid var(--sep)", background: on ? "var(--ink)" : "transparent", color: on ? "var(--bg)" : "var(--muted)", cursor: "pointer", fontFamily: "inherit", opacity: on ? 1 : 0.9 }}
+                >
+                  <div style={{ fontSize: 16, lineHeight: 1.15, textDecoration: on ? "line-through" : "none" }}>{a.label}</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.3, marginTop: 4, color: on ? "rgba(255,255,255,0.7)" : "var(--dim)" }}>
+                    {a.hint}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={finishDislike} style={ctaBtn}>
+            {dislikes.size === 0 ? "Skip →" : "Done →"}
           </button>
         </div>
       )}
@@ -158,6 +215,15 @@ export default function Onboarding({ name }: { name: string }) {
                 {" "}You lean:{" "}
                 <span style={{ color: "var(--ink)" }}>
                   {topThree.map((t) => LABEL[t]).join(" · ")}
+                </span>
+                .
+              </>
+            )}
+            {dislikes.size > 0 && (
+              <>
+                {" "}Muting:{" "}
+                <span style={{ color: "var(--ink)" }}>
+                  {[...dislikes].map((t) => LABEL[t]).join(" · ")}
                 </span>
                 .
               </>
