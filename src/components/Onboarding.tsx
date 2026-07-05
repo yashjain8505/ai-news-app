@@ -62,7 +62,7 @@ export default function Onboarding({ name, articles = [] }: { name: string; arti
   const [techPref, setTechPref] = useState<number>(2);
   const [picks, setPicks] = useState<Set<string>>(new Set());
   const [quiz, setQuiz] = useState<Article[]>([]);
-  const [ratings, setRatings] = useState<Record<string, "read" | "skip">>({});
+  const [ratings, setRatings] = useState<Record<string, number>>({});
   const [mix, setMix] = useState<Record<string, number>>({});
 
   function pickLevel(pref: number) {
@@ -91,8 +91,8 @@ export default function Onboarding({ name, articles = [] }: { name: string; arti
     }
   }
 
-  function rate(id: string, val: "read" | "skip") {
-    setRatings((cur) => ({ ...cur, [id]: val }));
+  function rate(id: string, n: number) {
+    setRatings((cur) => ({ ...cur, [id]: n }));
   }
 
   // Final weights = topic mix, nudged by each article you'd read (+) or skip (−).
@@ -100,8 +100,10 @@ export default function Onboarding({ name, articles = [] }: { name: string; arti
     const w = computeMix(picks);
     for (const a of quiz) {
       const r = ratings[a.id];
-      if (!r) continue;
-      const delta = r === "read" ? 15 : -12;
+      if (r == null) continue;
+      // 1-6 scale → −15 … +15 (3–4 is roughly neutral); nudges each of the
+      // story's tags so what you'd actually read shapes the mix.
+      const delta = Math.round((r - 3.5) * 6);
       for (const t of a.tags ?? []) w[t] = Math.max(0, (w[t] ?? 0) + delta);
     }
     setMix(w);
@@ -124,7 +126,7 @@ export default function Onboarding({ name, articles = [] }: { name: string; arti
     .slice(0, 3)
     .filter((t) => (mix[t] ?? 0) > 0);
   const levelLabel = LEVELS.find((l) => l.pref === techPref)?.label ?? "";
-  const ratedCount = quiz.filter((a) => ratings[a.id]).length;
+  const ratedCount = quiz.filter((a) => ratings[a.id] != null).length;
 
   const wrap: React.CSSProperties = { maxWidth: 640, margin: "0 auto", padding: "48px 24px 80px" };
   const ctaBtn: React.CSSProperties = {
@@ -202,7 +204,7 @@ export default function Onboarding({ name, articles = [] }: { name: string; arti
           <div className="mono" style={stepLabel}>Step 3 of 3</div>
           <h2 className="display" style={h2}>Which of these would you actually read?</h2>
           <p className="serif" style={lede}>
-            Got the gist of your topics — now tell us which of these real stories you&#8217;d open, and which you&#8217;d skip. It shapes what your feed leans toward.
+            Got the gist of your topics — now rate a few real stories from 1 (not for me) to 6 (love it). It shapes what your feed leans toward.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {quiz.map((a) => {
@@ -220,21 +222,24 @@ export default function Onboarding({ name, articles = [] }: { name: string; arti
                       {a.summary}
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button
-                      onClick={() => rate(a.id, "skip")}
-                      className="mono"
-                      style={{ flex: 1, padding: "9px 12px", fontSize: 12, letterSpacing: "0.04em", textTransform: "uppercase", border: r === "skip" ? "1px solid var(--ink)" : "1px solid var(--sep)", background: r === "skip" ? "var(--ink)" : "transparent", color: r === "skip" ? "var(--bg)" : "var(--dim)", cursor: "pointer" }}
-                    >
-                      Not for me
-                    </button>
-                    <button
-                      onClick={() => rate(a.id, "read")}
-                      className="mono"
-                      style={{ flex: 1, padding: "9px 12px", fontSize: 12, letterSpacing: "0.04em", textTransform: "uppercase", border: r === "read" ? "1px solid var(--accent)" : "1px solid var(--sep)", background: r === "read" ? "var(--accent)" : "transparent", color: r === "read" ? "var(--onAccent)" : "var(--ink)", cursor: "pointer" }}
-                    >
-                      I&#8217;d read this
-                    </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, marginBottom: 5 }}>
+                    <span className="mono" style={{ fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--faint)" }}>Not for me</span>
+                    <span className="mono" style={{ fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--faint)" }}>Love it</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[1, 2, 3, 4, 5, 6].map((n) => {
+                      const on = r === n;
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => rate(a.id, n)}
+                          className="mono"
+                          style={{ flex: 1, padding: "10px 0", fontSize: 14, border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer" }}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );

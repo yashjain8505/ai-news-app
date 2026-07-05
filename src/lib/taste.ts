@@ -1,17 +1,13 @@
+import { TOPICS } from "@/lib/topics";
+
 export type Weights = Record<string, number>;
 
-export const TAGS = [
-  "lab-power",
-  "strategy",
-  "drama",
-  "tools",
-  "economics",
-  "policy",
-  "regional",
-  "technical",
-  "culture",
-  "future-of-work",
-];
+// SINGLE SOURCE OF TRUTH for the taste dimensions — the same reader-facing topics
+// used by onboarding and the Tune page. If this drifts from topics.ts, saved
+// weights stop matching the tags on the stories and scoreItem returns ~0 for
+// everything, so the feed collapses to pure recency (same articles regardless of
+// taste). Deriving it here keeps them locked together.
+export const TAGS = TOPICS.map((t) => t.tag);
 
 const SOURCE_BONUS = 1.5;
 
