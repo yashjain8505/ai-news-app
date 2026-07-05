@@ -2,14 +2,17 @@
 // with concrete examples — NOT jargon like "big-lab power plays". Shared so the
 // onboarding cards and the Tune bars always match.
 export const TOPICS: { tag: string; label: string; hint: string }[] = [
-  { tag: "lab-power", label: "The big AI labs", hint: "OpenAI, Anthropic, Google, Meta and their big moves" },
-  { tag: "strategy", label: "The business of AI", hint: "competition, big bets, who's winning" },
-  { tag: "drama", label: "Drama & personalities", hint: "feuds, controversy, the big names" },
-  { tag: "policy", label: "Rules & governments", hint: "laws, regulation, government moves" },
-  { tag: "regional", label: "AI around the world", hint: "China, India, Europe and beyond" },
-  { tag: "technical", label: "New tech & breakthroughs", hint: "new models, research, what's now possible" },
-  { tag: "culture", label: "AI in everyday life", hint: "society, creativity, how it changes daily life" },
-  { tag: "future-of-work", label: "Jobs & the future of work", hint: "automation, careers, how work changes" },
+  { tag: "coding", label: "AI coding & agents", hint: "coding assistants, autonomous agents, dev AI" },
+  { tag: "media", label: "Images, video & audio", hint: "AI image, video and voice generation" },
+  { tag: "writing", label: "Writing & content", hint: "writing, summaries, content tools" },
+  { tag: "music", label: "Music & audio", hint: "AI music and sound" },
+  { tag: "science", label: "Science & health", hint: "medicine, biology, research breakthroughs" },
+  { tag: "business", label: "Business & startups", hint: "startups, funding, the AI industry" },
+  { tag: "safety", label: "Safety & risk", hint: "misuse, alignment, AI going wrong" },
+  { tag: "policy", label: "Policy & regulation", hint: "laws, governments, courts" },
+  { tag: "jobs", label: "AI & jobs", hint: "automation, careers, the future of work" },
+  { tag: "daily-life", label: "AI in daily life", hint: "everyday apps, culture, society" },
+  { tag: "world", label: "AI around the world", hint: "China, India, Europe and beyond" },
 ];
 
 // How much technical depth the reader wants: 1 = plain news, 4 = deep/jargon.
