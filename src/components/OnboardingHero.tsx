@@ -137,7 +137,7 @@ export default function OnboardingHero() {
           className="serif"
           style={{ fontSize: 16, lineHeight: 1.55, color: "var(--muted)", margin: "12px 0 24px" }}
         >
-          Answer six quick questions and we&#8217;ll build an edition around your taste &mdash; the labs, tools and stories you follow, nothing you don&#8217;t.
+          Pick your topics, rate a few stories, and we&#8217;ll build a daily edition around what you actually care about &mdash; nothing you don&#8217;t.
         </p>
 
         <a
@@ -155,7 +155,7 @@ export default function OnboardingHero() {
             textDecoration: "none",
           }}
         >
-          Personalize &mdash; 6 quick questions &rarr;
+          Personalize &mdash; takes a minute &rarr;
         </a>
 
         <button

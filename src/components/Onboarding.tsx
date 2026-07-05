@@ -5,7 +5,8 @@ import { QuizArticle } from "@/lib/types";
 import { completeOnboarding } from "@/app/actions";
 import { optImg } from "@/lib/img";
 
-const CARDS = 12;
+const CARDS = 5; // real stories to rate after picking topics
+const TOPIC_SEED = 3; // base weight each topic you pick starts with
 
 const APPETITES: { tag: string; label: string }[] = [
   { tag: "lab-power", label: "Big-lab power plays" },
@@ -53,9 +54,9 @@ export default function Onboarding({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"calibrate" | "mix" | "done">("calibrate");
+  const [phase, setPhase] = useState<"topics" | "calibrate" | "done">("topics");
+  const [picks, setPicks] = useState<Set<string>>(new Set());
   const [idx, setIdx] = useState(0);
-  const [slider, setSlider] = useState(3);
   const [scores, setScores] = useState<Record<string, number>>(emptyScores());
   const [mix, setMix] = useState<Record<string, number>>({});
 
@@ -73,33 +74,36 @@ export default function Onboarding({
     return next;
   }
 
-  function advance() {
+  function toggleTopic(tag: string) {
+    setPicks((cur) => {
+      const next = new Set(cur);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+
+  // Topics chosen → seed the score for each, then rate a few real stories.
+  function startCalibrate() {
+    const seeded = emptyScores();
+    picks.forEach((t) => (seeded[t] = TOPIC_SEED));
+    setScores(seeded);
+    setPhase("calibrate");
+  }
+
+  // A 1–6 rating on the current story: 6 loves it (+2.5), 1 skips it (−2.5).
+  function rate(n: number) {
     const card = cards[idx];
-    const delta = slider - 3;
+    const delta = n - 3.5;
     const next = { ...scores };
     for (const t of card.tags ?? []) next[t] = (next[t] ?? 0) + delta;
     setScores(next);
     if (idx + 1 >= cards.length) {
       setMix(computeMix(next));
-      setPhase("mix");
+      setPhase("done");
     } else {
       setIdx(idx + 1);
-      setSlider(3);
     }
-  }
-
-  function setBar(tag: string, v: number) {
-    const val = Math.max(0, Math.min(100, v));
-    const others = TAGS.filter((t) => t !== tag);
-    const othersTotal = others.reduce((a, t) => a + (mix[t] ?? 0), 0);
-    const remaining = 100 - val;
-    const next: Record<string, number> = { ...mix, [tag]: val };
-    if (othersTotal > 0) {
-      for (const t of others) next[t] = (mix[t] ?? 0) * (remaining / othersTotal);
-    } else {
-      for (const t of others) next[t] = remaining / others.length;
-    }
-    setMix(next);
   }
 
   function finish() {
@@ -109,10 +113,8 @@ export default function Onboarding({
     startTransition(async () => {
       const res = await completeOnboarding({ weights });
       if (res?.ok) {
-        // Hard navigation: guarantees a fresh server render of "/" so we land in
-        // the feed. A soft router.push can serve the cached "redirect to
-        // onboarding" payload and strand the user on this screen (they had to
-        // refresh manually). A full load re-evaluates the session + taste.
+        // Hard navigation guarantees a fresh server render of "/" (a soft push can
+        // serve the cached "redirect to onboarding" payload and strand the user).
         window.location.assign("/");
       } else {
         setError("Something went wrong saving your taste. Please try again.");
@@ -130,6 +132,19 @@ export default function Onboarding({
     padding: "48px 24px 80px",
   };
 
+  const ctaBtn: React.CSSProperties = {
+    marginTop: 26,
+    background: "var(--accent)",
+    color: "var(--onAccent)",
+    border: 0,
+    padding: "12px 22px",
+    fontFamily: "inherit",
+    fontSize: 14,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+  };
+
   return (
     <main style={wrap}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 36 }}>
@@ -141,17 +156,51 @@ export default function Onboarding({
         </span>
       </div>
 
+      {phase === "topics" && (
+        <div>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
+            Step 1 of 2
+          </div>
+          <h2 className="display" style={{ fontSize: 26, lineHeight: 1.12, color: "var(--ink)", margin: "0 0 8px" }}>
+            What do you like reading about in AI?
+          </h2>
+          <p className="serif" style={{ fontSize: 16, color: "var(--muted)", margin: "0 0 22px" }}>
+            Tap the topics you want in your feed. Pick as many as you like — you can change this anytime.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+            {APPETITES.map((a) => {
+              const on = picks.has(a.tag);
+              return (
+                <button
+                  key={a.tag}
+                  onClick={() => toggleTopic(a.tag)}
+                  style={{ textAlign: "left", padding: "16px 16px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit", fontSize: 15, lineHeight: 1.2 }}
+                >
+                  {a.label}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={startCalibrate} disabled={picks.size === 0} style={{ ...ctaBtn, opacity: picks.size === 0 ? 0.4 : 1, cursor: picks.size === 0 ? "not-allowed" : "pointer" }}>
+            Next &rarr;
+          </button>
+        </div>
+      )}
+
       {phase === "calibrate" && cards[idx] && (
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 }}>
-            Article {idx + 1} of {cards.length}
+            Step 2 of 2 · Story {idx + 1} of {cards.length}
           </div>
-          <div style={{ height: 3, background: "var(--rule)", marginBottom: 26 }}>
+          <div style={{ height: 3, background: "var(--rule)", marginBottom: 20 }}>
             <div style={{ height: 3, background: "var(--accent)", width: `${((idx + 1) / cards.length) * 100}%` }} />
           </div>
-          <h2 className="display" style={{ fontSize: 22, lineHeight: 1.1, color: "var(--ink)", margin: "0 0 18px" }}>
-            Would you read this?
+          <h2 className="display" style={{ fontSize: 22, lineHeight: 1.14, color: "var(--ink)", margin: "0 0 4px" }}>
+            Got the gist of your topics.
           </h2>
+          <p className="serif" style={{ fontSize: 16, color: "var(--muted)", margin: "0 0 18px" }}>
+            Now tell us which of these you&#8217;d actually read — rate each 1 to 6.
+          </p>
 
           <div style={{ border: "1px solid var(--rule)", background: "var(--ph1)" }}>
             {cards[idx].image_url && (
@@ -183,69 +232,27 @@ export default function Onboarding({
           </div>
 
           <div style={{ marginTop: 22 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-              <span style={{ fontSize: 15, color: "var(--ink)" }}>How likely are you to read this?</span>
-              <span className="mono" style={{ fontSize: 14, color: "var(--accent)" }}>{slider}</span>
+            <div style={{ fontSize: 15, color: "var(--ink)", marginBottom: 10 }}>
+              How likely are you to read this?
             </div>
-            <input
-              type="range"
-              min={0}
-              max={6}
-              step={1}
-              value={slider}
-              onChange={(e) => setSlider(Number(e.target.value))}
-              style={{ width: "100%", accentColor: "var(--accent)" }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-              <span className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>Skip</span>
-              <span className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>Definitely</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => rate(n)}
+                  aria-label={`Rate ${n} of 6`}
+                  className="mono"
+                  style={{ flex: 1, height: 48, fontSize: 17, border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+              <span className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>1 · Skip</span>
+              <span className="mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)" }}>6 · Love it</span>
             </div>
           </div>
-
-          <button
-            onClick={advance}
-            style={{ marginTop: 24, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}
-          >
-            {idx + 1 >= cards.length ? "See my mix" : "Next"}
-          </button>
-        </div>
-      )}
-
-      {phase === "mix" && (
-        <div>
-          <h2 className="display" style={{ fontSize: 30, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
-            Your mix
-          </h2>
-          <p className="serif" style={{ fontSize: 16, fontStyle: "italic", color: "var(--muted)", margin: "10px 0 24px" }}>
-            Here&#8217;s what we picked up. Drag any bar to tune the intensity, it always totals 100%.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {APPETITES.map((a) => (
-              <div key={a.tag}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span style={{ fontSize: 15, color: "var(--ink)" }}>{a.label}</span>
-                  <span className="mono" style={{ fontSize: 12, color: "var(--accent)" }}>
-                    {Math.round(mix[a.tag] ?? 0)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round(mix[a.tag] ?? 0)}
-                  onChange={(e) => setBar(a.tag, Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "var(--accent)", marginTop: 4 }}
-                />
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => setPhase("done")}
-            style={{ marginTop: 28, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}
-          >
-            Continue
-          </button>
         </div>
       )}
 
@@ -264,11 +271,7 @@ export default function Onboarding({
           <p className="serif" style={{ fontSize: 15, fontStyle: "italic", color: "var(--dim)", margin: "10px 0 0" }}>
             Keep tuning it any time by reacting as you read.
           </p>
-          <button
-            disabled={pending}
-            onClick={finish}
-            style={{ marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: pending ? 0.5 : 1 }}
-          >
+          <button disabled={pending} onClick={finish} style={{ ...ctaBtn, opacity: pending ? 0.5 : 1 }}>
             {pending ? "Building your briefing…" : "Enter Wortins"}
           </button>
           {error && (
