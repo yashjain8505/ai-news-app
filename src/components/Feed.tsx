@@ -19,7 +19,7 @@ const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "funding", label: "Funding" },
 ];
 // How many stories to reveal per "Explore more" click (also the first-page size).
-const PAGES: Record<Section, number> = { daily: 12, tools: 8, articles: 8, funding: 8 };
+const PAGES: Record<Section, number> = { daily: 15, tools: 8, articles: 8, funding: 8 };
 const INITIAL_SHOWN: Record<Section, number> = {
   daily: PAGES.daily,
   tools: PAGES.tools,
