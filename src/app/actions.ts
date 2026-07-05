@@ -1,6 +1,7 @@
 "use server";
 
-import { getSessionUser } from "@/lib/supabase-server";
+import { getSessionUser, createSupabaseServer } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { supabaseService } from "@/lib/supabase-service";
 import {
@@ -12,6 +13,32 @@ import {
   type Weights,
 } from "@/lib/taste";
 import type { Item, Section } from "@/lib/types";
+
+// Sign the current user out (clears the auth cookies) and return to the feed.
+export async function signOut() {
+  const server = await createSupabaseServer();
+  await server.auth.signOut();
+  redirect("/");
+}
+
+// Permanently delete the current user's account and all their data. Wipes their
+// rows via the service-role client (bypasses RLS), removes the auth user, then
+// signs out. Irreversible — the UI gates this behind an explicit confirm.
+export async function deleteAccount() {
+  const user = await getSessionUser();
+  if (user) {
+    const svc = supabaseService();
+    if (svc) {
+      await svc.from("interactions").delete().eq("user_id", user.id);
+      await svc.from("user_taste").delete().eq("user_id", user.id);
+      await svc.from("users").delete().eq("id", user.id);
+      await svc.auth.admin.deleteUser(user.id);
+    }
+    const server = await createSupabaseServer();
+    await server.auth.signOut();
+  }
+  redirect("/");
+}
 
 async function bumpAffinity(uid: string, tags: string[], perTag: number) {
   const { data } = await supabase

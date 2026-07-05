@@ -405,7 +405,7 @@ export default function Feed({
                   className="mono"
                   style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
                 >
-                  Taste
+                  Account
                 </a>
               </>
             ) : (

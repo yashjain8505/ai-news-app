@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveMix, reviseReaction } from "@/app/actions";
+import { saveMix, reviseReaction, signOut, deleteAccount } from "@/app/actions";
 import { TOPICS as APPETITES, LEVELS } from "@/lib/topics";
 
 type Reaction = {
@@ -42,6 +42,8 @@ export default function Tune({
   });
   const [rx, setRx] = useState<Reaction[]>(reactions);
   const [saved, setSaved] = useState(false);
+  const [authPending, startAuth] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   function setBar(tag: string, v: number) {
     const val = Math.max(0, Math.min(100, v));
@@ -83,7 +85,7 @@ export default function Tune({
     <main style={{ maxWidth: 680, margin: "0 auto", padding: "32px 24px 80px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <span className="display" style={{ fontSize: 22, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)" }}>
-          Tune
+          Account
         </span>
         <button
           onClick={() => router.push("/")}
@@ -212,6 +214,55 @@ export default function Tune({
           ))}
         </div>
       )}
+
+      <div style={{ borderTop: "3px double var(--ruleStrong)", margin: "44px 0 0" }} />
+      <h2 className="display" style={{ fontSize: 26, lineHeight: 1.1, color: "var(--ink)", margin: "28px 0 4px" }}>
+        Account
+      </h2>
+      <p className="serif" style={{ fontSize: 15, fontStyle: "italic", color: "var(--muted)", margin: "0 0 20px" }}>
+        Signed in with Google. Sign out, or permanently delete your account and all its data.
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <button
+          onClick={() => startAuth(async () => { await signOut(); })}
+          disabled={authPending}
+          className="mono"
+          style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
+        >
+          Sign out
+        </button>
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="mono"
+            style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--accent)", background: "transparent", color: "var(--accent)", padding: "10px 18px", cursor: "pointer" }}
+          >
+            Delete account
+          </button>
+        ) : (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="serif" style={{ fontSize: 14, color: "var(--ink)" }}>
+              This erases everything, permanently.
+            </span>
+            <button
+              onClick={() => startAuth(async () => { await deleteAccount(); })}
+              disabled={authPending}
+              className="mono"
+              style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: 0, background: "var(--accent)", color: "var(--onAccent)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
+            >
+              {authPending ? "Deleting…" : "Yes, delete"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={authPending}
+              className="mono"
+              style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", padding: "10px 18px", cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
