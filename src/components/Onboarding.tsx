@@ -4,39 +4,74 @@ import { useState, useTransition } from "react";
 import { completeOnboarding } from "@/app/actions";
 import { TOPICS as APPETITES, LEVELS } from "@/lib/topics";
 
-const TAGS = APPETITES.map((a) => a.tag);
-const LABEL: Record<string, string> = Object.fromEntries(
-  APPETITES.map((a) => [a.tag, a.label])
-);
+type Article = {
+  id: string;
+  title: string;
+  source: string | null;
+  summary: string | null;
+  tags: string[] | null;
+};
 
-// Liked topics become the taste mix: each liked topic gets an equal share.
+const TAGS = APPETITES.map((a) => a.tag);
+const LABEL: Record<string, string> = Object.fromEntries(APPETITES.map((a) => [a.tag, a.label]));
+
+// Picked topics seed the mix (equal share); article ratings then fine-tune it.
 function computeMix(picks: Set<string>): Record<string, number> {
   const next: Record<string, number> = {};
   const n = picks.size;
-  if (n === 0) {
-    TAGS.forEach((t) => (next[t] = Math.round(100 / TAGS.length)));
-  } else {
-    TAGS.forEach((t) => (next[t] = picks.has(t) ? Math.round(100 / n) : 0));
-  }
+  if (n === 0) TAGS.forEach((t) => (next[t] = Math.round(100 / TAGS.length)));
+  else TAGS.forEach((t) => (next[t] = picks.has(t) ? Math.round(100 / n) : 0));
   return next;
 }
 
-export default function Onboarding({ name }: { name: string }) {
+// 5 articles for the rating step. Round-robin across the picked topics (newest
+// first) so every chosen topic is represented, not just the one with the most
+// recent stories; backfill with the most recent overall so there are always 5.
+function pickQuiz(picks: Set<string>, pool: Article[]): Article[] {
+  const buckets = [...picks].map((tag) => pool.filter((a) => (a.tags ?? []).includes(tag)));
+  const seen = new Set<string>();
+  const out: Article[] = [];
+  let added = true;
+  while (out.length < 5 && added) {
+    added = false;
+    for (const b of buckets) {
+      const next = b.find((a) => !seen.has(a.id));
+      if (next) {
+        seen.add(next.id);
+        out.push(next);
+        added = true;
+        if (out.length >= 5) break;
+      }
+    }
+  }
+  if (out.length < 5) {
+    for (const a of pool) {
+      if (seen.has(a.id)) continue;
+      seen.add(a.id);
+      out.push(a);
+      if (out.length >= 5) break;
+    }
+  }
+  return out;
+}
+
+export default function Onboarding({ name, articles = [] }: { name: string; articles?: Article[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"level" | "like" | "dislike" | "done">("level");
+  const [phase, setPhase] = useState<"level" | "topics" | "rate" | "done">("level");
   const [techPref, setTechPref] = useState<number>(2);
-  const [likes, setLikes] = useState<Set<string>>(new Set());
-  const [dislikes, setDislikes] = useState<Set<string>>(new Set());
+  const [picks, setPicks] = useState<Set<string>>(new Set());
+  const [quiz, setQuiz] = useState<Article[]>([]);
+  const [ratings, setRatings] = useState<Record<string, "read" | "skip">>({});
   const [mix, setMix] = useState<Record<string, number>>({});
 
   function pickLevel(pref: number) {
     setTechPref(pref);
-    setPhase("like");
+    setPhase("topics");
   }
 
-  function toggleLike(tag: string) {
-    setLikes((cur) => {
+  function toggleTopic(tag: string) {
+    setPicks((cur) => {
       const next = new Set(cur);
       if (next.has(tag)) next.delete(tag);
       else next.add(tag);
@@ -44,28 +79,32 @@ export default function Onboarding({ name }: { name: string }) {
     });
   }
 
-  function toggleDislike(tag: string) {
-    setDislikes((cur) => {
-      const next = new Set(cur);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return next;
-    });
-  }
-
-  function finishLike() {
-    // If they liked everything there's nothing left to exclude — skip ahead.
-    const remaining = TAGS.filter((t) => !likes.has(t));
-    if (remaining.length === 0) {
-      setMix(computeMix(likes));
+  function finishTopics() {
+    const q = pickQuiz(picks, articles);
+    setQuiz(q);
+    // No articles to show (empty DB) — skip straight to done with the topic mix.
+    if (q.length === 0) {
+      setMix(computeMix(picks));
       setPhase("done");
     } else {
-      setPhase("dislike");
+      setPhase("rate");
     }
   }
 
-  function finishDislike() {
-    setMix(computeMix(likes));
+  function rate(id: string, val: "read" | "skip") {
+    setRatings((cur) => ({ ...cur, [id]: val }));
+  }
+
+  // Final weights = topic mix, nudged by each article you'd read (+) or skip (−).
+  function finishRating() {
+    const w = computeMix(picks);
+    for (const a of quiz) {
+      const r = ratings[a.id];
+      if (!r) continue;
+      const delta = r === "read" ? 15 : -12;
+      for (const t of a.tags ?? []) w[t] = Math.max(0, (w[t] ?? 0) + delta);
+    }
+    setMix(w);
     setPhase("done");
   }
 
@@ -74,41 +113,28 @@ export default function Onboarding({ name }: { name: string }) {
     for (const t of TAGS) weights[t] = Math.round(mix[t] ?? 0);
     setError(null);
     startTransition(async () => {
-      const res = await completeOnboarding({
-        weights,
-        techPref,
-        dislikes: [...dislikes],
-      });
-      if (res?.ok) {
-        window.location.assign("/");
-      } else {
-        setError("Something went wrong saving your taste. Please try again.");
-      }
+      const res = await completeOnboarding({ weights, techPref });
+      if (res?.ok) window.location.assign("/");
+      else setError("Something went wrong saving your taste. Please try again.");
     });
   }
 
-  const remaining = APPETITES.filter((a) => !likes.has(a.tag));
   const topThree = [...TAGS]
     .sort((a, b) => (mix[b] ?? 0) - (mix[a] ?? 0))
     .slice(0, 3)
     .filter((t) => (mix[t] ?? 0) > 0);
   const levelLabel = LEVELS.find((l) => l.pref === techPref)?.label ?? "";
+  const ratedCount = quiz.filter((a) => ratings[a.id]).length;
 
-  const wrap: React.CSSProperties = { maxWidth: 620, margin: "0 auto", padding: "48px 24px 80px" };
+  const wrap: React.CSSProperties = { maxWidth: 640, margin: "0 auto", padding: "48px 24px 80px" };
   const ctaBtn: React.CSSProperties = {
     marginTop: 26, background: "var(--accent)", color: "var(--onAccent)", border: 0,
     padding: "12px 22px", fontFamily: "inherit", fontSize: 14, letterSpacing: "0.08em",
     textTransform: "uppercase", cursor: "pointer",
   };
-  const stepLabel: React.CSSProperties = {
-    fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10,
-  };
-  const h2: React.CSSProperties = {
-    fontSize: 26, lineHeight: 1.12, color: "var(--ink)", margin: "0 0 8px",
-  };
-  const lede: React.CSSProperties = {
-    fontSize: 16, color: "var(--muted)", margin: "0 0 22px",
-  };
+  const stepLabel: React.CSSProperties = { fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 10 };
+  const h2: React.CSSProperties = { fontSize: 26, lineHeight: 1.12, color: "var(--ink)", margin: "0 0 8px" };
+  const lede: React.CSSProperties = { fontSize: 16, color: "var(--muted)", margin: "0 0 22px" };
 
   return (
     <main style={wrap}>
@@ -143,62 +169,83 @@ export default function Onboarding({ name }: { name: string }) {
         </div>
       )}
 
-      {phase === "like" && (
+      {phase === "topics" && (
         <div>
           <div className="mono" style={stepLabel}>Step 2 of 3</div>
-          <h2 className="display" style={h2}>What do you like reading about?</h2>
+          <h2 className="display" style={h2}>Which topics are you into?</h2>
           <p className="serif" style={lede}>
-            Tap the ones you actually want more of. Pick as many as you like.
+            Tap the ones you want in your feed. Pick as many as you like — next we&#8217;ll show you a few real stories from these.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
             {APPETITES.map((a) => {
-              const on = likes.has(a.tag);
+              const on = picks.has(a.tag);
               return (
                 <button
                   key={a.tag}
-                  onClick={() => toggleLike(a.tag)}
+                  onClick={() => toggleTopic(a.tag)}
                   style={{ textAlign: "left", padding: "14px 16px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   <div style={{ fontSize: 16, lineHeight: 1.15 }}>{a.label}</div>
-                  <div style={{ fontSize: 12, lineHeight: 1.3, marginTop: 4, color: on ? "rgba(255,255,255,0.82)" : "var(--dim)" }}>
-                    {a.hint}
-                  </div>
+                  <div style={{ fontSize: 12, lineHeight: 1.3, marginTop: 4, color: on ? "rgba(255,255,255,0.82)" : "var(--dim)" }}>{a.hint}</div>
                 </button>
               );
             })}
           </div>
-          <button onClick={finishLike} disabled={likes.size === 0} style={{ ...ctaBtn, opacity: likes.size === 0 ? 0.4 : 1, cursor: likes.size === 0 ? "not-allowed" : "pointer" }}>
+          <button onClick={finishTopics} disabled={picks.size === 0} style={{ ...ctaBtn, opacity: picks.size === 0 ? 0.4 : 1, cursor: picks.size === 0 ? "not-allowed" : "pointer" }}>
             Next &rarr;
           </button>
         </div>
       )}
 
-      {phase === "dislike" && (
+      {phase === "rate" && (
         <div>
           <div className="mono" style={stepLabel}>Step 3 of 3</div>
-          <h2 className="display" style={h2}>Anything you&#8217;d rather not read about?</h2>
+          <h2 className="display" style={h2}>Which of these would you actually read?</h2>
           <p className="serif" style={lede}>
-            Tap anything you want to see less of — we&#8217;ll keep it out of your feed. Or skip this; it&#8217;s optional.
+            Got the gist of your topics — now tell us which of these real stories you&#8217;d open, and which you&#8217;d skip. It shapes what your feed leans toward.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-            {remaining.map((a) => {
-              const on = dislikes.has(a.tag);
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {quiz.map((a) => {
+              const r = ratings[a.id];
               return (
-                <button
-                  key={a.tag}
-                  onClick={() => toggleDislike(a.tag)}
-                  style={{ textAlign: "left", padding: "14px 16px", border: on ? "1px solid var(--ink)" : "1px solid var(--sep)", background: on ? "var(--ink)" : "transparent", color: on ? "var(--bg)" : "var(--muted)", cursor: "pointer", fontFamily: "inherit", opacity: on ? 1 : 0.9 }}
-                >
-                  <div style={{ fontSize: 16, lineHeight: 1.15, textDecoration: on ? "line-through" : "none" }}>{a.label}</div>
-                  <div style={{ fontSize: 12, lineHeight: 1.3, marginTop: 4, color: on ? "rgba(255,255,255,0.7)" : "var(--dim)" }}>
-                    {a.hint}
+                <div key={a.id} style={{ border: "1px solid var(--sep)", padding: "14px 16px" }}>
+                  {a.source && (
+                    <div className="mono" style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 4 }}>
+                      {a.source}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 17, lineHeight: 1.2, color: "var(--ink)" }}>{a.title}</div>
+                  {a.summary && (
+                    <div className="serif" style={{ fontSize: 14, lineHeight: 1.4, color: "var(--muted)", marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {a.summary}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button
+                      onClick={() => rate(a.id, "skip")}
+                      className="mono"
+                      style={{ flex: 1, padding: "9px 12px", fontSize: 12, letterSpacing: "0.04em", textTransform: "uppercase", border: r === "skip" ? "1px solid var(--ink)" : "1px solid var(--sep)", background: r === "skip" ? "var(--ink)" : "transparent", color: r === "skip" ? "var(--bg)" : "var(--dim)", cursor: "pointer" }}
+                    >
+                      Not for me
+                    </button>
+                    <button
+                      onClick={() => rate(a.id, "read")}
+                      className="mono"
+                      style={{ flex: 1, padding: "9px 12px", fontSize: 12, letterSpacing: "0.04em", textTransform: "uppercase", border: r === "read" ? "1px solid var(--accent)" : "1px solid var(--sep)", background: r === "read" ? "var(--accent)" : "transparent", color: r === "read" ? "var(--onAccent)" : "var(--ink)", cursor: "pointer" }}
+                    >
+                      I&#8217;d read this
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
-          <button onClick={finishDislike} style={ctaBtn}>
-            {dislikes.size === 0 ? "Skip →" : "Done →"}
+          <button
+            onClick={finishRating}
+            disabled={ratedCount < quiz.length}
+            style={{ ...ctaBtn, opacity: ratedCount < quiz.length ? 0.4 : 1, cursor: ratedCount < quiz.length ? "not-allowed" : "pointer" }}
+          >
+            {ratedCount < quiz.length ? `Rate all ${quiz.length} (${ratedCount}/${quiz.length})` : "Done →"}
           </button>
         </div>
       )}
@@ -213,19 +260,7 @@ export default function Onboarding({ name }: { name: string }) {
             {topThree.length > 0 && (
               <>
                 {" "}You lean:{" "}
-                <span style={{ color: "var(--ink)" }}>
-                  {topThree.map((t) => LABEL[t]).join(" · ")}
-                </span>
-                .
-              </>
-            )}
-            {dislikes.size > 0 && (
-              <>
-                {" "}Muting:{" "}
-                <span style={{ color: "var(--ink)" }}>
-                  {[...dislikes].map((t) => LABEL[t]).join(" · ")}
-                </span>
-                .
+                <span style={{ color: "var(--ink)" }}>{topThree.map((t) => LABEL[t]).join(" · ")}</span>.
               </>
             )}
           </p>

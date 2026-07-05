@@ -3,9 +3,9 @@
 // onboarding cards and the Tune bars always match.
 export const TOPICS: { tag: string; label: string; hint: string }[] = [
   { tag: "coding", label: "AI coding & agents", hint: "coding assistants, autonomous agents, dev AI" },
-  { tag: "media", label: "Images, video & audio", hint: "AI image, video and voice generation" },
+  { tag: "media", label: "Images & video", hint: "AI image and video generation" },
   { tag: "writing", label: "Writing & content", hint: "writing, summaries, content tools" },
-  { tag: "music", label: "Music & audio", hint: "AI music and sound" },
+  { tag: "music", label: "Music & audio", hint: "AI music, voice and sound" },
   { tag: "science", label: "Science & health", hint: "medicine, biology, research breakthroughs" },
   { tag: "business", label: "Business & startups", hint: "startups, funding, the AI industry" },
   { tag: "safety", label: "Safety & risk", hint: "misuse, alignment, AI going wrong" },

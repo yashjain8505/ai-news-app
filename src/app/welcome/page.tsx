@@ -51,13 +51,20 @@ export default async function Welcome() {
   }
 
   // Signed in + already calibrated → straight to the feed.
-  const { data: taste } = await supabase
-    .from("user_taste")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: taste }, { data: pool }] = await Promise.all([
+    supabase.from("user_taste").select("user_id").eq("user_id", user.id).maybeSingle(),
+    // Article pool for the "which would you read?" step — recent daily stories
+    // with their topic tags, filtered client-side to the topics the reader picks.
+    supabase
+      .from("items")
+      .select("id, title, source, summary, tags")
+      .eq("is_active", true)
+      .eq("section", "daily")
+      .order("published_at", { ascending: false })
+      .limit(40),
+  ]);
   if (taste) redirect("/");
 
-  // Signed in, first time → taste calibration (technical level, then topics).
-  return <Onboarding name={displayName(user)} />;
+  // Signed in, first time → taste calibration: level → topics → rate articles.
+  return <Onboarding name={displayName(user)} articles={pool ?? []} />;
 }
