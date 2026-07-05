@@ -7,6 +7,7 @@ import { recordEngagement, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 import { optImg } from "@/lib/img";
 import ShareButton from "@/components/ShareButton";
+import OnboardingHero from "@/components/OnboardingHero";
 
 type Day = { label: string; date: string; big: string; full: string };
 type Mode = "light" | "dark";
@@ -406,13 +407,7 @@ export default function Feed({
                 </a>
               </>
             ) : (
-              <a
-                href="/welcome"
-                className="mono"
-                style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "5px 13px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none" }}
-              >
-                Sign in &#8599;
-              </a>
+              <OnboardingHero />
             )}
             <button
               onClick={toggleMode}
