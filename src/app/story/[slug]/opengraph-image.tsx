@@ -16,24 +16,21 @@ export default async function Image({
 
   let title: string | null = null;
   let subtitle: string | null = null;
-  let kicker: string | null = null;
+  let highlight: string | null = null;
   try {
     const item = await getStoryBySlug(slug);
     if (item) {
       title = item.title;
-      subtitle = item.wortins_take ?? item.summary;
-      kicker = item.source;
+      subtitle = item.summary;
+      highlight = item.highlight;
     }
   } catch {
     // Fall back to a generic, DB-free card.
   }
 
   return renderOgImage({
-    kicker: kicker ?? "AI story",
     title: title ?? SITE.tagline,
-    subtitle:
-      subtitle ??
-      "The day's curated AI briefing: startups, product launches, applied AI, funding, and breakthroughs.",
-    footerRight: "AI story",
+    subtitle: subtitle ?? "The day's curated AI briefing.",
+    highlight,
   });
 }

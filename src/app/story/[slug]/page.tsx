@@ -5,7 +5,7 @@ import { getStoryBySlug, getRelatedStories } from "@/lib/publicData";
 import { timeAgo } from "@/lib/time";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
-import ShareButton from "@/components/ShareButton";
+import SocialShare from "@/components/SocialShare";
 
 export const revalidate = 1800; // 30 min ISR
 
@@ -168,7 +168,7 @@ export default async function StoryPage({
               Read the full story at {item.source ?? "the source"} &rarr;
             </a>
           )}
-          <ShareButton url={url} title={item.title} />
+          <SocialShare url={url} title={item.title} itemId={item.id} showGeneric />
         </div>
         {item.source && (
           <div className="mono" style={{ fontSize: 11, color: "var(--dim)", marginTop: 12 }}>
