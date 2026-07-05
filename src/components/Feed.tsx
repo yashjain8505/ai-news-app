@@ -204,7 +204,32 @@ export default function Feed({
     } as Record<Section, Item[]>;
   }, [items, todayDate]);
 
-  const fullList = pools[active] ?? [];
+  // The daily HERO is editorial, not personalized: the latest edition's top
+  // curator pick (lowest rank of the freshest edition_date). Pinning it as the
+  // lead means the day's biggest story leads for everyone; the rest of the feed
+  // stays taste-sorted below it.
+  const dailyHero = useMemo(() => {
+    const daily = pools.daily;
+    if (daily.length === 0) return null;
+    let latest = "";
+    for (const it of daily) {
+      const d = it.edition_date ?? "";
+      if (d > latest) latest = d;
+    }
+    const fromLatest = daily.filter((it) => (it.edition_date ?? "") === latest);
+    return fromLatest.reduce(
+      (best, it) => (it.rank < best.rank ? it : best),
+      fromLatest[0]
+    );
+  }, [pools]);
+
+  const fullList = useMemo(() => {
+    const base = pools[active] ?? [];
+    if (active === "daily" && dailyHero) {
+      return [dailyHero, ...base.filter((it) => it.id !== dailyHero.id)];
+    }
+    return base;
+  }, [pools, active, dailyHero]);
   const list = fullList.slice(0, shown[active]);
   const canExplore = fullList.length > shown[active];
   const hasContent = fullList.length > 0;
