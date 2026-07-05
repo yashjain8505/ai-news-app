@@ -43,7 +43,7 @@ export default async function FeedPage({ section }: { section: Section }) {
   const [{ data: itemsData }, tasteRes] = await Promise.all([
     supabase.from("items").select("*").eq("is_active", true),
     user
-      ? supabase.from("user_taste").select("weights, sources").eq("user_id", user.id).maybeSingle()
+      ? supabase.from("user_taste").select("weights, sources, tech_pref").eq("user_id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -52,6 +52,7 @@ export default async function FeedPage({ section }: { section: Section }) {
 
   const weights = (tasteRes.data?.weights as Weights) ?? null;
   const sources = (tasteRes.data?.sources as string[]) ?? null;
+  const techPref = (tasteRes.data?.tech_pref as number | null) ?? null;
   const nowMs = Date.now();
   const items = ((itemsData ?? []) as Item[])
     .map((it) => {
@@ -61,7 +62,10 @@ export default async function FeedPage({ section }: { section: Section }) {
       // when signed-in (logged-out is non-personalized = recency + editorial rank).
       const recency = 26 * Math.exp(-hoursAgo / 5);
       const taste = weights ? scoreItem(it.tags, weights, it.source, sources) : 0;
-      return { it, s: taste + recency, pub };
+      // Down-rank stories more technical than the reader asked for; a story
+      // simpler than their chosen level is never penalized.
+      const techPenalty = techPref ? Math.max(0, (it.tech_level ?? 2) - techPref) * 40 : 0;
+      return { it, s: taste + recency - techPenalty, pub };
     })
     .sort((a, b) => b.s - a.s || b.pub - a.pub)
     .map((x) => x.it);

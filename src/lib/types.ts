@@ -16,6 +16,7 @@ export interface Item {
   tags: string[];
   published_at: string | null;
   read_time: number | null;
+  tech_level: number | null;
   edition_date: string | null;
   rank: number;
   created_at: string;

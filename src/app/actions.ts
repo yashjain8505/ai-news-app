@@ -37,7 +37,7 @@ async function bumpAffinity(uid: string, tags: string[], perTag: number) {
     .eq("user_id", uid);
 }
 
-export async function completeOnboarding(input: { weights: Weights }) {
+export async function completeOnboarding(input: { weights: Weights; techPref?: number }) {
   const user = await getSessionUser();
   if (!user) return { ok: false };
   const userId = user.id;
@@ -72,6 +72,7 @@ export async function completeOnboarding(input: { weights: Weights }) {
       affinity: input.weights,
       sources: [],
       events: 0,
+      tech_pref: input.techPref ?? 2,
     },
     { onConflict: "user_id" }
   );
@@ -172,19 +173,18 @@ export async function getSectionItems(
 
 // Manual edit of the taste mix from the Tune page: this is an explicit baseline,
 // so set weights + affinity + the decay-target prior all to the edited mix.
-export async function saveMix(weights: Weights) {
+export async function saveMix(weights: Weights, techPref?: number) {
   const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   const norm = normalizeMix(weights);
-  await supabase
-    .from("user_taste")
-    .update({
-      weights: norm,
-      affinity: norm,
-      prior: norm,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", uid);
+  const patch: Record<string, unknown> = {
+    weights: norm,
+    affinity: norm,
+    prior: norm,
+    updated_at: new Date().toISOString(),
+  };
+  if (typeof techPref === "number") patch.tech_pref = techPref;
+  await supabase.from("user_taste").update(patch).eq("user_id", uid);
   return { ok: true };
 }
 

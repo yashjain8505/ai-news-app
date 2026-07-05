@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/supabase-server";
-import { QuizArticle } from "@/lib/types";
 import Onboarding from "@/components/Onboarding";
 import SignInButton from "@/components/SignInButton";
 
@@ -59,16 +58,6 @@ export default async function Welcome() {
     .maybeSingle();
   if (taste) redirect("/");
 
-  // Signed in, first time → taste calibration.
-  const { data } = await supabase
-    .from("quiz_articles")
-    .select("id,title,url,image_url,summary,tags")
-    .eq("is_active", true);
-
-  return (
-    <Onboarding
-      articles={(data ?? []) as QuizArticle[]}
-      name={displayName(user)}
-    />
-  );
+  // Signed in, first time → taste calibration (technical level, then topics).
+  return <Onboarding name={displayName(user)} />;
 }

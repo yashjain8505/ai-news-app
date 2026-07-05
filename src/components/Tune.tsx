@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMix, reviseReaction } from "@/app/actions";
-import { TOPICS as APPETITES } from "@/lib/topics";
+import { TOPICS as APPETITES, LEVELS } from "@/lib/topics";
 
 type Reaction = {
   itemId: string;
@@ -23,12 +23,15 @@ const CHOICES: { v: "less" | "neutral" | "like"; label: string }[] = [
 export default function Tune({
   weights,
   reactions,
+  techPref,
 }: {
   weights: Record<string, number>;
   reactions: Reaction[];
+  techPref: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [level, setLevel] = useState<number>(techPref);
   const [mix, setMix] = useState<Record<string, number>>(() => {
     const m: Record<string, number> = {};
     TAGS.forEach((t) => (m[t] = Math.round(weights[t] ?? 0)));
@@ -51,7 +54,7 @@ export default function Tune({
 
   function save() {
     startTransition(async () => {
-      await saveMix(mix);
+      await saveMix(mix, level);
       setSaved(true);
     });
   }
@@ -78,9 +81,27 @@ export default function Tune({
         </button>
       </div>
 
-      <h1 className="display" style={{ fontSize: 30, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
-        Your mix
+      <h1 className="display" style={{ fontSize: 26, lineHeight: 1.1, color: "var(--ink)", margin: "0 0 12px" }}>
+        How technical?
       </h1>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 34 }}>
+        {LEVELS.map((l) => {
+          const on = l.pref === level;
+          return (
+            <button
+              key={l.pref}
+              onClick={() => { setLevel(l.pref); setSaved(false); }}
+              title={l.hint}
+              style={{ padding: "9px 14px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit", fontSize: 14 }}
+            >
+              {l.label}
+            </button>
+          );
+        })}
+      </div>
+      <h2 className="display" style={{ fontSize: 26, lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
+        Your topics
+      </h2>
       <p className="serif" style={{ fontSize: 16, fontStyle: "italic", color: "var(--muted)", margin: "8px 0 22px" }}>
         Drag any bar to change what your feed leans toward. It always totals 100%.
       </p>
