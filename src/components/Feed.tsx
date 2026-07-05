@@ -6,6 +6,7 @@ import { Item, Section } from "@/lib/types";
 import { recordEngagement, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 import { optImg } from "@/lib/img";
+import ShareButton from "@/components/ShareButton";
 
 type Day = { label: string; date: string; big: string; full: string };
 type Mode = "light" | "dark";
@@ -41,11 +42,11 @@ function withHighlight(title: string, h: string | null, px: number): ReactNode {
   );
 }
 
-// A story's destination: our own /story page when it carries an original take
-// (so readers land on Wortins first, TLDR-style), otherwise straight to the
-// source. Mirrors the public edition's linking.
+// A story's destination is always its own Wortins page, so every story is a
+// landing you can share (TLDR-style); the /story page itself carries a prominent
+// link out to the original source.
 function storyHref(it: Item): string {
-  return it.wortins_take ? `/story/${it.slug}` : it.url ?? "#";
+  return `/story/${it.slug}`;
 }
 
 // Clickable story photo. Renders NOTHING when there's no image (or it fails to
@@ -429,10 +430,11 @@ export default function Feed({
                         {lead.summary}
                       </p>
                     )}
-                    <div style={{ marginTop: 16 }}>
+                    <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 18 }}>
                       <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ fontStyle: "italic", fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>
                         Read the full story &rarr;
                       </a>
+                      <ShareButton compact url={`/story/${lead.slug}`} title={lead.title} />
                     </div>
                     {cardPrompt(lead)}
                   </article>
@@ -455,6 +457,9 @@ export default function Feed({
                           {it.summary}
                         </p>
                       )}
+                      <div style={{ marginTop: 9 }}>
+                        <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                      </div>
                       {cardPrompt(it)}
                     </article>
                   ))}
@@ -487,11 +492,14 @@ export default function Feed({
                               {it.summary}
                             </p>
                           )}
-                          {it.read_time && (
-                            <div className="mono" style={{ fontSize: 11, color: "var(--faint)", marginTop: 9 }}>
-                              {it.read_time} min read
-                            </div>
-                          )}
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9 }}>
+                            {it.read_time && (
+                              <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
+                                {it.read_time} min read
+                              </span>
+                            )}
+                            <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                          </div>
                           {cardPrompt(it)}
                         </div>
                         <CardPhoto it={it} ratio="4/3" rank={i + 3} onOpen={onOpen} className="bs-story__thumb" imgWidth={400} />
@@ -538,6 +546,9 @@ export default function Feed({
                             {it.summary}
                           </p>
                         )}
+                        <div style={{ marginTop: 8 }}>
+                          <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                        </div>
                         {cardPrompt(it)}
                       </div>
                       <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, fontStyle: "italic", fontSize: 13, color: "var(--ink)", textDecoration: "none", border: "1px solid var(--sep)", padding: "7px 15px" }}>
@@ -578,6 +589,9 @@ export default function Feed({
                       {it.summary}
                     </p>
                   )}
+                  <div style={{ marginTop: 12 }}>
+                    <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                  </div>
                   {cardPrompt(it)}
                 </article>
               ))}
