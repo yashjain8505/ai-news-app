@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { Item, Section } from "@/lib/types";
@@ -46,8 +45,10 @@ export default async function FeedPage({ section }: { section: Section }) {
       : Promise.resolve({ data: null }),
   ]);
 
-  // A signed-in visitor who hasn't calibrated yet goes to onboarding first.
-  if (user && !tasteRes.data) redirect("/welcome");
+  // A signed-in visitor who hasn't personalized yet is NOT forced into onboarding.
+  // They read the news like everyone else; personalizing starts only when they
+  // click "Personalize". `personalized` (not just signed-in) drives the masthead.
+  const personalized = !!tasteRes.data;
 
   const weights = (tasteRes.data?.weights as Weights) ?? null;
   const sources = (tasteRes.data?.sources as string[]) ?? null;
@@ -115,6 +116,7 @@ export default async function FeedPage({ section }: { section: Section }) {
       editionNo={0}
       initialMode={initialMode}
       signedIn={!!user}
+      personalized={personalized}
       initialActive={section}
     />
   );

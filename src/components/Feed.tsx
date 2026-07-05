@@ -109,6 +109,7 @@ export default function Feed({
   editionNo,
   initialMode,
   signedIn = true,
+  personalized = true,
   initialActive = "daily",
 }: {
   items: Item[];
@@ -121,6 +122,7 @@ export default function Feed({
   editionNo: number;
   initialMode: Mode;
   signedIn?: boolean;
+  personalized?: boolean;
   initialActive?: Section;
 }) {
   const active = initialActive;
@@ -374,7 +376,7 @@ export default function Feed({
               </h1>
             </div>
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
-              {signedIn ? "The daily AI briefing, curated to your taste" : "The daily AI briefing"}
+              {personalized ? "The daily AI briefing, curated to your taste" : "The daily AI briefing"}
             </div>
             <div className="mono" style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)", fontWeight: 700, marginTop: 10 }}>
               {day?.full}
@@ -386,7 +388,7 @@ export default function Feed({
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
               {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
             </span>
-            {signedIn ? (
+            {personalized ? (
               <>
                 <button
                   onClick={refresh}
