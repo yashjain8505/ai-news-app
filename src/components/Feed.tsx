@@ -41,6 +41,13 @@ function withHighlight(title: string, h: string | null, px: number): ReactNode {
   );
 }
 
+// A story's destination: our own /story page when it carries an original take
+// (so readers land on Wortins first, TLDR-style), otherwise straight to the
+// source. Mirrors the public edition's linking.
+function storyHref(it: Item): string {
+  return it.wortins_take ? `/story/${it.slug}` : it.url ?? "#";
+}
+
 // Clickable story photo. Renders NOTHING when there's no image (or it fails to
 // load) — so image-less stories become clean text-forward cards instead of an
 // awkward placeholder tile. The headline stays clickable independently.
@@ -65,7 +72,7 @@ function CardPhoto({
   if (!it.image_url || failed) return null;
   return (
     <a
-      href={it.url ?? "#"}
+      href={storyHref(it)}
       onClick={() => onOpen(it, rank)}
       target="_blank"
       rel="noopener noreferrer"
@@ -412,7 +419,7 @@ export default function Feed({
                   <article>
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
                     <div style={{ marginTop: lead.image_url ? 16 : 0 }}>{meta(lead, "—", 11, true)}</div>
-                    <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer">
+                    <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
                       </h2>
@@ -438,7 +445,7 @@ export default function Feed({
                       style={{ paddingBottom: 22, marginBottom: i === rail.length - 1 ? 0 : 22, borderBottom: i === rail.length - 1 ? "none" : "1px solid var(--rule)" }}
                     >
                       {meta(it, "·", 10, true)}
-                      <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 1)} target="_blank" rel="noopener noreferrer">
+                      <a href={storyHref(it)} onClick={() => onOpen(it, i + 1)} target="_blank" rel="noopener noreferrer">
                         <h3 className="display" style={{ fontSize: 23, lineHeight: 1.14, margin: "8px 0 0", color: "var(--ink)" }}>
                           {withHighlight(it.title, it.highlight, 3)}
                         </h3>
@@ -470,7 +477,7 @@ export default function Feed({
                       <article className="bs-story" key={it.id}>
                         <div className="bs-story__body">
                           <div>{meta(it, "·", 10, false)}</div>
-                          <a href={it.url ?? "#"} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
+                          <a href={storyHref(it)} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
                             <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
                               {it.title}
                             </h4>
@@ -512,7 +519,7 @@ export default function Feed({
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 11 }}>
-                          <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
+                          <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
                             <h3 className="display" style={{ fontSize: 21, margin: 0, color: "var(--ink)" }}>
                               {it.title.replace(/\s*\(Claude skill\)$/, "")}
                             </h3>
@@ -561,7 +568,7 @@ export default function Feed({
                       </span>
                     )}
                   </div>
-                  <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
+                  <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
                     <h2 className="display" style={{ fontSize: 30, lineHeight: 1.16, margin: "10px 0 0", color: "var(--ink)" }}>
                       {withHighlight(it.title, it.highlight, 3)}
                     </h2>

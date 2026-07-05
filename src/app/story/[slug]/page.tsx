@@ -5,6 +5,7 @@ import { getStoryBySlug, getRelatedStories } from "@/lib/publicData";
 import { timeAgo } from "@/lib/time";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
+import ShareButton from "@/components/ShareButton";
 
 export const revalidate = 1800; // 30 min ISR
 
@@ -155,8 +156,8 @@ export default async function StoryPage({
 
         {/* Attribution + prominent outbound link. We link out to the source —
             we never republish its article text. */}
-        {item.url && (
-          <div style={{ margin: "0 0 8px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", margin: "0 0 8px" }}>
+          {item.url && (
             <a
               href={item.url}
               target="_blank"
@@ -166,8 +167,9 @@ export default async function StoryPage({
             >
               Read the full story at {item.source ?? "the source"} &rarr;
             </a>
-          </div>
-        )}
+          )}
+          <ShareButton url={url} title={item.title} />
+        </div>
         {item.source && (
           <div className="mono" style={{ fontSize: 11, color: "var(--dim)", marginTop: 12 }}>
             Source: {item.source}
