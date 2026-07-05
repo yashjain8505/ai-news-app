@@ -11,8 +11,6 @@ const APPETITES: { tag: string; label: string }[] = [
   { tag: "lab-power", label: "Big-lab power plays" },
   { tag: "strategy", label: "Strategy & analysis" },
   { tag: "drama", label: "Drama & personalities" },
-  { tag: "tools", label: "New tools" },
-  { tag: "economics", label: "Money, deals & funding" },
   { tag: "policy", label: "Policy & regulation" },
   { tag: "regional", label: "Global & regional" },
   { tag: "technical", label: "Technical & research" },

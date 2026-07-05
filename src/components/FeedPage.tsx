@@ -81,10 +81,14 @@ export default async function FeedPage({ section }: { section: Section }) {
     };
   });
 
-  const newest = items.reduce<string | null>(
-    (m, it) => (it.published_at && (!m || it.published_at > m) ? it.published_at : m),
-    null
-  );
+  // Freshness reflects the SECTION being viewed, not the global newest item
+  // (otherwise a just-added tool would make the Daily page claim "updated now").
+  const newest = items
+    .filter((it) => it.section === section)
+    .reduce<string | null>(
+      (m, it) => (it.published_at && (!m || it.published_at > m) ? it.published_at : m),
+      null
+    );
   const updatedAgo = timeAgo(newest, now);
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const name = user
