@@ -120,8 +120,72 @@ export async function getRelatedStories(
     .or(orClauses.join(","))
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as Item[];
+    .limit(limit * 6); // over-fetch, then diversify below
+  const candidates = (data ?? []) as Item[];
+  return diversify(candidates, limit);
+}
+
+// Common words to ignore when comparing titles for "same subject", so a shared
+// distinctive word (an entity like "Palantir", "Karp") signals repetition but a
+// filler word ("with", "launches") doesn't.
+const TITLE_STOP = new Set([
+  "the", "a", "an", "and", "or", "but", "for", "to", "of", "in", "on", "at",
+  "by", "with", "from", "after", "into", "over", "that", "this", "these", "those",
+  "they", "them", "their", "will", "what", "when", "your", "you", "more", "than",
+  "its", "it's", "is", "are", "was", "be", "as", "how", "why", "who", "new",
+  "says", "said", "launch", "launches", "launched", "raise", "raises", "raised",
+  "model", "models", "tool", "tools", "startup", "startups", "company", "data",
+  "tech", "based", "using", "could", "about", "help", "wants", "plans", "first",
+  "million", "billion", "trillion", "ai", "app", "apps", "get", "gets",
+]);
+
+function titleKeywords(title: string): Set<string> {
+  return new Set(
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !TITLE_STOP.has(w))
+  );
+}
+
+// Pick up to `limit` stories with variety: at most one per source, no two
+// sharing a distinctive title keyword (so multiple outlets covering the same
+// event collapse to one), and at most two per edition day. Falls back to the
+// remaining candidates if the filters leave us short.
+function diversify(candidates: Item[], limit: number): Item[] {
+  const picked: Item[] = [];
+  const usedSources = new Set<string>();
+  const usedKeywords = new Set<string>();
+  const perDay = new Map<string, number>();
+  for (const c of candidates) {
+    if (picked.length >= limit) break;
+    const src = (c.source ?? "").toLowerCase();
+    if (src && usedSources.has(src)) continue;
+    const kw = titleKeywords(c.title);
+    let clash = false;
+    for (const w of kw) {
+      if (usedKeywords.has(w)) {
+        clash = true;
+        break;
+      }
+    }
+    if (clash) continue;
+    const day = c.edition_date ?? "";
+    if (day && (perDay.get(day) ?? 0) >= 2) continue;
+    picked.push(c);
+    if (src) usedSources.add(src);
+    for (const w of kw) usedKeywords.add(w);
+    if (day) perDay.set(day, (perDay.get(day) ?? 0) + 1);
+  }
+  if (picked.length < limit) {
+    const seen = new Set(picked.map((p) => p.id));
+    for (const c of candidates) {
+      if (picked.length >= limit) break;
+      if (!seen.has(c.id)) picked.push(c);
+    }
+  }
+  return picked;
 }
 
 export type IndexableStorySlug = {
