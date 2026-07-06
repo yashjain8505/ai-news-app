@@ -7,7 +7,7 @@ import {
   Space_Mono,
 } from "next/font/google";
 import "./globals.css";
-import { SITE } from "@/lib/seo";
+import { SITE, SAME_AS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
 
@@ -49,12 +49,19 @@ export const metadata: Metadata = {
   description: SITE.description,
   applicationName: SITE.name,
   openGraph: {
+    title: `${SITE.name} — ${SITE.tagline}`,
+    description: SITE.description,
     siteName: SITE.name,
     type: "website",
     locale: SITE.locale,
     url: SITE.url,
   },
-  twitter: { card: "summary_large_image", site: SITE.twitter },
+  twitter: {
+    card: "summary_large_image",
+    site: SITE.twitter,
+    title: `${SITE.name} — ${SITE.tagline}`,
+    description: SITE.description,
+  },
   robots: {
     index: true,
     follow: true,
@@ -87,16 +94,17 @@ export default async function RootLayout({
             "@graph": [
               {
                 "@type": "Organization",
+                "@id": `${SITE.url}/#organization`,
                 name: SITE.name,
                 url: SITE.url,
                 logo: `${SITE.url}/icon.svg`,
                 description: SITE.description,
-                email: "hello@wortins.com",
-                sameAs: ["https://x.com/wortins"],
+                email: SITE.email,
+                sameAs: SAME_AS,
                 contactPoint: {
                   "@type": "ContactPoint",
                   contactType: "customer support",
-                  email: "hello@wortins.com",
+                  email: SITE.email,
                 },
               },
               {

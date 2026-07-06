@@ -71,6 +71,14 @@ export default async function StoryPage({
   const sectionUrl = absoluteUrl(`/section/${item.section}`);
   const url = absoluteUrl(`/story/${slug}`);
   const published = item.published_at ?? item.created_at;
+  const publishedPretty = published
+    ? new Date(published).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC",
+      })
+    : null;
   const description = (indexable ? take : item.summary) ?? SITE.description;
   const image = item.image_url ?? absoluteUrl(`/story/${slug}/opengraph-image`);
 
@@ -177,11 +185,30 @@ export default async function StoryPage({
           </div>
         )}
 
-        {/* Related stories — internal links into the story crawl graph. */}
+        {/* E-E-A-T byline: who curated this, when, and a link to how we work. */}
+        <div className="mono" style={{ fontSize: 11, letterSpacing: "0.03em", color: "var(--dim)", marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--rule)" }}>
+          Curated by{" "}
+          <a href="/about" style={{ color: "var(--accent)", textDecoration: "none" }}>
+            Wortins
+          </a>
+          {publishedPretty && (
+            <>
+              {" · Updated "}
+              <time dateTime={item.published_at ?? item.created_at}>{publishedPretty}</time>
+            </>
+          )}
+          {" · "}
+          <a href="/about" style={{ color: "var(--dim)", textDecoration: "underline" }}>
+            How we curate
+          </a>
+        </div>
+
+        {/* Related coverage — internal links into the story crawl graph, each
+            with a direct link out to the original source (citation depth). */}
         {related.length > 0 && (
           <section style={{ marginTop: 48, paddingTop: 18, borderTop: "3px solid var(--ruleStrong)" }}>
             <h2 className="display" style={{ fontSize: 22, color: "var(--ink)", margin: "0 0 16px" }}>
-              Related stories
+              Related coverage
             </h2>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {related.map((r, i) => {
@@ -203,6 +230,17 @@ export default async function StoryPage({
                         {r.title}
                       </a>
                     </h3>
+                    {r.url && (
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mono"
+                        style={{ display: "inline-block", marginTop: 6, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}
+                      >
+                        Read at {r.source ?? "source"} &#8599;
+                      </a>
+                    )}
                   </li>
                 );
               })}

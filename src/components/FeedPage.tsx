@@ -6,6 +6,7 @@ import { Item, Section } from "@/lib/types";
 import { scoreItem, type Weights } from "@/lib/taste";
 import { timeAgo } from "@/lib/time";
 import { SITE, SECTION_SEO, sectionPath, absoluteUrl } from "@/lib/seo";
+import { SITE_FAQ, SECTION_FAQ, GLOSSARY } from "@/lib/faq";
 import Feed from "@/components/Feed";
 import JsonLd from "@/components/JsonLd";
 
@@ -147,11 +148,37 @@ export default async function FeedPage({ section }: { section: Section }) {
     },
   };
 
+  // Answerability: give answer engines question→answer pairs to quote directly.
+  // Home (the daily view) uses the general FAQ; each section uses its own.
+  const faq = section === "daily" ? SITE_FAQ : SECTION_FAQ[section] ?? SITE_FAQ;
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+  // Answer-first definitions, marked up as DefinedTerms.
+  const glossaryLd = {
+    "@context": "https://schema.org",
+    "@type": "DefinedTermSet",
+    name: `${SITE.name} AI glossary`,
+    url: absoluteUrl("/about"),
+    hasDefinedTerm: GLOSSARY.map((t) => ({
+      "@type": "DefinedTerm",
+      name: t.term,
+      description: t.definition,
+      inDefinedTermSet: absoluteUrl("/about"),
+    })),
+  };
+
   // No auto-popup: logged-out visitors just read the news. Personalizing starts
   // only when they click "Sign in" in the masthead.
   return (
     <>
-      <JsonLd data={jsonLd} />
+      <JsonLd data={[jsonLd, faqLd, glossaryLd]} />
       {feed}
     </>
   );

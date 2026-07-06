@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { SITE, absoluteUrl } from "@/lib/seo";
+import { SITE_FAQ, GLOSSARY } from "@/lib/faq";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 86400;
 
-const TITLE = "About Wortins — who we are & how the briefing works";
+const TITLE = "About Wortins — how the briefing works";
 const DESCRIPTION =
-  "Wortins is a daily AI news briefing that curates the most interesting stories across the AI world and writes an original take on each. Here's who's behind it and how it works.";
+  "Wortins is a daily AI news briefing that curates the most interesting stories across the AI world and writes an original take on each. Here's how it works.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -17,46 +18,28 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
-// Reused for both the visible FAQ and the FAQPage structured data.
-const FAQ: { q: string; a: string }[] = [
-  {
-    q: "What is Wortins?",
-    a: "Wortins is a daily AI news briefing. Every day it curates the most interesting stories across the AI world — emerging startups, real product launches, applied real-world AI, notable funding, and genuine breakthroughs — and writes an original take on each, so you get the signal without the hype.",
-  },
-  {
-    q: "How is Wortins different from other AI newsletters?",
-    a: "Two things. First, it deliberately looks beyond the big-lab press cycle: megacap corporate news is capped in favour of the builders, tools, and applied AI that don't always make the front page. Second, every story carries an original Wortins take in our own words, not a copied summary — which is what makes it worth reading and citable.",
-  },
-  {
-    q: "How often is Wortins updated?",
-    a: "The edition refreshes through the day, roughly every couple of hours, so it stays current rather than being a once-a-morning digest.",
-  },
-  {
-    q: "Is Wortins free?",
-    a: "Yes. You can read the full public edition without signing in. Signing in with Google unlocks a personalized edition tuned to your taste.",
-  },
-  {
-    q: "How does the personalized edition work?",
-    a: "Sign in with Google and answer a few quick questions about which kinds of AI stories you care about. Wortins then orders your edition around those interests and keeps learning as you read.",
-  },
-  {
-    q: "What does Wortins cover?",
-    a: "Four sections: Daily AI (startups, products, applied AI and breakthroughs), New Tools (obscure, novel launches), Interesting Articles (strategy and sharp takes), and an AI Funding Tracker (notable raises, IPOs and acquisitions).",
-  },
-  {
-    q: "Where does the content come from?",
-    a: "Wortins curates from a wide range of sources across the AI industry and links every item to its original publisher. The 'Wortins read' on each story is our own original analysis; we never republish a source's article text.",
-  },
-];
-
 export default function AboutPage() {
   const faqLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({
+    mainEntity: SITE_FAQ.map((f) => ({
       "@type": "Question",
       name: f.q,
       acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+  // Answer-first definitions, marked up so answer engines can lift crisp,
+  // attributable definitions of the terms Wortins uses.
+  const glossaryLd = {
+    "@context": "https://schema.org",
+    "@type": "DefinedTermSet",
+    name: `${SITE.name} AI glossary`,
+    url: absoluteUrl("/about"),
+    hasDefinedTerm: GLOSSARY.map((t) => ({
+      "@type": "DefinedTerm",
+      name: t.term,
+      description: t.definition,
+      inDefinedTermSet: absoluteUrl("/about"),
     })),
   };
   const aboutLd = {
@@ -84,7 +67,7 @@ export default function AboutPage() {
 
   return (
     <>
-      <JsonLd data={[aboutLd, faqLd, breadcrumb]} />
+      <JsonLd data={[aboutLd, faqLd, glossaryLd, breadcrumb]} />
       <PublicChrome subtitle="About">
         <h1 className="display" style={{ fontSize: "clamp(30px,4.5vw,46px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 16px" }}>
           About Wortins
@@ -114,10 +97,28 @@ export default function AboutPage() {
 
         <section style={{ marginTop: 48 }}>
           <h2 className="display" style={{ fontSize: 28, color: "var(--ink)", margin: "0 0 8px", borderBottom: "3px solid var(--ruleStrong)", paddingBottom: 10 }}>
+            Key terms
+          </h2>
+          <dl style={{ marginTop: 8 }}>
+            {GLOSSARY.map((t) => (
+              <div key={t.term} style={{ padding: "18px 0", borderBottom: "1px solid var(--rule)" }}>
+                <dt className="display" style={{ fontSize: 19, lineHeight: 1.2, color: "var(--ink)", margin: "0 0 6px" }}>
+                  {t.term}
+                </dt>
+                <dd className="serif" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--muted)", margin: 0, maxWidth: "66ch" }}>
+                  {t.definition}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section style={{ marginTop: 48 }}>
+          <h2 className="display" style={{ fontSize: 28, color: "var(--ink)", margin: "0 0 8px", borderBottom: "3px solid var(--ruleStrong)", paddingBottom: 10 }}>
             Frequently asked questions
           </h2>
           <div style={{ marginTop: 8 }}>
-            {FAQ.map((f) => (
+            {SITE_FAQ.map((f) => (
               <div key={f.q} style={{ padding: "20px 0", borderBottom: "1px solid var(--rule)" }}>
                 <h3 className="display" style={{ fontSize: 20, lineHeight: 1.2, color: "var(--ink)", margin: "0 0 8px" }}>
                   {f.q}

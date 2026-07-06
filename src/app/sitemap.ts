@@ -1,11 +1,17 @@
 import type { MetadataRoute } from "next";
-import { absoluteUrl, sectionPath } from "@/lib/seo";
+import { SITE, absoluteUrl, sectionPath } from "@/lib/seo";
 import { getAllEditionDates, getIndexableStorySlugs } from "@/lib/publicData";
 
 // Cached for an hour so crawlers don't hit Supabase on every fetch.
 export const revalidate = 3600;
 
 const SECTIONS = ["daily", "funding", "tools", "articles"] as const;
+
+// The .md twin URL for a page (home -> /index.md), so AI crawlers can discover
+// the Markdown twins straight from the sitemap (an AEO-conformance signal).
+function twinUrl(url: string): string {
+  return url === SITE.url ? `${SITE.url}/index.md` : `${url}.md`;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [dates, stories] = await Promise.all([
@@ -14,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
   const latest = dates[0] ? new Date(`${dates[0]}T12:00:00Z`) : new Date();
 
-  return [
+  const pages: MetadataRoute.Sitemap = [
     {
       url: absoluteUrl("/"),
       lastModified: latest,
@@ -62,4 +68,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     })),
   ];
+
+  // Advertise each page's Markdown twin so AI crawlers can find them. Twins are
+  // served noindex; they're here purely as an AEO discovery signal.
+  const twins: MetadataRoute.Sitemap = pages.map((p) => ({
+    url: twinUrl(p.url),
+    lastModified: p.lastModified,
+    changeFrequency: p.changeFrequency,
+    priority: 0.3,
+  }));
+
+  return [...pages, ...twins];
 }

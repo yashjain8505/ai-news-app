@@ -34,7 +34,7 @@ export default function PublicChrome({
           <a
             href="/welcome"
             className="mono"
-            style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", padding: "8px 14px", border: "1px solid var(--accent)", color: "var(--accent)", textDecoration: "none" }}
+            style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", padding: "12px 16px", border: "1px solid var(--accent)", color: "var(--accent)", textDecoration: "none" }}
           >
             Personalize &#8599;
           </a>
@@ -43,7 +43,7 @@ export default function PublicChrome({
           {subtitle ?? SITE.tagline}
         </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
-        <nav style={{ display: "flex", gap: 22, flexWrap: "wrap", padding: "12px 0 0" }}>
+        <nav style={{ display: "flex", gap: 22, flexWrap: "wrap", padding: "2px 0 0" }}>
           {NAV.map((n) => {
             const on = n.key === active;
             return (
@@ -51,7 +51,9 @@ export default function PublicChrome({
                 key={n.href}
                 href={n.href}
                 className="mono"
-                style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: on ? "var(--accent)" : "var(--dim)", textDecoration: "none", borderBottom: on ? "2px solid var(--accent)" : "2px solid transparent", paddingBottom: 4 }}
+                // Vertical padding gives each link a ~44px tap target on mobile
+                // without changing the text size or the tight masthead rhythm.
+                style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: on ? "var(--accent)" : "var(--dim)", textDecoration: "none", borderBottom: on ? "2px solid var(--accent)" : "2px solid transparent", padding: "13px 0 9px" }}
               >
                 {n.label}
               </a>
@@ -66,11 +68,11 @@ export default function PublicChrome({
         <span style={{ textTransform: "uppercase" }}>
           {SITE.name} &mdash; {SITE.tagline}
         </span>
-        <nav style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
-          <a href="/about" style={{ color: "var(--dim)", textDecoration: "none" }}>About</a>
-          <a href="/contact" style={{ color: "var(--dim)", textDecoration: "none" }}>Contact</a>
-          <a href="/editions" style={{ color: "var(--dim)", textDecoration: "none" }}>Archive</a>
-          <a href="/welcome" style={{ color: "var(--accent)", textDecoration: "none" }}>Personalize &rarr;</a>
+        <nav style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", margin: "-8px 0" }}>
+          <a href="/about" style={{ color: "var(--dim)", textDecoration: "none", padding: "8px 0" }}>About</a>
+          <a href="/contact" style={{ color: "var(--dim)", textDecoration: "none", padding: "8px 0" }}>Contact</a>
+          <a href="/editions" style={{ color: "var(--dim)", textDecoration: "none", padding: "8px 0" }}>Archive</a>
+          <a href="/welcome" style={{ color: "var(--accent)", textDecoration: "none", padding: "8px 0" }}>Personalize &rarr;</a>
         </nav>
       </footer>
     </main>
