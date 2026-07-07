@@ -101,7 +101,7 @@ export default function OnboardingHero({ signedIn = false }: { signedIn?: boolea
               onClick={dismiss}
               aria-label="Close"
               className="mono"
-              style={{ position: "absolute", top: 8, right: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: 0, color: "var(--dim)", fontSize: 22, lineHeight: 1, cursor: "pointer" }}
+              style={{ position: "absolute", top: 4, right: 4, width: 44, height: 44, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: 0, color: "var(--dim)", fontSize: 22, lineHeight: 1, cursor: "pointer" }}
             >
               &times;
             </button>

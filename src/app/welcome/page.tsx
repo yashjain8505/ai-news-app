@@ -6,7 +6,12 @@ import SignInButton from "@/components/SignInButton";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Sign in" };
+// A thin auth/onboarding utility page — keep it out of the index (it's also
+// disallowed in robots.txt). noindex makes a self-canonical moot.
+export const metadata = {
+  title: "Sign in",
+  robots: { index: false, follow: false },
+};
 
 function displayName(user: {
   email?: string | null;
