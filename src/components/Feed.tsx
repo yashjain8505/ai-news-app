@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Item, Section } from "@/lib/types";
 import { recordEngagement, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
@@ -108,7 +107,6 @@ export default function Feed({
   updatedAgo,
   stampDate,
   editionNo,
-  initialMode,
   signedIn = true,
   personalized = true,
   initialActive = "daily",
@@ -127,7 +125,6 @@ export default function Feed({
   initialActive?: Section;
 }) {
   const active = initialActive;
-  const [mode, setMode] = useState<Mode>(initialMode);
   // How many stories are revealed per section. "Explore more" grows this; it
   // never rotates, so stories are appended below, never swapped out.
   const [shown, setShown] = useState<Record<Section, number>>(INITIAL_SHOWN);
@@ -135,11 +132,6 @@ export default function Feed({
     null
   );
   const pendingRef = useRef<Pending | null>(null);
-  const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
-  const [toast, setToast] = useState<string | null>(null);
-  const refreshedRef = useRef(false);
-  const baseCountRef = useRef(0);
   const prevItemCount = useRef(items.length);
 
   // When a fresh drop lands (more items than before), collapse back to page one
@@ -151,20 +143,6 @@ export default function Feed({
     }
     prevItemCount.current = items.length;
   }, [items.length]);
-
-  // After a user-initiated Refresh settles, confirm what happened so it never feels dead.
-  useEffect(() => {
-    if (refreshing || !refreshedRef.current) return;
-    refreshedRef.current = false;
-    const delta = items.length - baseCountRef.current;
-    setToast(
-      delta > 0
-        ? `${delta} new ${delta === 1 ? "story" : "stories"}`
-        : `You’re up to date${updatedAgo ? ` · latest ${updatedAgo}` : ""}`
-    );
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [refreshing, items.length, updatedAgo]);
 
   // Return-time dwell: when the reader comes back to our tab after opening a
   // story, turn time-away into an engagement signal, and ask on that card.
@@ -249,25 +227,6 @@ export default function Feed({
   const list = fullList.slice(0, shown[active]);
   const canExplore = fullList.length > shown[active];
   const hasContent = fullList.length > 0;
-
-  function toggleMode() {
-    const next: Mode = mode === "dark" ? "light" : "dark";
-    setMode(next);
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", next);
-      document.cookie = `sig_theme=${next}; path=/; max-age=31536000; samesite=lax`;
-    }
-  }
-
-  // Instant: content is curated continuously in the background, so Refresh just
-  // re-fetches the latest edition, jumps to the top, and confirms what changed.
-  function refresh() {
-    setPromptItem(null);
-    refreshedRef.current = true;
-    baseCountRef.current = items.length;
-    setShown(INITIAL_SHOWN);
-    startRefresh(() => router.refresh());
-  }
 
   function onOpen(it: Item, rank: number) {
     if (!signedIn) return;
@@ -358,12 +317,6 @@ export default function Feed({
 
   return (
     <main className="bs-main" style={{ position: "relative" }}>
-      {toast && (
-        <div className="mono" style={{ fontSize: 11, letterSpacing: "0.05em", color: "var(--accent)", padding: "8px 0", borderBottom: "1px solid var(--rule)" }}>
-          {toast}
-        </div>
-      )}
-
       {/* masthead */}
       <header style={{ position: "relative", paddingTop: 12 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", rowGap: 12 }}>
@@ -390,35 +343,16 @@ export default function Feed({
               {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
             </span>
             {personalized ? (
-              <>
-                <button
-                  onClick={refresh}
-                  disabled={refreshing}
-                  className="mono"
-                  style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: refreshing ? "default" : "pointer", opacity: refreshing ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}
-                  aria-label="Refresh feed"
-                >
-                  <span style={{ display: "inline-block", animation: refreshing ? "sigspin 0.8s linear infinite" : "none" }}>↻</span>
-                  {refreshing ? "Refreshing" : "Refresh"}
-                </button>
-                <a
-                  href="/tune"
-                  className="mono"
-                  style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
-                >
-                  Account
-                </a>
-              </>
+              <a
+                href="/tune"
+                className="mono"
+                style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
+              >
+                Account
+              </a>
             ) : (
               <OnboardingHero signedIn={signedIn} />
             )}
-            <button
-              onClick={toggleMode}
-              className="mono"
-              style={{ fontSize: 11, letterSpacing: "0.04em", padding: "4px 11px", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", cursor: "pointer" }}
-            >
-              {mode === "dark" ? "☀ Light" : "☾ Dark"}
-            </button>
           </div>
         </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
@@ -450,14 +384,8 @@ export default function Feed({
             No stories in this section yet.
           </p>
           <p className="serif" style={{ fontStyle: "italic", fontSize: 15, color: "var(--dim)", margin: "8px 0 0" }}>
-            Fresh editions land every morning — check back soon.
+            Fresh editions land throughout the day — check back soon.
           </p>
-          <button
-            onClick={refresh}
-            style={{ marginTop: 20, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "10px 20px", fontFamily: "inherit", fontSize: 13, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}
-          >
-            Refresh
-          </button>
         </div>
       ) : (
         <div style={{ marginTop: 28 }}>
