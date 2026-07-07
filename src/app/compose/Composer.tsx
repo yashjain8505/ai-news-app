@@ -3,13 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Story = {
-  title: string;
-  source: string | null;
-  summary: string | null;
-  take: string | null;
-  href: string;
-};
+type Story = { title: string; source: string | null; desc: string; href: string };
 type Sec = { title: string; stories: Story[] };
 
 const WD = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -20,16 +14,11 @@ function prettyDate(iso: string): string {
   const dt = new Date(Date.UTC(y, m - 1, d));
   return `${WD[dt.getUTCDay()]}, ${MO[m - 1]} ${d}, ${y}`;
 }
-function tidy(s: string | null): string {
-  if (!s) return "";
-  const t = s.trim().replace(/\s+/g, " ");
-  return /[.!?…]$/.test(t) ? t : t + ".";
-}
 
 const CSS = `
 .cx{min-height:100vh;background:#f3ecda;color:#1b1712;font-family:Georgia,'Times New Roman',serif}
 .cx *{box-sizing:border-box}
-.cx .wrap{max-width:760px;margin:0 auto;padding:26px 18px 90px}
+.cx .wrap{max-width:720px;margin:0 auto;padding:26px 18px 90px}
 .cx header{border-bottom:3px solid #1b1712;padding-bottom:12px;margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cx .logo{display:inline-block;width:30px;height:30px;background:#9c2b1d;color:#f3ecda;font-weight:700;text-align:center;line-height:30px;font-size:20px}
 .cx h1{font-size:22px;letter-spacing:.08em;margin:0}
@@ -44,18 +33,18 @@ const CSS = `
 .cx .card>.head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 .cx .label{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d}
 .cx .hint{font-size:12.5px;color:#6a6052;font-style:italic;margin:0 0 12px}
-.cx .titlebox{font-size:20px;font-weight:700;line-height:1.25}
+.cx .titlebox{font-size:27px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
 .cx pre.note{white-space:pre-wrap;word-wrap:break-word;font-family:ui-monospace,monospace;font-size:13px;line-height:1.55;margin:0;color:#1b1712}
-.cx .post h2{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:2px solid #1b1712;padding-bottom:5px;margin:22px 0 10px}
-.cx .post h2:first-child{margin-top:2px}
-.cx .post p{font-size:15.5px;line-height:1.55;margin:0 0 6px}
-.cx .post .story{margin:0 0 16px}
-.cx .post .story .t{font-size:16px}
-.cx .post .story .t a{color:#1b1712;text-decoration:none}
-.cx .post .story .src{font-family:ui-monospace,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6a6052}
-.cx .post blockquote{margin:6px 0 0;padding:2px 0 2px 14px;border-left:3px solid #9c2b1d;color:#3a342a;font-style:italic;font-size:14.5px;line-height:1.5}
-.cx .post hr{border:none;border-top:1px solid #d8ccb2;margin:22px 0 14px}
-.cx .post a{color:#9c2b1d}
+/* --- the pasteable post --- */
+.cx .post .dek{font-size:16px;line-height:1.5;color:#3a342a;font-style:italic;margin:0 0 20px}
+.cx .post h3{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:2px solid #1b1712;padding-bottom:5px;margin:24px 0 12px}
+.cx .post .story{margin:0 0 13px}
+.cx .post .hl{font-size:17px;line-height:1.25;font-weight:700;margin:0}
+.cx .post .hl a{color:#1b1712;text-decoration:none}
+.cx .post .dk{font-size:13.5px;line-height:1.45;color:#5a5347;margin:2px 0 0}
+.cx .post .src{color:#9c2b1d;font-style:normal}
+.cx .post .cta{font-size:15px;line-height:1.5;color:#3a342a;border-top:1px solid #d8ccb2;margin:24px 0 0;padding:14px 0 0}
+.cx .post .cta a{color:#9c2b1d}
 .cx .copied{color:#9c2b1d;font-family:ui-monospace,monospace;font-size:11px;margin-left:8px}
 .cx .steps{background:#fff8ea;border:1px dashed #d8ccb2;border-radius:10px;padding:12px 16px;margin:0 0 20px;font-size:13.5px;line-height:1.6}
 .cx .steps b{color:#9c2b1d}
@@ -65,7 +54,7 @@ type Props = {
   dates: string[];
   dateISO: string;
   title: string;
-  synopsis: string | null;
+  hook: string;
   sections: Sec[];
   noteText: string;
   editionUrl: string;
@@ -74,7 +63,7 @@ type Props = {
 };
 
 export default function Composer(props: Props) {
-  const { dates, dateISO, title, synopsis, sections, noteText, editionUrl, siteUrl, empty } = props;
+  const { dates, dateISO, title, hook, sections, noteText, editionUrl, siteUrl, empty } = props;
   const router = useRouter();
   const postRef = useRef<HTMLDivElement>(null);
   const [flash, setFlash] = useState<{ k: string; msg: string } | null>(null);
@@ -108,7 +97,6 @@ export default function Composer(props: Props) {
         return true;
       }
     } catch {}
-    // Fallback: select the rendered node so formatting survives the copy.
     const sel = window.getSelection();
     if (!sel) return false;
     const range = document.createRange();
@@ -142,20 +130,15 @@ export default function Composer(props: Props) {
         <div className="steps">
           <b>How to use (≈5 min/day):</b>{" "}
           1) Pick the edition (defaults to the latest). &nbsp;
-          2) In Substack, click <b>New post</b> — paste the <b>Title</b>, then paste the <b>Full post</b> into the body. &nbsp;
+          2) In Substack, click <b>New post</b>, paste the <b>Title</b>, then paste the <b>Full post</b> into the body. &nbsp;
           3) Hit <b>Publish</b>. &nbsp;
-          Want a quick <b>Note</b> instead? Copy the Note block and paste it into the Substack Notes box (the link becomes a preview card automatically).
+          Prefer a quick <b>Note</b>? Copy the Note block into the Substack Notes box (the link becomes a preview card automatically).
         </div>
 
         <div className="controls">
           <span className="status">Edition:</span>
-          <select
-            value={dateISO}
-            onChange={(e) => router.push(`/compose?date=${e.target.value}`)}
-          >
-            {dates.map((d) => (
-              <option key={d} value={d}>{prettyDate(d)}</option>
-            ))}
+          <select value={dateISO} onChange={(e) => router.push(`/compose?date=${e.target.value}`)}>
+            {dates.map((d) => (<option key={d} value={d}>{prettyDate(d)}</option>))}
           </select>
           <button className="ghost" onClick={() => router.push("/compose")}>Latest</button>
         </div>
@@ -175,35 +158,34 @@ export default function Composer(props: Props) {
         {/* FULL POST */}
         <div className="card">
           <div className="head">
-            <span className="label">Full post — paste into the Substack post body</span>
+            <span className="label">Full post · paste into the Substack post body</span>
             <span>
               <button onClick={async () => showFlash("post", await copyPost())}>Copy post</button>
               {flash?.k === "post" && <span className="copied">{flash.msg}</span>}
             </span>
           </div>
-          <p className="hint">Copies with formatting (headings, bold, links). Each headline links back to wortins.com.</p>
+          <p className="hint">Short + skimmable. Copies with formatting; headlines link back to wortins.com.</p>
           <div className="post" ref={postRef}>
-            {synopsis && <p>{synopsis}</p>}
+            {hook && <p className="dek"><em>{hook}</em></p>}
             {sections.map((sec) => (
               <div key={sec.title}>
-                <h2>{sec.title}</h2>
+                <h3>{sec.title}</h3>
                 {sec.stories.map((st, i) => (
                   <div className="story" key={i}>
-                    <p className="t">
-                      <strong><a href={st.href}>{st.title}</a></strong>
-                      {st.source && <span className="src">{"  — " + st.source}</span>}
-                    </p>
-                    {st.summary && <p>{tidy(st.summary)}</p>}
-                    {st.take && (
-                      <blockquote><em>Our take: </em>{tidy(st.take)}</blockquote>
+                    <p className="hl"><strong><a href={st.href}>{st.title}</a></strong></p>
+                    {(st.desc || st.source) && (
+                      <p className="dk">
+                        {st.desc}
+                        {st.desc && st.source ? " " : ""}
+                        {st.source && <em className="src">{st.source}</em>}
+                      </p>
                     )}
                   </div>
                 ))}
               </div>
             ))}
-            <hr />
-            <p>
-              <strong>Read the full interactive briefing</strong>, every story with our take, at{" "}
+            <p className="cta">
+              The full briefing, with our take on every story, is at{" "}
               <a href={siteUrl}>wortins.com</a>. A fresh AI edition every morning.
             </p>
           </div>
@@ -212,7 +194,7 @@ export default function Composer(props: Props) {
         {/* NOTE */}
         <div className="card">
           <div className="head">
-            <span className="label">Short Note — paste into Substack Notes</span>
+            <span className="label">Short Note · paste into Substack Notes</span>
             <span>
               <button onClick={async () => showFlash("note", await copyPlain(noteText))}>Copy Note</button>
               {flash?.k === "note" && <span className="copied">{flash.msg}</span>}
