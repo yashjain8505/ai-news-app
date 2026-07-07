@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Story = { title: string; source: string | null; desc: string; href: string };
+type Story = { title: string; desc: string; href: string };
 type Sec = { title: string; stories: Story[] };
 
 const WD = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -38,11 +38,10 @@ const CSS = `
 /* --- the pasteable post --- */
 .cx .post .dek{font-size:16px;line-height:1.5;color:#3a342a;font-style:italic;margin:0 0 20px}
 .cx .post h3{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:2px solid #1b1712;padding-bottom:5px;margin:24px 0 12px}
-.cx .post .story{margin:0 0 13px}
+.cx .post .story{margin:0 0 18px}
 .cx .post .hl{font-size:17px;line-height:1.25;font-weight:700;margin:0}
 .cx .post .hl a{color:#1b1712;text-decoration:none}
-.cx .post .dk{font-size:13.5px;line-height:1.45;color:#5a5347;margin:2px 0 0}
-.cx .post .src{color:#9c2b1d;font-style:normal}
+.cx .post .dk{font-size:15px;line-height:1.5;color:#3a342a;margin:4px 0 0}
 .cx .post .cta{font-size:15px;line-height:1.5;color:#3a342a;border-top:1px solid #d8ccb2;margin:24px 0 0;padding:14px 0 0}
 .cx .post .cta a{color:#9c2b1d}
 .cx .copied{color:#9c2b1d;font-family:ui-monospace,monospace;font-size:11px;margin-left:8px}
@@ -173,13 +172,7 @@ export default function Composer(props: Props) {
                 {sec.stories.map((st, i) => (
                   <div className="story" key={i}>
                     <p className="hl"><strong><a href={st.href}>{st.title}</a></strong></p>
-                    {(st.desc || st.source) && (
-                      <p className="dk">
-                        {st.desc}
-                        {st.desc && st.source ? " " : ""}
-                        {st.source && <em className="src">{st.source}</em>}
-                      </p>
-                    )}
+                    {st.desc && <p className="dk">{st.desc}</p>}
                   </div>
                 ))}
               </div>
