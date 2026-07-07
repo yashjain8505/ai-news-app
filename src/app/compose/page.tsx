@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 const SECTION_META: { key: Section; title: string }[] = [
   { key: "daily", title: "Top Stories" },
   { key: "tools", title: "New Tools" },
-  { key: "articles", title: "Worth Reading" },
-  { key: "funding", title: "The Money" },
+  { key: "articles", title: "Interesting Articles" },
+  { key: "funding", title: "Funding News" },
 ];
 // Same counts as the email — tight and skimmable, not a firehose.
 const PER_SECTION: Record<Section, number> = { daily: 5, tools: 3, articles: 3, funding: 3 };
@@ -49,18 +49,20 @@ function deDash(s: string): string {
     .trim();
 }
 
-// Trim to a clean, short line: prefer the first sentence, hard-cap the length.
-function short(s: string | null, max: number): string {
+// Keep whole sentences (never a mid-word "…"): always the first sentence, plus
+// more while under the budget, so each story reads as a concise 2-3 line blurb.
+function clean(s: string | null, budget = 320): string {
   if (!s) return "";
-  let t = deDash(s);
-  const m = t.match(/^(.*?[.!?])(\s|$)/);
-  if (m && m[1].length <= max) return m[1];
-  if (t.length > max) {
-    const cut = t.slice(0, max);
-    const at = cut.lastIndexOf(" ");
-    t = cut.slice(0, at > 40 ? at : max).replace(/[,;:.\s]+$/, "") + "…";
+  const t = deDash(s).replace(/\s+/g, " ").trim();
+  const sentences = t.match(/[^.!?]+[.!?]+(?:\s|$)/g);
+  if (!sentences) return /[.!?…]$/.test(t) ? t : t + ".";
+  let out = sentences[0].trim();
+  for (let i = 1; i < sentences.length; i++) {
+    const next = `${out} ${sentences[i].trim()}`;
+    if (next.length > budget) break;
+    out = next;
   }
-  return t;
+  return out;
 }
 
 export default async function ComposePage({
@@ -88,22 +90,21 @@ export default async function ComposePage({
     title: s.title,
     stories: grouped[s.key].slice(0, PER_SECTION[s.key]).map((it) => ({
       title: deDash(it.title),
-      source: it.source,
-      desc: short(it.summary, 100),
+      desc: clean(it.summary),
       href: `${SITE.url}/story/${it.slug}`,
     })),
   })).filter((s) => s.stories.length > 0);
 
   const editionUrl = `${SITE.url}/edition/${dateISO}`;
   const title = deDash(meta?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`);
-  const hook = short(meta?.synopsis ?? null, 180);
+  const hook = clean(meta?.synopsis ?? null, 240);
 
   const daily = grouped.daily.slice(0, DAILY_IN_NOTE);
   const noteText = [
     `🗞️ ${deDash(meta?.headline || "The Wortins Daily")}`,
     "",
     "The AI stories that matter today:",
-    ...daily.map((it) => `• ${deDash(it.title)}${it.source ? ` (${it.source})` : ""}`),
+    ...daily.map((it) => `• ${deDash(it.title)}`),
     "",
     "Full briefing + our take on each:",
     editionUrl,
