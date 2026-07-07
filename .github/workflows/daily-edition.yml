@@ -2,11 +2,11 @@ name: Daily edition
 
 on:
   schedule:
-    # Every 2 hours across IST waking hours (~06:00-24:00 IST = 00:30-18:30 UTC)
-    # so content stays continuously fresh and the in-app Refresh just loads the
-    # latest instantly. The 90-minute drop-guard below keeps near-simultaneous
-    # triggers from double-dropping.
-    - cron: "30 0,2,4,6,8,10,12,14,16,18 * * *"
+    # 4 drops/day: 7:00 / 12:00 / 17:00 / 21:00 IST = 01:30 / 06:30 / 11:30 / 15:30 UTC.
+    # (Reduced from every-2h / 10-a-day, which blew the Claude subscription's weekly
+    # limit.) The drop-guard below keeps near-simultaneous / backup triggers from
+    # double-dropping.
+    - cron: "30 1,6,11,15 * * *"
   workflow_dispatch:
     inputs:
       selftest:

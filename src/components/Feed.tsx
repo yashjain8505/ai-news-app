@@ -8,6 +8,7 @@ import { timeAgo } from "@/lib/time";
 import { optImg } from "@/lib/img";
 import ShareButton from "@/components/ShareButton";
 import OnboardingHero from "@/components/OnboardingHero";
+import NewsletterSignup from "@/components/NewsletterSignup";
 
 type Day = { label: string; date: string; big: string; full: string };
 type Mode = "light" | "dark";
@@ -440,6 +441,8 @@ export default function Feed({
           })}
         </nav>
       </div>
+
+      {active === "daily" && <NewsletterSignup />}
 
       {!hasContent ? (
         <div style={{ marginTop: 36, border: "1px solid var(--ruleStrong)", padding: "60px 24px", textAlign: "center", background: "var(--ph1)" }}>

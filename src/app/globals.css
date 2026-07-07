@@ -91,6 +91,15 @@ body {
   }
 }
 
+/* newsletter signup input */
+.nl-input::placeholder {
+  color: var(--faint);
+}
+.nl-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .news-photo {
   position: relative;
   overflow: hidden;

@@ -1,0 +1,45 @@
+name: Daily newsletter
+
+on:
+  schedule:
+    # 02:00 UTC = 07:30 IST — after the first morning curate drop (00:30 UTC),
+    # so the email carries the day's fresh stories. The script is idempotent per
+    # edition_date (newsletter_sends ledger), so a re-run never double-mails.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render + count recipients, send nothing"
+        type: boolean
+        default: false
+      force:
+        description: "Send even if this edition was already sent"
+        type: boolean
+        default: false
+      edition_date:
+        description: "Send a specific edition (YYYY-MM-DD); blank = latest"
+        type: string
+        default: ""
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Send the Wortins Daily
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_KEY }}
+          SITE_URL: https://www.wortins.com
+          MAIL_FROM: "Wortins Daily <daily@wortins.com>"
+          MAIL_REPLY_TO: hello@wortins.com
+          EDITION_DATE: ${{ github.event.inputs.edition_date }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node .github/scripts/send-newsletter.mjs
