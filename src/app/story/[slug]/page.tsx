@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SITE, SECTION_SEO, absoluteUrl } from "@/lib/seo";
-import { getStoryBySlug, getRelatedStories } from "@/lib/publicData";
+import { getStoryBySlug, getRelatedStories, getIndexableStorySlugs } from "@/lib/publicData";
 import { timeAgo } from "@/lib/time";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
 import SocialShare from "@/components/SocialShare";
 
 export const revalidate = 1800; // 30 min ISR
+
+// Prerender the recent indexable stories (those carrying an original take) so
+// they're ISR-cached HTML at build; any other slug is generated on demand and
+// then cached for `revalidate` (dynamicParams defaults to true). This is what
+// moves story pages off no-store SSR onto ISR.
+export async function generateStaticParams() {
+  const slugs = await getIndexableStorySlugs(100);
+  return slugs.map((s) => ({ slug: s.slug }));
+}
 
 function hasTake(take: string | null | undefined): take is string {
   return typeof take === "string" && take.trim().length > 0;

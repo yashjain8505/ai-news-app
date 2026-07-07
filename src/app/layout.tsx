@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 import {
   Libre_Caslon_Display,
   Libre_Caslon_Text,
@@ -10,6 +9,13 @@ import "./globals.css";
 import { SITE, SAME_AS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
+
+// Theme is applied by this tiny blocking script from the sig_theme cookie before
+// first paint. Doing it client-side (instead of reading cookies() on the server)
+// keeps the root layout static, so the public content pages can be ISR-cached
+// instead of server-rendered on every request. No flash: it runs before the body
+// paints and sets data-theme synchronously.
+const THEME_SCRIPT = `(function(){try{var m=document.cookie.match(/(?:^|;\\s*)sig_theme=([^;]+)/);var t=(m&&decodeURIComponent(m[1]))==="dark"?"dark":"light";document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();`;
 
 const display = Libre_Caslon_Display({
   subsets: ["latin"],
@@ -76,18 +82,17 @@ export const viewport: Viewport = {
   themeColor: "#f3ecda",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const theme =
-    (await cookies()).get("sig_theme")?.value === "dark" ? "dark" : "light";
   return (
     <html
       lang="en"
-      data-theme={theme}
+      suppressHydrationWarning
       className={`${display.variable} ${text.variable} ${serif.variable} ${mono.variable}`}
     >
       <body>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <JsonLd
           data={{
             "@context": "https://schema.org",
