@@ -21,11 +21,19 @@ faq: [{"q":"What was the biggest AI funding round of 2026 so far?","a":"DeepSeek
 | [Crusoe](/blog/crusoe-funding) | In talks (unconfirmed) | ~$3B | ~$30B | AI data center infrastructure |
 | [Kling AI](/blog/kling-ai-funding) | Carve-out round | ~$2.8B | ~$18B | AI video generation |
 | [Baseten](/blog/baseten-funding) | Series F | $1.5B | ~$13B | AI model inference platform |
-| Quantum Systems | Series D | $1.2B | $8B | Autonomous AI drones |
+| [Quantum Systems](/blog/quantum-systems-funding) | Series D | $1.2B | $8B | Autonomous AI drones |
 | [Together AI](/blog/together-ai-funding) | Series C | $800M | $8.3B | AI neocloud / GPU infrastructure |
 | [Flourish](/blog/flourish-funding) | — | $500M | ~$2.5B | AI-driven venture (Bezos-backed) |
 | [Etched](/blog/etched-funding) | — | $500M | $5B | Transformer ASIC chips |
-| AlphaSense | — | $350M | $7.5B | Market-intelligence AI |
+| [AlphaSense](/blog/alphasense-funding) | — | $350M | $7.5B | Market-intelligence AI |
+| [Higgsfield](/blog/higgsfield-funding) | In talks (unconfirmed) | ~$300-500M | ~$5B | AI video generation |
+| [LeapXpert](/blog/leapxpert-funding) | Growth | $180M | — | AI enterprise messaging |
+| [Dominion Dynamics](/blog/dominion-dynamics-funding) | Series A | $139M CAD | — | AI defense tech |
+| [Aligned](/blog/aligned-funding) | Series B | $60M | — | AI for B2B sales |
+| [Stathera](/blog/stathera-funding) | Series B | $55M | — | AI data-center timing chips |
+| [Bespoke Labs](/blog/bespoke-labs-funding) | Series A | $40M | — | Data curation for AI agents |
+| [Omen AI](/blog/omen-ai-funding) | Series A | $31M | — | AI data-center cooling |
+| [LinqAlpha](/blog/linqalpha-funding) | Series A | $22M | — | AI agents for investors |
 | [Generalist AI](/blog/generalist-ai-funding) | — | $400M | ~$2B | Robot foundation models |
 | [Even Realities](/blog/even-realities-funding) | — | $150M | $1B | AI smart glasses |
 | [Assort Health](/blog/assort-health-funding) | Series C | $120M | $1.2B | Healthcare AI agents |
