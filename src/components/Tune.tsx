@@ -25,11 +25,19 @@ export default function Tune({
   reactions,
   techPref,
   dislikes,
+  profile,
 }: {
   weights: Record<string, number>;
   reactions: Reaction[];
   techPref: number;
   dislikes: string[];
+  profile: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    referralSource: string | null;
+    memberSince: string | null;
+  };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -89,14 +97,93 @@ export default function Tune({
         </span>
         <button
           onClick={() => router.push("/")}
-          className="mono"
+          className="mono bs-tap"
           style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", padding: "6px 13px", cursor: "pointer" }}
         >
           &#8249; Back to feed
         </button>
       </div>
 
-      <h1 className="display" style={{ fontSize: 26, lineHeight: 1.1, color: "var(--ink)", margin: "0 0 12px" }}>
+      {/* ---- Profile + account: this comes first ---- */}
+      <div style={{ border: "1px solid var(--ruleStrong)", padding: "22px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, background: "var(--accent)", color: "var(--onAccent)", fontSize: 22, lineHeight: 1, flexShrink: 0 }}>
+            {(profile.name?.trim()?.[0] ?? "R").toUpperCase()}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div className="display" style={{ fontSize: 22, lineHeight: 1.1, color: "var(--ink)" }}>
+              {profile.name || "Reader"}
+            </div>
+            {profile.memberSince && (
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--faint)", marginTop: 3 }}>
+                Member since {profile.memberSince}
+              </div>
+            )}
+          </div>
+        </div>
+        <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "10px 20px", margin: "20px 0 0" }}>
+          {([
+            ["Email", profile.email || "Not set"],
+            ["Phone", profile.phone || "Not added"],
+            ["Heard via", profile.referralSource || "Not set"],
+          ] as [string, string][]).map(([k, v]) => (
+            <div key={k} style={{ display: "contents" }}>
+              <dt className="mono" style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--dim)" }}>{k}</dt>
+              <dd style={{ margin: 0, fontSize: 15, color: "var(--ink)", wordBreak: "break-word" }}>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      {/* sign out / delete */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginTop: 16 }}>
+        <button
+          onClick={() => startAuth(async () => { await signOut(); })}
+          disabled={authPending}
+          className="mono bs-tap"
+          style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
+        >
+          Sign out
+        </button>
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="mono bs-tap"
+            style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--accent)", background: "transparent", color: "var(--accent)", padding: "10px 18px", cursor: "pointer" }}
+          >
+            Delete account
+          </button>
+        ) : (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="serif" style={{ fontSize: 14, color: "var(--ink)" }}>
+              This erases everything, permanently.
+            </span>
+            <button
+              onClick={() => startAuth(async () => { await deleteAccount(); })}
+              disabled={authPending}
+              className="mono bs-tap"
+              style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: 0, background: "var(--accent)", color: "var(--onAccent)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
+            >
+              {authPending ? "Deleting…" : "Yes, delete"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={authPending}
+              className="mono bs-tap"
+              style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", padding: "10px 18px", cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderTop: "3px double var(--ruleStrong)", margin: "40px 0 0" }} />
+      <h2 className="display" style={{ fontSize: 26, lineHeight: 1.1, color: "var(--ink)", margin: "28px 0 18px" }}>
+        Preferences
+      </h2>
+
+      <h1 className="display" style={{ fontSize: 20, lineHeight: 1.1, color: "var(--ink)", margin: "0 0 12px" }}>
         How technical?
       </h1>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 34 }}>
@@ -107,6 +194,7 @@ export default function Tune({
               key={l.pref}
               onClick={() => { setLevel(l.pref); setSaved(false); }}
               title={l.hint}
+              className="bs-tap"
               style={{ padding: "9px 14px", border: on ? "1px solid var(--accent)" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit", fontSize: 14 }}
             >
               {l.label}
@@ -154,6 +242,7 @@ export default function Tune({
             <button
               key={a.tag}
               onClick={() => toggleMute(a.tag)}
+              className="bs-tap"
               style={{ padding: "8px 13px", border: on ? "1px solid var(--ink)" : "1px solid var(--sep)", background: on ? "var(--ink)" : "transparent", color: on ? "var(--bg)" : "var(--dim)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, textDecoration: on ? "line-through" : "none" }}
             >
               {a.label}
@@ -164,6 +253,7 @@ export default function Tune({
       <button
         onClick={save}
         disabled={pending}
+        className="bs-tap"
         style={{ marginTop: 22, background: "var(--accent)", color: "var(--onAccent)", border: 0, padding: "11px 22px", fontFamily: "inherit", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", opacity: pending ? 0.5 : 1 }}
       >
         {pending ? "Saving…" : saved ? "Saved ✓" : "Save all"}
@@ -202,7 +292,7 @@ export default function Tune({
                     <button
                       key={c.v}
                       onClick={() => flip(i, c.v)}
-                      className="mono"
+                      className="mono bs-tap"
                       style={{ fontSize: 11, padding: "6px 10px", border: 0, borderLeft: c.v === "less" ? "0" : "1px solid var(--sep)", background: on ? "var(--accent)" : "transparent", color: on ? "var(--onAccent)" : "var(--dim)", cursor: "pointer" }}
                     >
                       {c.label}
@@ -215,54 +305,6 @@ export default function Tune({
         </div>
       )}
 
-      <div style={{ borderTop: "3px double var(--ruleStrong)", margin: "44px 0 0" }} />
-      <h2 className="display" style={{ fontSize: 26, lineHeight: 1.1, color: "var(--ink)", margin: "28px 0 4px" }}>
-        Account
-      </h2>
-      <p className="serif" style={{ fontSize: 15, fontStyle: "italic", color: "var(--muted)", margin: "0 0 20px" }}>
-        Signed in with Google. Sign out, or permanently delete your account and all its data.
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-        <button
-          onClick={() => startAuth(async () => { await signOut(); })}
-          disabled={authPending}
-          className="mono"
-          style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
-        >
-          Sign out
-        </button>
-        {!confirmDelete ? (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="mono"
-            style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--accent)", background: "transparent", color: "var(--accent)", padding: "10px 18px", cursor: "pointer" }}
-          >
-            Delete account
-          </button>
-        ) : (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span className="serif" style={{ fontSize: 14, color: "var(--ink)" }}>
-              This erases everything, permanently.
-            </span>
-            <button
-              onClick={() => startAuth(async () => { await deleteAccount(); })}
-              disabled={authPending}
-              className="mono"
-              style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: 0, background: "var(--accent)", color: "var(--onAccent)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
-            >
-              {authPending ? "Deleting…" : "Yes, delete"}
-            </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              disabled={authPending}
-              className="mono"
-              style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--dim)", padding: "10px 18px", cursor: "pointer" }}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
     </main>
   );
 }

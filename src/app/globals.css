@@ -91,6 +91,35 @@ body {
   }
 }
 
+/* onboarding "curating your briefing" animation */
+@keyframes bsfill {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+@keyframes bsrise {
+  0% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes bsscan {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* newsletter signup input */
 .nl-input::placeholder {
   color: var(--faint);

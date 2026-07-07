@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
+import { supabaseService } from "@/lib/supabase-service";
 import type { Weights } from "@/lib/taste";
 import Tune from "@/components/Tune";
 
@@ -35,6 +36,24 @@ export default async function TunePage() {
 
   const weights = (taste?.weights as Weights) ?? {};
 
+  // Profile lives in the private `users` table (no anon SELECT policy), so read
+  // it with the service-role client, server-side, after the session is verified.
+  const svc = supabaseService();
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const { data: prof } = svc
+    ? await svc.from("users").select("name, email, phone, referral_source, created_at").eq("id", uid).maybeSingle()
+    : { data: null };
+  const memberSince = prof?.created_at
+    ? new Date(prof.created_at as string).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : null;
+  const profile = {
+    name: (prof?.name as string) ?? (meta.full_name as string) ?? (meta.name as string) ?? null,
+    email: (prof?.email as string) ?? user.email ?? null,
+    phone: (prof?.phone as string) ?? null,
+    referralSource: (prof?.referral_source as string) ?? null,
+    memberSince,
+  };
+
   const seen = new Set<string>();
   const reactions: Reaction[] = [];
   for (const r of (rows ?? []) as Array<Record<string, unknown>>) {
@@ -57,5 +76,5 @@ export default async function TunePage() {
     if (reactions.length >= 25) break;
   }
 
-  return <Tune weights={weights} reactions={reactions} techPref={(taste?.tech_pref as number) ?? 2} dislikes={(taste?.dislikes as string[]) ?? []} />;
+  return <Tune weights={weights} reactions={reactions} techPref={(taste?.tech_pref as number) ?? 2} dislikes={(taste?.dislikes as string[]) ?? []} profile={profile} />;
 }

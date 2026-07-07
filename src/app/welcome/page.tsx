@@ -71,5 +71,5 @@ export default async function Welcome() {
   if (taste) redirect("/");
 
   // Signed in, first time → taste calibration: level → topics → rate articles.
-  return <Onboarding name={displayName(user)} articles={pool ?? []} />;
+  return <Onboarding name={displayName(user)} email={user.email ?? ""} articles={pool ?? []} />;
 }

@@ -64,16 +64,28 @@ async function bumpAffinity(uid: string, tags: string[], perTag: number) {
     .eq("user_id", uid);
 }
 
-export async function completeOnboarding(input: { weights: Weights; techPref?: number; dislikes?: string[] }) {
+export async function completeOnboarding(input: {
+  weights: Weights;
+  techPref?: number;
+  dislikes?: string[];
+  profile?: { fullName?: string; email?: string; phone?: string; referralSource?: string };
+}) {
   const user = await getSessionUser();
   if (!user) return { ok: false };
   const userId = user.id;
   const m = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const name =
+  const googleName =
     (m.full_name as string) ||
     (m.name as string) ||
     user.email?.split("@")[0] ||
     "Reader";
+  // Profile fields from onboarding win over the Google defaults; fall back to
+  // them (and to the session email) so the row is always populated.
+  const p = input.profile ?? {};
+  const name = p.fullName?.trim() || googleName;
+  const email = p.email?.trim() || user.email || null;
+  const phone = p.phone?.trim() || null;
+  const referralSource = p.referralSource?.trim() || null;
 
   // `users` is a private table — it has an INSERT policy but no SELECT policy, so
   // the public anon key can't write it at all (RLS rejects the insert). Profile
@@ -86,8 +98,8 @@ export async function completeOnboarding(input: { weights: Weights; techPref?: n
   const { error: uErr } = await svc
     .from("users")
     .upsert(
-      { id: userId, name, email: user.email ?? null },
-      { onConflict: "id", ignoreDuplicates: true }
+      { id: userId, name, email, phone, referral_source: referralSource },
+      { onConflict: "id" }
     );
   if (uErr) return { ok: false, error: uErr.message };
 
