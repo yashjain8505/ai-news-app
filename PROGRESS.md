@@ -39,3 +39,23 @@ impressions for (per-company AI funding/valuation lookups).
   render check). The worktree itself lives at `../wortins-blog-build`; remove with
   `git worktree remove wortins-blog-build` from `ai-news-app` once the PR is merged.
 - `.claude/launch.json` gained a `wortins-blog` entry (port 3200) for local preview.
+
+---
+
+## LOOP SESSION UPDATE — expanded 25 → 50 posts (Jul 8, 2026)
+Autonomous loop after the initial build. All in the same worktree/branch/PR (feat/blog-infra, PR #6).
+- **R1:** +10 per-company funding (AlphaSense, Quantum Systems, LinqAlpha, Omen AI, Higgsfield [in talks],
+  Stathera, Bespoke Labs, LeapXpert, Aligned, Dominion Dynamics).
+- **R2 — NEW cluster (AI M&A + IPOs):** +8 (SpaceX–Cursor $60B, Qualcomm–Modular $3.9B, Salesforce–Fin,
+  SAP–Prior Labs, SoFi–Composer, Anthropic IPO, OpenAI IPO, Unitree IPO) + 2 hubs
+  (biggest-ai-acquisitions-2026, ai-ipos-2026).
+- **R3 — sector hubs + more:** +2 hubs (ai-agents-funding-2026, ai-defense-tech-funding-2026) that densely
+  cross-link existing pages + 3 per-company (Katalyze AI, Codeplain, Reflection AI).
+- Also refined the biggest-rounds + data-center hubs to link the new pages.
+- Verified: 50/50 posts parse, tsc clean, all hubs render (tables OK), /blog lists 50 links.
+
+## NEXT ROUNDS (documented for a fresh session — not yet done)
+- R4: "[company] alternatives/competitors" cluster (Cursor alternatives, Together AI alternatives, etc.) —
+  commercial intent, moderate competition.
+- R5: per-tool pages for the few distinctive tools (Wispr Flow, Yoodli, Goblin Tools, Neural Frames, folk).
+- More sector hubs (AI healthcare funding, AI fintech funding) + keep adding a per-company page per new raise.
