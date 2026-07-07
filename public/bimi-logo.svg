@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.2" baseProfile="tiny-ps" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <title>Wortins</title>
+  <rect width="180" height="180" fill="#9c2b1d"/>
+  <g transform="translate(17.41,144.00) scale(0.15297,-0.15297)">
+    <path d="M971 690V682L915 677Q888 675 878.0 667.5Q868 660 861 637L662 -16H646L471 482L319 -16H303L60 674L-22 682V690H228V682L141 674L338 112H342L462 506L403 674L321 682V690H571V682L484 674L681 112H685L845 637Q848 648 848 656Q848 667 842.0 671.5Q836 676 819 677L758 682V690Z" fill="#f3ecda"/>
+  </g>
+</svg>
