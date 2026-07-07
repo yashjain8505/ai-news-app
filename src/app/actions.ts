@@ -292,3 +292,25 @@ export async function latestItemAt(): Promise<string | null> {
     .maybeSingle();
   return (data?.created_at as string | undefined) ?? null;
 }
+
+// --- Newsletter (the Wortins Daily) -----------------------------------------
+const NL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Capture a newsletter signup into our own private `subscribers` table via the
+// service-role client (RLS denies the anon key any access to the list). This is
+// deliberately provider-agnostic: the emails are ours, so we can sync them to
+// Substack / Resend / Buttondown later without re-collecting anyone. Idempotent —
+// a repeat address is a silent no-op, not an error, so the UI can always say "in".
+export async function subscribeNewsletter(
+  emailRaw: string
+): Promise<{ ok: boolean; error?: string }> {
+  const email = emailRaw.trim().toLowerCase();
+  if (!NL_EMAIL_RE.test(email)) return { ok: false, error: "invalid" };
+  const svc = supabaseService();
+  if (!svc) return { ok: false, error: "unavailable" };
+  const { error } = await svc
+    .from("subscribers")
+    .upsert({ email, source: "site" }, { onConflict: "email", ignoreDuplicates: true });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
