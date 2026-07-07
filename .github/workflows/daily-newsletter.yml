@@ -35,7 +35,7 @@ jobs:
         env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_KEY }}
           SITE_URL: https://www.wortins.com
           MAIL_FROM: "Wortins Daily <daily@wortins.com>"
           MAIL_REPLY_TO: hello@wortins.com
