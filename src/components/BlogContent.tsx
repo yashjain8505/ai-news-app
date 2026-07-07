@@ -218,6 +218,67 @@ export default function BlogContent({ markdown }: { markdown: string }) {
       continue;
     }
 
+    // GitHub-style table: a `| ... |` header row followed by a `|---|---|`
+    // separator. Rendered inside a horizontally-scrollable wrapper so wide
+    // tables never break the mobile layout.
+    if (
+      /^\s*\|.*\|\s*$/.test(line) &&
+      i + 1 < lines.length &&
+      /-/.test(lines[i + 1]) &&
+      /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])
+    ) {
+      const parseRow = (l: string) =>
+        l
+          .trim()
+          .replace(/^\|/, "")
+          .replace(/\|$/, "")
+          .split("|")
+          .map((c) => c.trim());
+      const headers = parseRow(line);
+      i += 2; // consume header + separator
+      const rows: string[][] = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+        rows.push(parseRow(lines[i]));
+        i++;
+      }
+      out.push(
+        <div key={nextKey()} style={{ overflowX: "auto", margin: "0 0 24px" }}>
+          <table
+            className="serif"
+            style={{ borderCollapse: "collapse", width: "100%", fontSize: 15, lineHeight: 1.45 }}
+          >
+            <thead>
+              <tr>
+                {headers.map((h, hi) => (
+                  <th
+                    key={hi}
+                    style={{ textAlign: "left", padding: "8px 12px", borderBottom: "2px solid var(--ruleStrong)", color: "var(--ink)" }}
+                  >
+                    {inline(h, `${nextKey()}-th${hi}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  {headers.map((_, ci) => (
+                    <td
+                      key={ci}
+                      style={{ padding: "8px 12px", borderBottom: "1px solid var(--rule)", color: "var(--ink)", verticalAlign: "top" }}
+                    >
+                      {inline(r[ci] ?? "", `${nextKey()}-td${ri}-${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
     // Unordered list
     if (/^\s*[-*]\s+/.test(line)) {
       const items: string[] = [];
@@ -265,7 +326,7 @@ export default function BlogContent({ markdown }: { markdown: string }) {
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !/^(#{1,6}\s|>|\s*[-*]\s|\s*\d+\.\s|```|\s*(-{3,}|\*{3,}|_{3,})\s*$)/.test(
+      !/^(#{1,6}\s|>|\s*[-*]\s|\s*\d+\.\s|\s*\||```|\s*(-{3,}|\*{3,}|_{3,})\s*$)/.test(
         lines[i]
       )
     ) {
