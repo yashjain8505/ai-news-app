@@ -160,7 +160,7 @@ function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ecda"><tr><td align="center" class="wrap" style="padding:24px 16px">
 <table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%">
   <tr><td style="border-bottom:3px solid #1b1712;padding-bottom:12px">
-    <span style="display:inline-block;width:30px;height:30px;background:#9c2b1d;color:#f3ecda;font-size:21px;font-weight:700;text-align:center;line-height:30px;vertical-align:middle">W</span>
+    <img src="${SITE_URL}/wortins-mark.png" width="30" height="30" alt="Wortins" style="display:inline-block;width:30px;height:30px;vertical-align:middle;border:0">
     <span class="mast" style="font-size:24px;letter-spacing:0.1em;font-weight:700;vertical-align:middle;margin-left:9px">WORTINS</span>
     <div style="font-family:monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#6a6052;margin-top:9px">The Daily AI Briefing &middot; ${prettyDate(dateISO)}</div>
   </td></tr>
