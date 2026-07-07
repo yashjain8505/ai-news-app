@@ -8,7 +8,7 @@ export const revalidate = 1800; // 30 min ISR
 
 const TITLE = "All editions — the Wortins AI briefing archive";
 const DESCRIPTION =
-  "Every daily Wortins AI briefing in one place: browse the full archive of editions, each a curated snapshot of startups, products, applied AI, funding, and breakthroughs.";
+  "Browse the full archive of Wortins daily AI briefings — each a curated snapshot of AI startups, products, funding, and breakthroughs.";
 
 export const metadata: Metadata = {
   title: TITLE,

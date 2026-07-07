@@ -8,7 +8,16 @@ export const SITE = {
   url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.wortins.com").replace(/\/+$/, ""),
   locale: "en_US",
   twitter: "@wortins",
+  email: "hello@wortins.com",
 };
+
+// Off-domain profiles that are the SAME entity as Wortins. Used for schema.org
+// `sameAs`, which ties the on-page Organization to its social identity so search
+// and answer engines can reconcile the brand across the web. Add each verified
+// official profile here (LinkedIn company page, YouTube, GitHub, etc.).
+export const SAME_AS: string[] = [
+  "https://x.com/wortins",
+];
 
 export function absoluteUrl(path = "/"): string {
   const p = path.startsWith("/") ? path : `/${path}`;

@@ -40,7 +40,7 @@ export async function generateMetadata({
   if (!DATE_RE.test(date)) return {};
   const pretty = prettyDate(date);
   const title = `AI news for ${pretty}`;
-  const description = `${SITE.name}'s curated AI briefing for ${pretty}: emerging startups, real product launches, applied AI, notable funding, and genuine breakthroughs.`;
+  const description = `${SITE.name}'s AI briefing for ${pretty}: startups, product launches, applied AI, funding, and breakthroughs.`;
   const url = absoluteUrl(`/edition/${date}`);
   return {
     title,
