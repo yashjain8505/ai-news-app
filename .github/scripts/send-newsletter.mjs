@@ -7,6 +7,10 @@
 // double-mail. Self-contained — uses global fetch + the Supabase/Resend REST
 // APIs, no npm deps, so CI just runs `node`.
 //
+// The newsletter is deliberately NON-personalized: every subscriber gets the
+// same editorial top-of-each-section (by curator rank) — broadly interesting
+// news, not persona-targeted. That's the point of the email vs. the app feed.
+//
 // Env:
 //   SUPABASE_URL           (default: the project URL below)
 //   SUPABASE_SERVICE_KEY   (required) service-role key — the list is private
@@ -18,6 +22,8 @@
 //   DRY_RUN=1              render + count recipients, send nothing
 //   FORCE=1                send even if this edition was already sent
 
+import { fileURLToPath } from "node:url";
+
 const SUPABASE_URL =
   process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -28,14 +34,17 @@ const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "hello@wortins.com";
 const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 
-// How many stories per section make the email (top of each by rank).
-const SECTION_LIMITS = { daily: 8, tools: 4, articles: 3, funding: 4 };
+// Keep the email short + skimmable: only the top of each section (by curator
+// rank) — the stories anyone would find worth reading.
+const SECTION_LIMITS = { daily: 5, tools: 3, articles: 3, funding: 3 };
 const SECTION_TITLES = {
   daily: "Daily AI Updates",
   tools: "New Tools",
   articles: "Interesting Articles",
   funding: "Funding",
 };
+const SECTION_SHORT = { daily: "Daily AI", tools: "New Tools", articles: "Articles", funding: "Funding" };
+const SECTION_PATHS = { daily: "/", tools: "/new-tools", articles: "/articles", funding: "/funding" };
 const SECTION_ORDER = ["daily", "tools", "articles", "funding"];
 
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -66,11 +75,28 @@ async function sb(path, init = {}) {
   return body ? JSON.parse(body) : null;
 }
 
-// ---- rendering --------------------------------------------------------------
+// ---- text helpers -----------------------------------------------------------
 function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
   );
+}
+
+// Give a summary a clean ending so it never reads as cut off mid-thought.
+function tidy(s) {
+  if (!s) return "";
+  s = s.trim().replace(/\s+/g, " ");
+  return /[.!?…]$/.test(s) ? s : s + ".";
+}
+
+// Keep the intro to ~2-4 lines: cut on a word boundary and add an ellipsis.
+function trimSynopsis(s, max = 200) {
+  if (!s) return "";
+  s = s.trim().replace(/\s+/g, " ");
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return cut.slice(0, at > 60 ? at : max).replace(/[,;:.\s]+$/, "") + "…";
 }
 
 function prettyDate(iso) {
@@ -89,17 +115,18 @@ function groupBySection(items) {
   return g;
 }
 
+// ---- HTML rendering ---------------------------------------------------------
 function renderStory(it) {
   const href = `${SITE_URL}/story/${encodeURIComponent(it.slug)}`;
   const src = it.source
-    ? `<span style="color:#6a6052;text-transform:uppercase;letter-spacing:0.08em;font-size:12px;font-family:monospace">${esc(it.source)}</span>`
+    ? `<div style="color:#6a6052;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;font-family:monospace">${esc(it.source)}</div>`
     : "";
   const summary = it.summary
-    ? `<p style="margin:6px 0 0;font-size:15px;line-height:1.55;color:#4a4338">${esc(it.summary)}</p>`
+    ? `<p style="margin:5px 0 0;font-size:14px;line-height:1.5;color:#4a4338">${esc(tidy(it.summary))}</p>`
     : "";
-  return `<tr><td style="padding:16px 0;border-bottom:1px solid #c9bda4">
+  return `<tr><td style="padding:14px 0;border-bottom:1px solid #d8ccb2">
     ${src}
-    <a href="${href}" style="display:block;margin:5px 0 0;font-size:19px;line-height:1.25;font-weight:700;color:#1b1712;text-decoration:none">${esc(it.title)}</a>
+    <a href="${href}" style="display:block;margin:4px 0 0;font-size:15px;line-height:1.3;font-weight:700;color:#1b1712;text-decoration:none">${esc(it.title)}</a>
     ${summary}
   </td></tr>`;
 }
@@ -107,31 +134,41 @@ function renderStory(it) {
 function renderSection(key, stories) {
   if (!stories.length) return "";
   const rows = stories.map(renderStory).join("");
-  return `<tr><td style="padding:26px 0 0">
-    <div style="font-family:monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#9c2b1d;border-bottom:2px solid #1b1712;padding-bottom:6px">${SECTION_TITLES[key]}</div>
+  const moreHref = `${SITE_URL}${SECTION_PATHS[key]}`;
+  return `<tr><td style="padding:24px 0 0">
+    <div style="font-family:monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:2px solid #1b1712;padding-bottom:6px">${SECTION_TITLES[key]}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${rows}</table>
+    <div style="padding:11px 0 0">
+      <a href="${moreHref}" style="font-size:13px;font-style:italic;color:#9c2b1d;text-decoration:none">Explore all ${SECTION_SHORT[key]} &rarr;</a>
+    </div>
   </td></tr>`;
 }
 
 function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
   const sections = SECTION_ORDER.map((k) => renderSection(k, grouped[k])).join("");
   const synopsis = edition?.synopsis
-    ? `<tr><td style="padding:18px 0 0"><p style="margin:0;font-size:17px;line-height:1.6;color:#3a342a;font-style:italic">${esc(edition.synopsis)}</p></td></tr>`
+    ? `<tr><td style="padding:16px 0 2px"><p style="margin:0;font-size:15px;line-height:1.55;color:#3a342a">${esc(trimSynopsis(edition.synopsis))}</p></td></tr>`
     : "";
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;background:#f3ecda;color:#1b1712;font-family:Georgia,'Times New Roman',serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ecda"><tr><td align="center" style="padding:28px 16px">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
-  <tr><td style="border-bottom:3px solid #1b1712;padding-bottom:14px">
-    <span style="display:inline-block;width:38px;height:38px;background:#9c2b1d;color:#f3ecda;font-size:26px;font-weight:700;text-align:center;line-height:38px;vertical-align:middle">W</span>
-    <span style="font-size:34px;letter-spacing:0.12em;font-weight:700;vertical-align:middle;margin-left:10px">WORTINS</span>
-    <div style="font-family:monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6a6052;margin-top:10px">The Daily AI Briefing &middot; ${prettyDate(dateISO)}</div>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @media (max-width:480px){
+    .wrap{padding:16px 14px !important}
+    .mast{font-size:22px !important}
+  }
+</style></head>
+<body style="margin:0;background:#f3ecda;color:#1b1712;font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ecda"><tr><td align="center" class="wrap" style="padding:24px 16px">
+<table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%">
+  <tr><td style="border-bottom:3px solid #1b1712;padding-bottom:12px">
+    <span style="display:inline-block;width:30px;height:30px;background:#9c2b1d;color:#f3ecda;font-size:21px;font-weight:700;text-align:center;line-height:30px;vertical-align:middle">W</span>
+    <span class="mast" style="font-size:24px;letter-spacing:0.1em;font-weight:700;vertical-align:middle;margin-left:9px">WORTINS</span>
+    <div style="font-family:monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#6a6052;margin-top:9px">The Daily AI Briefing &middot; ${prettyDate(dateISO)}</div>
   </td></tr>
   ${synopsis}
   ${sections}
-  <tr><td style="padding:30px 0 0;border-top:1px solid #c9bda4;margin-top:20px">
-    <p style="margin:16px 0 0;font-size:14px;color:#4a4338">Read the full editions at <a href="${SITE_URL}" style="color:#9c2b1d;text-decoration:none">wortins.com</a>.</p>
-    <p style="margin:10px 0 0;font-family:monospace;font-size:11px;color:#938a76">
+  <tr><td style="padding:28px 0 0;border-top:1px solid #c9bda4">
+    <p style="margin:14px 0 0;font-size:14px;color:#4a4338">The full editions live at <a href="${SITE_URL}" style="color:#9c2b1d;text-decoration:none">wortins.com</a>.</p>
+    <p style="margin:9px 0 0;font-family:monospace;font-size:11px;line-height:1.5;color:#938a76">
       You're getting this because you subscribed at wortins.com.
       <a href="${unsubUrl}" style="color:#938a76">Unsubscribe</a>.
     </p>
@@ -143,17 +180,18 @@ function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
   const lines = [];
   lines.push(`WORTINS — The Daily AI Briefing`);
   lines.push(prettyDate(dateISO));
-  if (edition?.synopsis) lines.push(`\n${edition.synopsis}`);
+  if (edition?.synopsis) lines.push(`\n${trimSynopsis(edition.synopsis)}`);
   for (const k of SECTION_ORDER) {
     if (!grouped[k].length) continue;
     lines.push(`\n${SECTION_TITLES[k].toUpperCase()}`);
     for (const it of grouped[k]) {
       lines.push(`\n• ${it.title}${it.source ? ` (${it.source})` : ""}`);
-      if (it.summary) lines.push(`  ${it.summary}`);
+      if (it.summary) lines.push(`  ${tidy(it.summary)}`);
       lines.push(`  ${SITE_URL}/story/${it.slug}`);
     }
+    lines.push(`  Explore all ${SECTION_SHORT[k]}: ${SITE_URL}${SECTION_PATHS[k]}`);
   }
-  lines.push(`\n—\nRead more at ${SITE_URL}`);
+  lines.push(`\n—\nThe full editions live at ${SITE_URL}`);
   lines.push(`Unsubscribe: ${unsubUrl}`);
   return { html, text: lines.join("\n") };
 }
@@ -247,9 +285,9 @@ async function main() {
     `editions?edition_date=eq.${dateISO}&select=headline,synopsis`
   );
   const edition = editionRows?.[0] || null;
-  const subject = edition?.headline
-    ? `Wortins Daily · ${edition.headline}`
-    : `The Wortins Daily · ${prettyDate(dateISO)}`;
+  // Subject = the day's headline itself (the "from" name already says Wortins
+  // Daily), so it reads as a compelling line in the inbox rather than boilerplate.
+  const subject = edition?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`;
 
   // 4. Recipients.
   const subscribers = await sb(
@@ -303,4 +341,10 @@ async function main() {
   if (ok === 0) die("All sends failed");
 }
 
-main().catch((e) => die(e.message));
+// Export the renderer for local preview; only run the sender when executed
+// directly (`node send-newsletter.mjs`), not when imported.
+export { renderEmail, groupBySection, trimSynopsis, tidy };
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((e) => die(e.message));
+}
