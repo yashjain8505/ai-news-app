@@ -1,5 +1,13 @@
 name: Daily edition
 
+# Only ONE curator run at a time. If two triggers ever overlap (GitHub's own cron
+# and an external cron-job.org poke), the second QUEUES behind the first and then
+# no-ops via the drop-guard — instead of running a second expensive curation in
+# parallel and double-spending the Claude limit.
+concurrency:
+  group: daily-edition
+  cancel-in-progress: false
+
 on:
   schedule:
     # 4 drops/day: 7:00 / 12:00 / 17:00 / 21:00 IST = 01:30 / 06:30 / 11:30 / 15:30 UTC.
@@ -86,9 +94,17 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           EDITION_DATE: ${{ github.event.inputs.target_date }}
         run: |
+          # Haiku for the scrape/curation — light on the Claude limit. --output-format
+          # json makes the run print its token usage + $ cost, echoed below so every
+          # run's cost against the limit is visible right here in the log.
           claude -p "$(cat .github/scripts/daily-edition-prompt.md)" \
+            --model haiku \
+            --output-format json \
             --dangerously-skip-permissions \
-            --max-turns 80
+            --max-turns 80 | tee /tmp/claude_out.json
+          echo ""
+          echo "===== RUN USAGE (this run's Claude cost) ====="
+          jq -r '"input_tokens=\(.usage.input_tokens // 0)  output_tokens=\(.usage.output_tokens // 0)  cache_read=\(.usage.cache_read_input_tokens // 0)  cache_creation=\(.usage.cache_creation_input_tokens // 0)  total_cost_usd=\(.total_cost_usd // 0)  turns=\(.num_turns // 0)  duration_ms=\(.duration_ms // 0)"' /tmp/claude_out.json 2>/dev/null || echo "(usage not parseable; see JSON above)"
 
       # Auto-notify search engines (Bing, Yandex, Seznam, Naver) of the fresh URLs
       # so indexing happens without manual submission. Update HOST when a custom
