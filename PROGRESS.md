@@ -34,12 +34,44 @@ Every query Wortins gets is a **per-company AI funding/valuation/revenue lookup*
 - [x] Isolated worktree + branch created
 - [x] 2:30 AM resume scheduled
 - [x] Read repo patterns (seo, sitemap, types, publicData)
-- [ ] Keyword research (ground on funding companies in Supabase `items`)  ← IN PROGRESS
-- [ ] Content plan (20-30 titles → query → format → build order)
-- [ ] Blog infra (routes + SEO + sitemap + markdown rendering)
-- [ ] Write 20-30 posts (funding/valuation wedge first)
+- [x] Keyword research (grounded on funding companies in Supabase `items`)
+- [x] Content plan → `growth/blog-plan.md` (30 posts: 22 per-company + 5 roundups + 3 explainers)
+- [x] Blog infra built + typechecks clean + COMMITTED (commit 93434e4)
+- [~] Write posts (funding/valuation wedge first)  ← IN PROGRESS
 - [ ] Optimization plan doc
 - [ ] Commit + push + PR + final PROGRESS update
+
+## Infra shipped (commit 93434e4)
+- `src/lib/blog.ts` (frontmatter loader), `src/components/BlogContent.tsx` (dep-free md renderer)
+- `src/app/blog/page.tsx` + `src/app/blog/[slug]/page.tsx` (ISR, BlogPosting+FAQPage+Breadcrumb JSON-LD)
+- sitemap + `.md` twins (markdown.ts) + Vary:Accept (next.config) + "Blog" nav link (PublicChrome)
+- Reference post: `content/blog/together-ai-funding.md` (the quality template — copy its format)
+- Local setup: node_modules + .env.local symlinked from ../ai-news-app (gitignored, do NOT commit)
+
+## Post-writing status (target 20-30)
+COMMITTED (9, commit + pilot): together-ai, crusoe, baseten, twelvelabs, venice-ai, etched, carbonsix,
+  how-ai-startup-funding-rounds-work, how-ai-startup-valuations-work.
+BATCH 2 written (7 done, in content/blog/ but NOT yet committed): mistral, deepseek, kling-ai, generalist-ai,
+  flourish, assort-health, even-realities.
+BATCH 2 still running (4 subagents): oxmiq, tripo-ai, trase, luxonis.
+  → When done: run validator, commit batch 2.
+
+## STILL TO DO (resume here)
+1. ROUNDUP HUBS (MANDATORY — per-company posts link to these in-body, so they 404 without them):
+   biggest-ai-funding-rounds-2026, ai-data-center-funding-2026, ai-chip-startup-funding-2026,
+   physical-ai-robotics-funding-2026, ai-video-startup-funding-2026.
+   Best done via sonnet subagents given verified $ data already gathered (see git log/agent reports),
+   each linking to the relevant per-company /blog/<slug> pages. Optional extra: ai-unicorns-2026.
+2. Validate (node scratchpad/validate-posts.cjs) + `npx tsc --noEmit`.
+3. Commit all. Count `ls content/blog/*.md | wc -l` (target 20-30).
+4. VERIFY UI (user is visual-sensitive): run dev server on a NON-3000 port (other session owns 3000),
+   e.g. `PORT=3100 npm run dev` in the worktree, screenshot /blog + one post desktop+mobile.
+5. Push branch `feat/blog-infra`, open PR (gh). Optimization plan already at growth/blog-optimization-plan.md.
+6. Final PROGRESS update + leave morning summary.
+
+## Validation before commit (run this)
+`node "/private/tmp/claude-501/-Users-earan-Claude-code-personal/d7fba434-35c8-40f3-b13e-20a7908bc902/scratchpad/validate-posts.cjs" .`
+(checks every .md has valid one-line JSON faq + title; malformed → loader silently skips it). Then `npx tsc --noEmit`.
 
 ## How to resume
 1. Read this file. Check the task list (TaskList).
