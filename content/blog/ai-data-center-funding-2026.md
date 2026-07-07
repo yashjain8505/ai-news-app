@@ -18,7 +18,7 @@ faq: [{"q":"Why is so much funding going into AI data centers right now?","a":"B
 | Baseten | $1.5B Series F | ~$13B | AI inference infrastructure |
 | Together AI | $800M Series C | $8.3B | AI inference neocloud |
 | Etched | $500M | $5B | Transformer ASIC chips |
-| Omen AI | $31M Series A | — | Data-center cooling / thermal |
+| [Omen AI](/blog/omen-ai-funding) | $31M Series A | — | Data-center cooling / thermal |
 
 ## Crusoe — ~$3B in talks at a ~$30B valuation
 
@@ -38,7 +38,7 @@ Etched raised **$500 million** at a **$5 billion valuation** to keep building it
 
 ## Omen AI — $31M Series A
 
-Omen AI raised a **$31 million Series A** for AI data-center cooling and thermal management — a much smaller check, but a telling one. As data centers pack in denser, hotter GPU clusters, cooling has gone from an afterthought to its own funded category. Omen doesn't have a dedicated post yet, but you can track it and similar infrastructure raises in the [AI Funding Tracker](/funding).
+[Omen AI](/blog/omen-ai-funding) raised a **$31 million Series A** for AI data-center cooling and thermal management — a much smaller check, but a telling one. As data centers pack in denser, hotter GPU clusters, cooling has gone from an afterthought to its own funded category. Another infrastructure-layer startup, [Stathera](/blog/stathera-funding), raised a **$55M Series B** in the same window for silicon timing chips that keep dense AI data centers synchronized — a sign the buildout is being funded down to its smallest components.
 
 ## Why compute is the new bottleneck
 
