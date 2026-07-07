@@ -1,79 +1,41 @@
-# Wortins — Overnight blog build (feat/blog-infra)
+# Wortins Blog — Overnight build: ✅ DONE (morning handoff)
 
-**Started:** 2026-07-08 ~00:15 IST (2026-07-07 ~18:45 UTC)
-**Worktree:** `/Users/earan/Claude code personal/wortins-blog-build` (branch `feat/blog-infra`, based on `main` @ 63c246e)
-**Resume scheduled:** 2:30 AM IST (21:00 UTC) via scheduled task `wortins-blog-build-resume`
+**Status:** COMPLETE. Everything is committed, pushed, and in **PR #6**.
+There is nothing to resume — the 2:30 AM scheduled task has been disabled.
+👉 https://github.com/yashjain8505/ai-news-app/pull/6  (branch `feat/blog-infra`)
 
-## ⚠️ SAFETY — READ FIRST
-- Another Claude session is ACTIVE in `/Users/earan/Claude code personal/ai-news-app` (dev server on :3000, dirty tree). **DO NOT touch that dir, its files, or its git HEAD.** All work happens here in the worktree only.
-- Both sessions share the user's 5-hour quota. Be efficient.
-- No unattended production deploy. No production Supabase migration applied unattended. Leave everything as a PR + this note for morning review.
+## What shipped
+A file-based blog at `/blog` targeting the winnable long-tail queries GSC shows Wortins already gets
+impressions for (per-company AI funding/valuation lookups).
 
-## The signal driving everything (from GSC)
-Every query Wortins gets is a **per-company AI funding/valuation/revenue lookup**:
-"oraclaim funding", "knowlify funding", "further ai funding/valuation/revenue", "ideogram funding",
-"snorkel ai valuation", "profound ai funding", "ai startup funding investment rounds latest".
-`/section/funding` already pulls the most impressions (32). US = impressions, India = the only clicks.
-=> The winnable wedge is **per-company funding/valuation pages** + funding roundups/explainers.
+**Infrastructure (no new deps, no DB, no env, no migration):**
+- `src/lib/blog.ts` (frontmatter loader) + `src/components/BlogContent.tsx` (dependency-free Markdown
+  renderer, incl. tables) — content lives in `content/blog/*.md`.
+- `/blog` index + `/blog/[slug]` (ISR), BlogPosting + FAQPage + BreadcrumbList JSON-LD, canonical, OG.
+- Sitemap + `.md` twins + `Vary: Accept` wiring; "Blog" added to the nav.
 
-## Design decision (LOCKED)
-- **File-based markdown blog** (`content/blog/*.md` w/ frontmatter), rendered via the existing `src/lib/markdown.ts`.
-  Rationale: reviewable in the PR, version-controlled, ZERO prod-DB risk overnight, ships all posts on deploy with no migration, and "add a file = new post" is real authoring infra.
-- Full SEO parity with story pages: `BlogPosting` JSON-LD, canonical, OG (reuse `og.tsx`), `/blog/[slug].md` twin, sitemap integration.
-- Routes: `/blog` (index) + `/blog/[slug]` + `/blog/[slug].md` twin.
-- DB-backed `blog_posts` table + `/admin/blog` authoring UI = documented **Phase 2** (in optimization plan), NOT blocking tonight.
+**Content — 25 posts (all web-verified; "in-talks" rounds flagged):**
+- 18 per-company funding deep-dives (Together AI, DeepSeek, Mistral, Baseten, Crusoe, Kling AI, Etched,
+  TwelveLabs, Venice AI, CarbonSix, Generalist AI, Flourish, Assort Health, Even Realities, Tripo AI,
+  Oxmiq, Luxonis, Trase).
+- 5 roundup "living-tracker" hubs (biggest rounds, data-center, chips, video, physical AI) that
+  cross-link every per-company post.
+- 2 evergreen explainers (how funding rounds work, how valuations work).
 
-## Architecture notes (from reading the repo)
-- Supabase `items` table drives sections; `editions` table has headline/synopsis. Anon client + RLS in `publicData.ts`.
-- SEO config: `src/lib/seo.ts` (SITE, SECTION_SEO, SECTION_SLUG, absoluteUrl).
-- Sitemap: `src/app/sitemap.ts` — add blog slugs + twins here.
-- Sections: daily, tools, articles, funding. Funding section SEO label = "AI Funding Tracker".
-- **Next.js 16 — breaking changes. Read `node_modules/next/dist/docs/` before writing route code.**
+**Docs:** `growth/blog-plan.md` (strategy) · `growth/blog-optimization-plan.md` (post-launch playbook).
 
-## Plan / status
-- [x] Isolated worktree + branch created
-- [x] 2:30 AM resume scheduled
-- [x] Read repo patterns (seo, sitemap, types, publicData)
-- [x] Keyword research (grounded on funding companies in Supabase `items`)
-- [x] Content plan → `growth/blog-plan.md` (30 posts: 22 per-company + 5 roundups + 3 explainers)
-- [x] Blog infra built + typechecks clean + COMMITTED (commit 93434e4)
-- [~] Write posts (funding/valuation wedge first)  ← IN PROGRESS
-- [ ] Optimization plan doc
-- [ ] Commit + push + PR + final PROGRESS update
+## Verified
+- `npx tsc --noEmit` clean.
+- Dev server render check (desktop + mobile): pages render on-brand, tables render correctly, no
+  horizontal overflow on mobile, JSON-LD + canonical + `.md` twins all present. (Screenshots shared in chat.)
+- All 25 posts parse (validator: 25 OK / 0 bad).
 
-## Infra shipped (commit 93434e4)
-- `src/lib/blog.ts` (frontmatter loader), `src/components/BlogContent.tsx` (dep-free md renderer)
-- `src/app/blog/page.tsx` + `src/app/blog/[slug]/page.tsx` (ISR, BlogPosting+FAQPage+Breadcrumb JSON-LD)
-- sitemap + `.md` twins (markdown.ts) + Vary:Accept (next.config) + "Blog" nav link (PublicChrome)
-- Reference post: `content/blog/together-ai-funding.md` (the quality template — copy its format)
-- Local setup: node_modules + .env.local symlinked from ../ai-news-app (gitignored, do NOT commit)
+## To ship (your call, in the morning)
+1. Review PR #6, skim a few posts, merge → Vercel deploys `main`. No DB step.
+2. In GSC, request indexing for `/blog` + the top posts (see `growth/blog-optimization-plan.md`).
 
-## Post-writing status (target 20-30)
-COMMITTED (9, commit + pilot): together-ai, crusoe, baseten, twelvelabs, venice-ai, etched, carbonsix,
-  how-ai-startup-funding-rounds-work, how-ai-startup-valuations-work.
-BATCH 2 written (7 done, in content/blog/ but NOT yet committed): mistral, deepseek, kling-ai, generalist-ai,
-  flourish, assort-health, even-realities.
-BATCH 2 still running (4 subagents): oxmiq, tripo-ai, trase, luxonis.
-  → When done: run validator, commit batch 2.
-
-## STILL TO DO (resume here)
-1. ROUNDUP HUBS (MANDATORY — per-company posts link to these in-body, so they 404 without them):
-   biggest-ai-funding-rounds-2026, ai-data-center-funding-2026, ai-chip-startup-funding-2026,
-   physical-ai-robotics-funding-2026, ai-video-startup-funding-2026.
-   Best done via sonnet subagents given verified $ data already gathered (see git log/agent reports),
-   each linking to the relevant per-company /blog/<slug> pages. Optional extra: ai-unicorns-2026.
-2. Validate (node scratchpad/validate-posts.cjs) + `npx tsc --noEmit`.
-3. Commit all. Count `ls content/blog/*.md | wc -l` (target 20-30).
-4. VERIFY UI (user is visual-sensitive): run dev server on a NON-3000 port (other session owns 3000),
-   e.g. `PORT=3100 npm run dev` in the worktree, screenshot /blog + one post desktop+mobile.
-5. Push branch `feat/blog-infra`, open PR (gh). Optimization plan already at growth/blog-optimization-plan.md.
-6. Final PROGRESS update + leave morning summary.
-
-## Validation before commit (run this)
-`node "/private/tmp/claude-501/-Users-earan-Claude-code-personal/d7fba434-35c8-40f3-b13e-20a7908bc902/scratchpad/validate-posts.cjs" .`
-(checks every .md has valid one-line JSON faq + title; malformed → loader silently skips it). Then `npx tsc --noEmit`.
-
-## How to resume
-1. Read this file. Check the task list (TaskList).
-2. `cd` into the worktree. Continue the first unchecked item.
-3. Commit after each post/step. Keep this file current.
+## Cleanup notes
+- `node_modules` and `.env.local` in this worktree are gitignored (a real `npm ci` was run here for the
+  render check). The worktree itself lives at `../wortins-blog-build`; remove with
+  `git worktree remove wortins-blog-build` from `ai-news-app` once the PR is merged.
+- `.claude/launch.json` gained a `wortins-blog` entry (port 3200) for local preview.
