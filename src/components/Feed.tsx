@@ -103,7 +103,6 @@ export default function Feed({
   days,
   todayIdx,
   now,
-  name,
   updatedAgo,
   stampDate,
   editionNo,
@@ -337,7 +336,8 @@ export default function Feed({
             </div>
           </div>
           {/* utility controls — top-right of the masthead */}
-          <div className="mono" style={{ display: "flex", alignItems: "center", gap: 12, rowGap: 8, flexWrap: "wrap", justifyContent: "flex-end", color: "var(--faint)", fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", marginTop: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 16, marginTop: 4, minWidth: 0 }}>
+            <div className="mono" style={{ display: "flex", alignItems: "center", gap: 12, rowGap: 8, flexWrap: "wrap", justifyContent: "flex-end", color: "var(--faint)", fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
               {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
@@ -346,15 +346,18 @@ export default function Feed({
               <a
                 href="/tune"
                 className="mono bs-tap"
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 18px", border: "1.5px solid var(--ruleStrong)", background: "var(--bg)", color: "var(--ink)", textDecoration: "none" }}
+                style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 18px", border: "1.5px solid var(--accent)", background: "transparent", color: "var(--accent)", textDecoration: "none" }}
               >
-                <span aria-hidden style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: 999, border: "1.5px solid var(--ink)", fontSize: 9 }}>
-                  {(name?.trim()?.[0] ?? "A").toUpperCase()}
-                </span>
-                Account
+                My account
               </a>
             ) : (
               <OnboardingHero signedIn={signedIn} />
+            )}
+            </div>
+            {active === "daily" && (
+              <div style={{ width: "100%", maxWidth: 340 }}>
+                <NewsletterSignup />
+              </div>
             )}
           </div>
         </div>
@@ -379,8 +382,6 @@ export default function Feed({
           })}
         </nav>
       </div>
-
-      {active === "daily" && <NewsletterSignup />}
 
       {!hasContent ? (
         <div style={{ marginTop: 36, border: "1px solid var(--ruleStrong)", padding: "60px 24px", textAlign: "center", background: "var(--ph1)" }}>

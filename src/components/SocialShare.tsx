@@ -27,6 +27,14 @@ export default function SocialShare({
     setAbs(url.startsWith("http") ? url : `${window.location.origin}${url}`);
   }, [url]);
 
+  // Quick tactile press-pop so the intent links visibly respond on click, even
+  // though the real action (opening a new tab) happens elsewhere.
+  const [pressed, setPressed] = useState<"twitter" | "linkedin" | null>(null);
+  function pop(which: "twitter" | "linkedin") {
+    setPressed(which);
+    setTimeout(() => setPressed(null), 120);
+  }
+
   const enc = encodeURIComponent;
   // X: blank text + just the link. The card carries the headline; the reader
   // writes their own take. The preview renders from the story page's OG tags.
@@ -50,14 +58,35 @@ export default function SocialShare({
     border: "1px solid var(--sep)",
     color: "var(--ink)",
     textDecoration: "none",
+    transition: "transform 120ms ease-out",
   };
 
   return (
     <>
-      <a href={xHref} target="_blank" rel="noopener noreferrer" onClick={() => track("twitter")} className="mono bs-tap" style={linkStyle}>
+      <a
+        href={xHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          pop("twitter");
+          track("twitter");
+        }}
+        className="mono bs-tap"
+        style={{ ...linkStyle, transform: pressed === "twitter" ? "scale(0.94)" : "scale(1)" }}
+      >
         Post on X &#8599;
       </a>
-      <a href={liHref} target="_blank" rel="noopener noreferrer" onClick={() => track("linkedin")} className="mono bs-tap" style={linkStyle}>
+      <a
+        href={liHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          pop("linkedin");
+          track("linkedin");
+        }}
+        className="mono bs-tap"
+        style={{ ...linkStyle, transform: pressed === "linkedin" ? "scale(0.94)" : "scale(1)" }}
+      >
         Share on LinkedIn &#8599;
       </a>
       {showGeneric && <ShareButton url={url} title={title} />}

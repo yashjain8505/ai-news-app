@@ -216,14 +216,15 @@ body {
   cursor: pointer;
 }
 .bs-tap:hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(27, 23, 18, 0.16);
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(27, 23, 18, 0.22);
 }
 .bs-tap:active {
-  transform: translateY(0);
-  filter: brightness(0.97);
-  box-shadow: none;
+  transform: translateY(0) scale(0.96);
+  filter: brightness(0.92);
+  box-shadow: 0 1px 5px rgba(27, 23, 18, 0.2);
+  transition-duration: 0.05s;
 }
 .bs-tap:focus-visible {
   outline: 2px solid var(--accent);
@@ -235,14 +236,6 @@ body {
 .bs-hl {
   text-decoration: none;
   display: block;
-  background-image: linear-gradient(var(--accent), var(--accent));
-  background-size: 0% 2px;
-  background-position: 0 100%;
-  background-repeat: no-repeat;
-  transition: background-size 0.28s ease;
-}
-.bs-hl:hover {
-  background-size: 100% 2px;
 }
 .bs-hl h1,
 .bs-hl h2,
@@ -259,14 +252,22 @@ body {
 
 /* Story rows in the "more" grid: highlight the whole row + nudge it in. */
 .bs-story {
-  transition: background-color 0.16s ease, box-shadow 0.16s ease,
-    transform 0.16s ease;
+  position: relative;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
 }
 .bs-story:hover {
   background-color: var(--ph1);
-  box-shadow: -14px 0 0 var(--ph1), 14px 0 0 var(--ph1),
-    inset 3px 0 0 var(--accent);
-  transform: translateX(2px);
+  box-shadow: -14px 0 0 var(--ph1), 14px 0 0 var(--ph1);
+}
+/* accent marker sits in the left gutter, clear of the text */
+.bs-story:hover::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
 }
 
 /* Thumbnail photos: a slow zoom + a touch of colour when their card/link is

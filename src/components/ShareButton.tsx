@@ -16,8 +16,16 @@ export default function ShareButton({
   compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  // Quick tactile press-pop on every click, independent of what the click does.
+  const [pressed, setPressed] = useState(false);
+
+  function pop() {
+    setPressed(true);
+    setTimeout(() => setPressed(false), 120);
+  }
 
   async function share() {
+    pop();
     const abs =
       url.startsWith("http") || typeof window === "undefined"
         ? url
@@ -27,7 +35,7 @@ export default function ShareButton({
         await navigator.share({ title, url: abs });
         return;
       } catch {
-        // user dismissed the sheet, or it failed — fall through to copy
+        // user dismissed the sheet, or it failed, fall through to copy
       }
     }
     try {
@@ -51,12 +59,14 @@ export default function ShareButton({
           textTransform: "uppercase",
           border: 0,
           background: "transparent",
-          color: "var(--dim)",
+          color: copied ? "var(--accent)" : "var(--dim)",
           cursor: "pointer",
           padding: 0,
+          transform: pressed ? "scale(0.94)" : "scale(1)",
+          transition: "transform 120ms ease-out, color 400ms ease-out",
         }}
       >
-        {copied ? "Copied ✓" : "Share ↗"}
+        <span aria-live="polite">{copied ? "Copied ✓" : "Share ↗"}</span>
       </button>
     );
   }
@@ -64,19 +74,22 @@ export default function ShareButton({
   return (
     <button
       onClick={share}
-      className="mono"
+      className="mono bs-tap"
       style={{
         fontSize: 13,
         letterSpacing: "0.04em",
         textTransform: "uppercase",
         padding: "12px 18px",
         border: "1px solid var(--sep)",
-        background: "transparent",
-        color: "var(--ink)",
+        background: copied ? "var(--accent)" : "transparent",
+        color: copied ? "var(--onAccent)" : "var(--ink)",
         cursor: "pointer",
+        transform: pressed ? "scale(0.94)" : "scale(1)",
+        transition:
+          "transform 120ms ease-out, background 1200ms ease-out, color 1200ms ease-out",
       }}
     >
-      {copied ? "Link copied ✓" : "Share ↗"}
+      <span aria-live="polite">{copied ? "Link copied ✓" : "Share ↗"}</span>
     </button>
   );
 }

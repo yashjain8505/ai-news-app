@@ -179,7 +179,7 @@ export default async function StoryPage({
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mono"
+              className="mono bs-tap"
               style={{ display: "inline-block", fontSize: 13, letterSpacing: "0.04em", textTransform: "uppercase", padding: "12px 18px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none" }}
             >
               Read the full story at {item.source ?? "the source"} &rarr;
@@ -197,7 +197,7 @@ export default async function StoryPage({
         {/* E-E-A-T byline: who curated this, when, and a link to how we work. */}
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.03em", color: "var(--dim)", marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--rule)" }}>
           Curated by{" "}
-          <a href="/about" style={{ color: "var(--accent)", textDecoration: "none" }}>
+          <a href="/about" className="bs-ilink" style={{ color: "var(--accent)", textDecoration: "none" }}>
             Wortins
           </a>
           {publishedPretty && (
@@ -207,7 +207,7 @@ export default async function StoryPage({
             </>
           )}
           {" · "}
-          <a href="/about" style={{ color: "var(--dim)", textDecoration: "underline" }}>
+          <a href="/about" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "underline" }}>
             How we curate
           </a>
         </div>
@@ -235,7 +235,7 @@ export default async function StoryPage({
                       )}
                     </div>
                     <h3 className="display" style={{ fontSize: 18, lineHeight: 1.2, margin: "5px 0 0", color: "var(--ink)" }}>
-                      <a href={`/story/${r.slug}`} style={{ color: "inherit", textDecoration: "none" }}>
+                      <a href={`/story/${r.slug}`} className="bs-hl" style={{ color: "inherit", textDecoration: "none" }}>
                         {r.title}
                       </a>
                     </h3>
@@ -244,7 +244,7 @@ export default async function StoryPage({
                         href={r.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mono"
+                        className="mono bs-ilink"
                         style={{ display: "inline-block", marginTop: 6, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}
                       >
                         Read at {r.source ?? "source"} &#8599;
