@@ -57,11 +57,13 @@ async function sb(path, init = {}) {
       ...(init.headers || {}),
     },
   });
+  const body = await res.text().catch(() => "");
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
     throw new Error(`Supabase ${init.method || "GET"} ${path} → ${res.status} ${body}`);
   }
-  return res.status === 204 ? null : res.json();
+  // Writes (e.g. the newsletter_sends upsert) can return 201 with an empty body;
+  // only JSON.parse when there's actually something to parse.
+  return body ? JSON.parse(body) : null;
 }
 
 // ---- rendering --------------------------------------------------------------
