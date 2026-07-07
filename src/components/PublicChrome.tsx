@@ -7,6 +7,7 @@ const NAV = [
   { key: "funding", href: "/funding", label: "Funding" },
   { key: "tools", href: "/new-tools", label: "New Tools" },
   { key: "articles", href: "/articles", label: "Articles" },
+  { key: "blog", href: "/blog", label: "Blog" },
   { key: "archive", href: "/editions", label: "Archive" },
 ];
 

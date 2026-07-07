@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE, absoluteUrl, sectionPath } from "@/lib/seo";
 import { getAllEditionDates, getIndexableStorySlugs } from "@/lib/publicData";
+import { getAllBlogPosts } from "@/lib/blog";
 
 // Cached for an hour so crawlers don't hit Supabase on every fetch.
 export const revalidate = 3600;
@@ -18,6 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getAllEditionDates(),
     getIndexableStorySlugs(),
   ]);
+  const blogPosts = getAllBlogPosts();
   const latest = dates[0] ? new Date(`${dates[0]}T12:00:00Z`) : new Date();
 
   const pages: MetadataRoute.Sitemap = [
@@ -66,6 +68,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(s.published_at ?? s.created_at),
       changeFrequency: "weekly" as const,
       priority: 0.6,
+    })),
+    // Blog: original evergreen posts (funding deep-dives, explainers). All
+    // indexable (first-party content), so priority sits above thin story pages.
+    ...(blogPosts.length
+      ? [
+          {
+            url: absoluteUrl("/blog"),
+            lastModified: latest,
+            changeFrequency: "daily" as const,
+            priority: 0.8,
+          },
+        ]
+      : []),
+    ...blogPosts.map((p) => ({
+      url: absoluteUrl(`/blog/${p.slug}`),
+      lastModified: new Date(`${(p.updated || p.date || "").slice(0, 10) || "2026-01-01"}T12:00:00Z`),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
     })),
   ];
 
