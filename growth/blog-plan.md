@@ -73,3 +73,22 @@ Each post MUST be fact-checked via web search (exact amount, round, lead investo
 ## Facts discipline
 Cheaper-model subagents draft, but MUST web-verify every number. Wortins DB gives the seed fact; web search confirms
 amount/round/investors/valuation/founders. No invented figures. Opus reviews for accuracy + voice before commit.
+
+---
+
+## LOOP ROADMAP (autonomous continuation — Jul 8, 2026)
+Working in the isolated worktree only (branch feat/blog-infra). Each round: research → build (Sonnet
+subagents, fact-verified) → validate → commit/push → refine hubs. Keep going while quota lasts.
+
+- **R1 (done/committing):** +10 per-company funding posts — AlphaSense, Quantum Systems, LinqAlpha,
+  Omen AI, Higgsfield (in talks), Stathera, Bespoke Labs, LeapXpert, Aligned, Dominion Dynamics.
+- **R2 (next): NEW cluster — AI M&A + IPOs.** Winnable long-tail with distinct intent. From the feed:
+  - M&A per-deal pages: Qualcomm–Modular ($3.9B), SpaceX–Cursor ($60B), Salesforce–Fin ($3.6B),
+    SAP–Prior Labs, Shield AI–Aechelon, SoFi–Composer.
+  - IPO pages (high demand): Anthropic IPO, OpenAI IPO, Unitree IPO ($619M), Bending Spoons ($18B).
+  - Hub: "Biggest AI acquisitions of 2026" + "AI IPOs 2026: who's going public".
+- **R3 (later): per-tool pages** for the obscure tools in the `tools` section (36 items) — "what is X",
+  "X alternatives", "X pricing". Same obscure-entity winnability as the funding wedge. Avoid generic
+  "best AI tools" roundups (bloodbath of affiliate listicles — unwinnable for a young domain).
+- **Refine each round:** update roundup hubs + the biggest-rounds table to LINK newly-created pages
+  (hub→page links pass authority). Keep `related` frontmatter cross-links tight.
