@@ -263,7 +263,7 @@ export default function Feed({
               key={r}
               onClick={() => rate(r)}
               aria-label={`Rate ${r} out of 6`}
-              className="mono"
+              className="mono bs-tap"
               style={{ width: 30, height: 30, fontSize: 13, border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}
             >
               {r}
@@ -307,7 +307,7 @@ export default function Feed({
     <div style={{ textAlign: "center", marginTop: 44 }}>
       <button
         onClick={exploreMore}
-        className="mono"
+        className="mono bs-tap"
         style={{ fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", padding: "11px 24px", cursor: "pointer" }}
       >
         Explore more &darr;
@@ -345,9 +345,12 @@ export default function Feed({
             {personalized ? (
               <a
                 href="/tune"
-                className="mono"
-                style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", padding: "4px 11px", border: "1px solid var(--sep)", color: "var(--dim)", textDecoration: "none" }}
+                className="mono bs-tap"
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 18px", border: "1.5px solid var(--ruleStrong)", background: "var(--bg)", color: "var(--ink)", textDecoration: "none" }}
               >
+                <span aria-hidden style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: 999, border: "1.5px solid var(--ink)", fontSize: 9 }}>
+                  {(name?.trim()?.[0] ?? "A").toUpperCase()}
+                </span>
                 Account
               </a>
             ) : (
@@ -367,6 +370,7 @@ export default function Feed({
               <a
                 key={s.key}
                 href={SECTION_HREF[s.key]}
+                className={`bs-tab${a ? " bs-tab--on" : ""}`}
                 style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, textDecoration: "none", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer" }}
               >
                 {s.label}
@@ -384,7 +388,7 @@ export default function Feed({
             No stories in this section yet.
           </p>
           <p className="serif" style={{ fontStyle: "italic", fontSize: 15, color: "var(--dim)", margin: "8px 0 0" }}>
-            Fresh editions land throughout the day — check back soon.
+            Fresh editions land throughout the day, check back soon.
           </p>
         </div>
       ) : (
@@ -395,8 +399,8 @@ export default function Feed({
                 {lead && (
                   <article>
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
-                    <div style={{ marginTop: lead.image_url ? 16 : 0 }}>{meta(lead, "—", 11, true)}</div>
-                    <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer">
+                    <div style={{ marginTop: lead.image_url ? 16 : 0 }}>{meta(lead, "·", 11, true)}</div>
+                    <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" className="bs-hl">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
                       </h2>
@@ -423,7 +427,7 @@ export default function Feed({
                       style={{ paddingBottom: 22, marginBottom: i === rail.length - 1 ? 0 : 22, borderBottom: i === rail.length - 1 ? "none" : "1px solid var(--rule)" }}
                     >
                       {meta(it, "·", 10, true)}
-                      <a href={storyHref(it)} onClick={() => onOpen(it, i + 1)} target="_blank" rel="noopener noreferrer">
+                      <a href={storyHref(it)} onClick={() => onOpen(it, i + 1)} target="_blank" rel="noopener noreferrer" className="bs-hl">
                         <h3 className="display" style={{ fontSize: 23, lineHeight: 1.14, margin: "8px 0 0", color: "var(--ink)" }}>
                           {withHighlight(it.title, it.highlight, 3)}
                         </h3>
@@ -458,7 +462,7 @@ export default function Feed({
                       <article className="bs-story" key={it.id}>
                         <div className="bs-story__body">
                           <div>{meta(it, "·", 10, false)}</div>
-                          <a href={storyHref(it)} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer">
+                          <a href={storyHref(it)} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer" className="bs-hl">
                             <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
                               {it.title}
                             </h4>
@@ -503,7 +507,7 @@ export default function Feed({
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 11 }}>
-                          <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
+                          <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" className="bs-hl">
                             <h3 className="display" style={{ fontSize: 21, margin: 0, color: "var(--ink)" }}>
                               {it.title.replace(/\s*\(Claude skill\)$/, "")}
                             </h3>
@@ -555,7 +559,7 @@ export default function Feed({
                       </span>
                     )}
                   </div>
-                  <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer">
+                  <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" className="bs-hl">
                     <h2 className="display" style={{ fontSize: 30, lineHeight: 1.16, margin: "10px 0 0", color: "var(--ink)" }}>
                       {withHighlight(it.title, it.highlight, 3)}
                     </h2>
@@ -577,9 +581,13 @@ export default function Feed({
         </div>
       )}
 
-      <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.08em", color: "var(--faint)" }}>
-        <span style={{ textTransform: "uppercase" }}>Wortins &mdash; printed for one reader</span>
-        <span>The more you read, the sharper it gets &middot; p. 1</span>
+      <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", fontSize: 11, letterSpacing: "0.08em", color: "var(--faint)" }}>
+        <span style={{ textTransform: "uppercase" }}>Wortins, printed for one reader</span>
+        <nav style={{ display: "flex", gap: 18, textTransform: "uppercase" }}>
+          <a href="/about" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>About</a>
+          <a href="/editions" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>Editions</a>
+          <a href="/contact" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>Contact</a>
+        </nav>
       </footer>
     </main>
   );

@@ -6,9 +6,9 @@ import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 1800; // 30 min ISR
 
-const TITLE = "All editions — the Wortins AI briefing archive";
+const TITLE = "All editions, the Wortins AI briefing archive";
 const DESCRIPTION =
-  "Browse the full archive of Wortins daily AI briefings — each a curated snapshot of AI startups, products, funding, and breakthroughs.";
+  "Browse the full archive of Wortins daily AI briefings, each a curated snapshot of AI startups, products, funding, and breakthroughs.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -82,7 +82,7 @@ export default async function EditionsArchive() {
           className="serif"
           style={{ fontSize: 17, fontStyle: "italic", color: "var(--muted)", margin: "0 0 28px", maxWidth: "60ch" }}
         >
-          Every edition of the {SITE.name} briefing, newest first &mdash; {dates.length} in all.
+          Every edition of the {SITE.name} briefing, newest first, {dates.length} in all.
         </p>
         <p className="serif" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 30px", maxWidth: "66ch" }}>
           Each edition is a dated snapshot of the day in AI: the emerging startups, real product

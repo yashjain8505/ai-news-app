@@ -60,7 +60,7 @@ export default function OnboardingHero({ signedIn = false }: { signedIn?: boolea
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mono"
+        className="mono bs-tap"
         style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", padding: "9px 20px", border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--onAccent)", cursor: "pointer" }}
       >
         Personalize
@@ -88,7 +88,7 @@ export default function OnboardingHero({ signedIn = false }: { signedIn?: boolea
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 420,
+              maxWidth: 360,
               background: "var(--bg)",
               border: "1px solid var(--ruleStrong)",
               boxShadow: "0 24px 60px rgba(27,23,18,0.35)",
@@ -122,7 +122,7 @@ export default function OnboardingHero({ signedIn = false }: { signedIn?: boolea
 
             <a
               href="/welcome"
-              className="mono"
+              className="mono bs-tap"
               style={{ display: "block", textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "14px 20px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none" }}
             >
               {signedIn ? "Personalize" : "Sign in & personalize"} &rarr;

@@ -24,7 +24,7 @@ export default function SignInButton({ next = "/welcome" }: { next?: string }) {
     <button
       onClick={signIn}
       disabled={loading}
-      className="mono"
+      className="mono bs-tap"
       style={{
         display: "inline-flex",
         alignItems: "center",

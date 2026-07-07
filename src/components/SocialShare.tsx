@@ -54,10 +54,10 @@ export default function SocialShare({
 
   return (
     <>
-      <a href={xHref} target="_blank" rel="noopener noreferrer" onClick={() => track("twitter")} className="mono" style={linkStyle}>
+      <a href={xHref} target="_blank" rel="noopener noreferrer" onClick={() => track("twitter")} className="mono bs-tap" style={linkStyle}>
         Post on X &#8599;
       </a>
-      <a href={liHref} target="_blank" rel="noopener noreferrer" onClick={() => track("linkedin")} className="mono" style={linkStyle}>
+      <a href={liHref} target="_blank" rel="noopener noreferrer" onClick={() => track("linkedin")} className="mono bs-tap" style={linkStyle}>
         Share on LinkedIn &#8599;
       </a>
       {showGeneric && <ShareButton url={url} title={title} />}

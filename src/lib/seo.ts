@@ -30,25 +30,25 @@ export const SECTION_SEO: Record<
 > = {
   daily: {
     label: "Daily AI Updates",
-    title: "Daily AI News — startups & breakthroughs",
+    title: "Daily AI News · startups & breakthroughs",
     description:
       "The day's most interesting AI news beyond the giants: emerging startups, real product launches, applied real-world AI, and genuine breakthroughs.",
   },
   funding: {
     label: "AI Funding Tracker",
-    title: "AI Funding Tracker — raises, IPOs & M&A",
+    title: "AI Funding Tracker · raises, IPOs & M&A",
     description:
       "A running tracker of notable AI funding: the biggest raises, IPOs, and acquisitions, with amounts, valuations, and lead investors.",
   },
   tools: {
     label: "New AI Tools",
-    title: "New AI Tools — hidden gems, fresh launches",
+    title: "New AI Tools · hidden gems, fresh launches",
     description:
       "Hidden-gem AI tools: trending repos, Show HN launches, and indie projects before anyone else is talking about them.",
   },
   articles: {
     label: "Interesting AI Articles",
-    title: "Interesting AI Articles — strategy & sharp takes",
+    title: "Interesting AI Articles · strategy & sharp takes",
     description:
       "The most interesting essays on the AI industry: competitive dynamics, strategic parallels, and insider analysis worth reading.",
   },

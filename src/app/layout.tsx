@@ -49,13 +49,13 @@ const mono = Space_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: `${SITE.name} — ${SITE.tagline}`,
+    default: `${SITE.name} · ${SITE.tagline}`,
     template: `%s · ${SITE.name}`,
   },
   description: SITE.description,
   applicationName: SITE.name,
   openGraph: {
-    title: `${SITE.name} — ${SITE.tagline}`,
+    title: `${SITE.name} · ${SITE.tagline}`,
     description: SITE.description,
     siteName: SITE.name,
     type: "website",
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     site: SITE.twitter,
-    title: `${SITE.name} — ${SITE.tagline}`,
+    title: `${SITE.name} · ${SITE.tagline}`,
     description: SITE.description,
   },
   robots: {

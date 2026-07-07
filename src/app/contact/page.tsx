@@ -9,7 +9,7 @@ const CONTACT_EMAIL = "hello@wortins.com";
 
 const TITLE = "Contact Wortins";
 const DESCRIPTION =
-  "Get in touch with Wortins — feedback, tips, story suggestions, and partnership enquiries.";
+  "Get in touch with Wortins, feedback, tips, story suggestions, and partnership enquiries.";
 
 export const metadata: Metadata = {
   title: TITLE,

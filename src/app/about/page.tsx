@@ -6,7 +6,7 @@ import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 86400;
 
-const TITLE = "About Wortins — how the briefing works";
+const TITLE = "About Wortins, how the briefing works";
 const DESCRIPTION =
   "Wortins is a daily AI news briefing that curates the most interesting stories across the AI world and writes an original take on each. Here's how it works.";
 
@@ -75,8 +75,8 @@ export default function AboutPage() {
         <div style={{ maxWidth: "66ch" }}>
           <p className="serif" style={{ fontSize: 19, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 18px" }}>
             Wortins is a daily AI news briefing. Every day it curates the most interesting
-            stories across the AI world — emerging startups, real product launches, applied
-            real-world AI, notable funding, and genuine breakthroughs — and writes an original
+            stories across the AI world, emerging startups, real product launches, applied
+            real-world AI, notable funding, and genuine breakthroughs, and writes an original
             take on each, so you get the signal without the noise or the hype.
           </p>
           <p className="serif" style={{ fontSize: 17, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 18px" }}>
@@ -91,7 +91,7 @@ export default function AboutPage() {
             Wortins deliberately looks beyond the big-lab press cycle. Megacap corporate news is
             capped in favour of the builders, tools, and applied AI that don&#8217;t always make
             the front page. Every story links to its original source, and the &#8220;Wortins
-            read&#8221; on each is our own words — original analysis, never a republished article.
+            read&#8221; on each is our own words, original analysis, never a republished article.
           </p>
         </div>
 

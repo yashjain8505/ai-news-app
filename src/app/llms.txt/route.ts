@@ -1,7 +1,7 @@
 import { SITE, absoluteUrl } from "@/lib/seo";
 import { getAllEditionDates, getRecentTakes } from "@/lib/publicData";
 
-// /llms.txt — an emerging convention that gives LLMs a clean markdown map of the
+// /llms.txt · an emerging convention that gives LLMs a clean markdown map of the
 // site. We include each recent story's ORIGINAL "Wortins take" inline so an AI
 // model gets readable content from a single plain-text file (no JS, no dynamic
 // rendering), plus a direct link to the full page. Cached hourly.
@@ -18,7 +18,7 @@ export async function GET() {
   ]);
 
   const body = [
-    `# ${SITE.name} — ${SITE.tagline}`,
+    `# ${SITE.name} · ${SITE.tagline}`,
     "",
     `> ${SITE.description}`,
     "",
@@ -33,7 +33,7 @@ export async function GET() {
     "## Recent stories (with Wortins' original take)",
     ...takes.map(
       (t) =>
-        `- [${oneLine(t.title)}](${absoluteUrl(`/story/${t.slug}`)})${t.source ? ` — ${t.source}` : ""}: ${oneLine(t.wortins_take)}`
+        `- [${oneLine(t.title)}](${absoluteUrl(`/story/${t.slug}`)})${t.source ? ` · ${t.source}` : ""}: ${oneLine(t.wortins_take)}`
     ),
     "",
     "## Recent editions",

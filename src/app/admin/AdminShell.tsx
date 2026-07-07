@@ -1,6 +1,6 @@
 import { login, logout } from "./actions";
 
-// On-brand utilitarian chrome for the admin console. Server component only — no
+// On-brand utilitarian chrome for the admin console. Server component only, no
 // "use client", so it never pulls the DAL or any secret toward the browser.
 // Uses the design-system CSS vars (globals.css): --accent, --ink, --bg, --muted,
 // --dim, --rule, --ruleStrong, --onAccent, and the mono/display helper classes.
@@ -102,7 +102,7 @@ export function AdminShell({
 }
 
 // The password gate. Rendered whenever the request is not an authenticated
-// admin — it is the ONLY thing an unauthenticated visitor to /admin ever sees.
+// admin, it is the ONLY thing an unauthenticated visitor to /admin ever sees.
 export function AdminLogin({
   error,
   notConfigured,
@@ -162,7 +162,7 @@ export function AdminLogin({
             margin: "0 0 24px",
           }}
         >
-          Restricted &mdash; password required
+          Restricted, password required
         </p>
 
         {notConfigured ? (

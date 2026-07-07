@@ -173,6 +173,102 @@ body {
   margin-top: 2px;
 }
 
+/* ---------------------------------------------------------------------------
+   Interactivity layer. Components use inline styles, so hover states live here
+   and rely on properties NOT set inline (transform, box-shadow, filter,
+   background-size) so they win without !important. The few color changes that
+   must beat an inline color are scoped + flagged important on purpose.
+--------------------------------------------------------------------------- */
+
+/* Tactile press for every button / CTA. Lifts on hover, presses on click. */
+.bs-tap {
+  transition: transform 0.12s ease, filter 0.14s ease, box-shadow 0.16s ease,
+    background-color 0.16s ease, border-color 0.16s ease;
+  cursor: pointer;
+}
+.bs-tap:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(27, 23, 18, 0.16);
+}
+.bs-tap:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
+  box-shadow: none;
+}
+.bs-tap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Headline links: on hover the headline shifts to the accent and an underline
+   swipes in left-to-right (the Verge-style "this is live" feedback). */
+.bs-hl {
+  text-decoration: none;
+  display: block;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-size: 0% 2px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.28s ease;
+}
+.bs-hl:hover {
+  background-size: 100% 2px;
+}
+.bs-hl h1,
+.bs-hl h2,
+.bs-hl h3,
+.bs-hl h4 {
+  transition: color 0.16s ease;
+}
+.bs-hl:hover h1,
+.bs-hl:hover h2,
+.bs-hl:hover h3,
+.bs-hl:hover h4 {
+  color: var(--accentHi) !important;
+}
+
+/* Story rows in the "more" grid: highlight the whole row + nudge it in. */
+.bs-story {
+  transition: background-color 0.16s ease, box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+.bs-story:hover {
+  background-color: var(--ph1);
+  box-shadow: -14px 0 0 var(--ph1), 14px 0 0 var(--ph1),
+    inset 3px 0 0 var(--accent);
+  transform: translateX(2px);
+}
+
+/* Thumbnail photos: a slow zoom + a touch of colour when their card/link is
+   hovered, so images feel alive without a hard flash. */
+.news-photo img {
+  transition: transform 0.4s ease;
+}
+.bs-story:hover .news-photo img,
+.bs-hl:hover .news-photo img,
+a:hover > .news-photo img {
+  transform: scale(1.045);
+}
+
+/* Section tabs: inactive tabs warm up to full ink on hover. */
+.bs-tab {
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.bs-tab:not(.bs-tab--on):hover {
+  color: var(--ink) !important;
+  border-bottom-color: var(--sep) !important;
+}
+
+/* Plain inline links (footer, meta rows): underline-swipe + accent on hover. */
+.bs-ilink {
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.bs-ilink:hover {
+  color: var(--accent) !important;
+}
+
 @media (max-width: 760px) {
   .bs-main {
     padding: 0 18px 64px;

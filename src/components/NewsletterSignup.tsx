@@ -33,7 +33,7 @@ export default function NewsletterSignup() {
       setMsg(
         res.error === "invalid"
           ? "Enter a valid email address."
-          : "Something went wrong — please try again."
+          : "Something went wrong, please try again."
       );
     }
   }
@@ -75,7 +75,7 @@ export default function NewsletterSignup() {
           className="serif"
           style={{ fontSize: 15, lineHeight: 1.55, color: "var(--dim)", margin: "8px 0 0", maxWidth: "46ch" }}
         >
-          The Wortins Daily — one email each morning with the most interesting AI
+          The Wortins Daily, one email each morning with the most interesting AI
           stories, summarized.
         </p>
       </div>
@@ -132,7 +132,7 @@ export default function NewsletterSignup() {
               <button
                 type="submit"
                 disabled={state === "loading"}
-                className="mono"
+                className="mono bs-tap"
                 style={{
                   flexShrink: 0,
                   background: "var(--accent)",
