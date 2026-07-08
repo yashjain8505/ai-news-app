@@ -9,14 +9,10 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  schedule:
-    # 3 drops/day (IST): 7:00 AM / 1:00 PM / 6:00 PM = 01:30 / 07:30 / 12:30 UTC.
-    # Separate cron lines (not one comma list) so github.event.schedule tells the
-    # Curate step which run fired — the 1 PM run skips the Articles section.
-    # The drop-guard below keeps near-simultaneous / backup triggers from double-dropping.
-    - cron: "30 1 * * *"   # 7:00 AM IST
-    - cron: "30 7 * * *"   # 1:00 PM IST  (skips Articles)
-    - cron: "30 12 * * *"  # 6:00 PM IST
+  # SOLE trigger: cron-job.org pings this workflow via the GitHub API at
+  # 7:00 AM / 1:00 PM / 6:00 PM IST (plus manual runs). GitHub's own `schedule:`
+  # cron was REMOVED because it silently dropped scheduled runs; cron-job.org
+  # fires reliably, and the drop-guard below still dedupes any accidental double.
   workflow_dispatch:
     inputs:
       selftest:
@@ -29,6 +25,10 @@ on:
         default: ""
       force:
         description: "Force a curate run even if a drop happened recently (on-demand refresh)"
+        type: boolean
+        default: false
+      skip_articles:
+        description: "Skip the Articles section this run (cron-job.org sets true for the 1 PM drop)"
         type: boolean
         default: false
 
@@ -95,8 +95,8 @@ jobs:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           EDITION_DATE: ${{ github.event.inputs.target_date }}
-          # true only on the 1 PM IST run (07:30 UTC) — that run skips Articles.
-          SKIP_ARTICLES: ${{ github.event.schedule == '30 7 * * *' }}
+          # cron-job.org's 1 PM job sets skip_articles=true so that run skips Articles.
+          SKIP_ARTICLES: ${{ github.event.inputs.skip_articles }}
         run: |
           # Haiku for the scrape/curation — light on the Claude limit. --output-format
           # json makes the run print its token usage + $ cost, echoed below so every
