@@ -89,9 +89,10 @@ export default function Onboarding({
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("profile");
 
-  // Profile step.
+  // Profile step. Email is NOT editable: it's the Google-verified address they
+  // signed in with, so it is guaranteed real and can't be faked.
   const [fullName, setFullName] = useState(name ?? "");
-  const [contactEmail, setContactEmail] = useState(email ?? "");
+  const verifiedEmail = (email ?? "").trim();
   const [phone, setPhone] = useState("");
   const [referral, setReferral] = useState<string>("");
   const [referralOther, setReferralOther] = useState("");
@@ -113,7 +114,7 @@ export default function Onboarding({
   }, [phase]);
 
   const nameOk = fullName.trim().length >= 2;
-  const emailOk = EMAIL_RE.test(contactEmail.trim());
+  const emailOk = EMAIL_RE.test(verifiedEmail);
   const referralOk = referral !== "" && (referral !== "Other" || referralOther.trim().length > 0);
   const profileOk = nameOk && emailOk && referralOk;
 
@@ -179,7 +180,7 @@ export default function Onboarding({
         techPref,
         profile: {
           fullName: fullName.trim(),
-          email: contactEmail.trim(),
+          email: verifiedEmail,
           phone: phone.trim(),
           referralSource,
         },
@@ -244,8 +245,12 @@ export default function Onboarding({
               <input id="ob-name" style={input} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" autoComplete="name" />
             </div>
             <div>
-              <label className="mono" style={fieldLabel} htmlFor="ob-email">Email address</label>
-              <input id="ob-email" style={input} value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="you@example.com" type="email" inputMode="email" autoComplete="email" />
+              <span className="mono" style={fieldLabel}>Email address</span>
+              <div style={{ ...input, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "var(--ph1)" }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--ink)" }}>{verifiedEmail || "your Google account email"}</span>
+                <span className="mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", flexShrink: 0 }}>Verified</span>
+              </div>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: "0.04em", color: "var(--faint)", marginTop: 6 }}>From the Google account you signed in with.</div>
             </div>
             <div>
               <label className="mono" style={fieldLabel} htmlFor="ob-phone">
