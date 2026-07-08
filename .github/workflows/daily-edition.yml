@@ -110,6 +110,16 @@ jobs:
           echo "===== RUN USAGE (this run's Claude cost) ====="
           jq -r '"input_tokens=\(.usage.input_tokens // 0)  output_tokens=\(.usage.output_tokens // 0)  cache_read=\(.usage.cache_read_input_tokens // 0)  cache_creation=\(.usage.cache_creation_input_tokens // 0)  total_cost_usd=\(.total_cost_usd // 0)  turns=\(.num_turns // 0)  duration_ms=\(.duration_ms // 0)"' /tmp/claude_out.json 2>/dev/null || echo "(usage not parseable; see JSON above)"
 
+      # Guard: HTTP-check every image + source link on the fresh drop and drop
+      # anything dead (fabricated/404). No LLM, ~free. Runs regardless of model.
+      - name: Verify images + links
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          EDITION_DATE: ${{ github.event.inputs.target_date }}
+        run: node .github/scripts/verify-content.mjs
+
       # Auto-notify search engines (Bing, Yandex, Seznam, Naver) of the fresh URLs
       # so indexing happens without manual submission. Update HOST when a custom
       # domain is connected.
