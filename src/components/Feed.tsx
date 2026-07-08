@@ -207,10 +207,14 @@ export default function Feed({
       if (d > latest) latest = d;
     }
     const fromLatest = daily.filter((it) => (it.edition_date ?? "") === latest);
-    return fromLatest.reduce(
-      (best, it) => (it.rank < best.rank ? it : best),
-      fromLatest[0]
-    );
+    // Lead with the freshest big story: newest published_at, ties broken by the
+    // curator's rank (lowest rank = the drop's top pick).
+    return fromLatest.reduce((best, it) => {
+      const ip = Date.parse(it.published_at ?? "") || 0;
+      const bp = Date.parse(best.published_at ?? "") || 0;
+      if (ip !== bp) return ip > bp ? it : best;
+      return it.rank < best.rank ? it : best;
+    }, fromLatest[0]);
   }, [pools]);
 
   const fullList = useMemo(() => {

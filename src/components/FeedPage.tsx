@@ -91,10 +91,10 @@ export default async function FeedPage({ section }: { section: Section }) {
     // newer one), taste orders within a day, newest-first breaks ties, and muted
     // topics fall to the very bottom.
     .sort((a, b) =>
-      (a.muted === b.muted ? 0 : a.muted ? 1 : -1) ||
-      (a.ed < b.ed ? 1 : a.ed > b.ed ? -1 : 0) ||
-      b.s - a.s ||
-      b.pub - a.pub
+      (a.muted === b.muted ? 0 : a.muted ? 1 : -1) ||   // muted topics last
+      (a.ed < b.ed ? 1 : a.ed > b.ed ? -1 : 0) ||        // latest edition first
+      b.pub - a.pub ||                                    // newest first (recency wins)
+      b.s - a.s                                           // taste breaks ties within a drop
     )
     .map((x) => x.it);
 
