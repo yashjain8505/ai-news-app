@@ -45,6 +45,8 @@ const CONTENT_HEADER_SOURCES = [
   "/funding",
   "/story/:slug",
   "/edition/:date",
+  "/blog",
+  "/blog/:slug",
 ];
 
 const nextConfig: NextConfig = {

@@ -18,6 +18,7 @@ import {
   newestPublishedAt,
 } from "@/lib/publicData";
 import { SITE_FAQ, SECTION_FAQ } from "@/lib/faq";
+import { getAllBlogPosts, getBlogPostBySlug } from "@/lib/blog";
 import type { Item, Section } from "@/lib/types";
 
 const SECTIONS: Section[] = ["daily", "tools", "articles", "funding"];
@@ -244,6 +245,47 @@ function renderContact(): string {
   return out.join("\n");
 }
 
+// ---- Blog twins ----
+
+const BLOG_INDEX_DESC =
+  "Deep-dives on AI startup funding, valuations, and investors — how much each company raised, from whom, and why it matters. Written by the Wortins editorial team.";
+
+function renderBlogIndex(): string {
+  const posts = getAllBlogPosts();
+  const out = header(
+    `${SITE.name} Blog — AI funding analysis & startup deep-dives`,
+    BLOG_INDEX_DESC
+  );
+  out.push(`Part of [${SITE.name}](${SITE.url}) — ${SITE.tagline}.`, "");
+  out.push("## Posts", "");
+  for (const p of posts) {
+    out.push(
+      `- [${oneLine(p.title)}](${absoluteUrl(`/blog/${p.slug}`)})${p.description ? ` — ${oneLine(p.description)}` : ""}`
+    );
+  }
+  out.push("");
+  out.push(...footer());
+  return out.join("\n");
+}
+
+function renderBlogPost(slug: string): string | null {
+  const post = getBlogPostBySlug(slug);
+  if (!post) return null;
+  const out = header(post.title, post.description || undefined);
+  const meta = [`[${SITE.name} Blog](${absoluteUrl("/blog")})`];
+  if (post.date) meta.push(`Published ${prettyDate(post.date.slice(0, 10))}`);
+  if (post.updated && post.updated !== post.date)
+    meta.push(`Updated ${prettyDate(post.updated.slice(0, 10))}`);
+  out.push(`_${meta.join(" · ")}_`, "");
+  // The post body is already Markdown — emit it verbatim (it's first-party).
+  out.push(post.body, "");
+  if (post.faq.length) {
+    out.push(...faqBlock(post.faq));
+  }
+  out.push(...footer());
+  return out.join("\n");
+}
+
 export type Twin = { body: string; tokens: number };
 
 // Map a request path to its Markdown twin. Returns null when no twin exists.
@@ -255,6 +297,8 @@ export async function renderMarkdown(path: string): Promise<Twin | null> {
   else if (clean === "/about") body = renderAbout();
   else if (clean === "/contact") body = renderContact();
   else if (clean === "/editions") body = await renderEditionsArchive();
+  else if (clean === "/blog") body = renderBlogIndex();
+  else if (clean.startsWith("/blog/")) body = renderBlogPost(clean.slice("/blog/".length));
   else if (SLUG_SECTION[clean.slice(1)]) body = await renderSection(SLUG_SECTION[clean.slice(1)] as Section);
   else if (clean.startsWith("/section/")) {
     const s = clean.slice("/section/".length);
@@ -276,6 +320,7 @@ export const STATIC_TWIN_PATHS = [
   "/",
   ...SECTIONS.map((s) => sectionPath(s)),
   "/editions",
+  "/blog",
   "/about",
   "/contact",
 ];
