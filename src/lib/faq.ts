@@ -9,11 +9,11 @@ export type QA = { q: string; a: string };
 export const SITE_FAQ: QA[] = [
   {
     q: "What is Wortins?",
-    a: "Wortins is a daily AI news briefing. Every day it curates the most interesting stories across the AI world — emerging startups, real product launches, applied real-world AI, notable funding, and genuine breakthroughs — and writes an original take on each, so you get the signal without the hype.",
+    a: "Wortins is a daily AI news briefing. Every day it curates the most interesting stories across the AI world, emerging startups, real product launches, applied real-world AI, notable funding, and genuine breakthroughs, and writes an original take on each, so you get the signal without the hype.",
   },
   {
     q: "How is Wortins different from other AI newsletters?",
-    a: "Two things. First, it deliberately looks beyond the big-lab press cycle: megacap corporate news is capped in favour of the builders, tools, and applied AI that don't always make the front page. Second, every story carries an original Wortins take in our own words, not a copied summary — which is what makes it worth reading and citable.",
+    a: "Two things. First, it deliberately looks beyond the big-lab press cycle: megacap corporate news is capped in favour of the builders, tools, and applied AI that don't always make the front page. Second, every story carries an original Wortins take in our own words, not a copied summary, which is what makes it worth reading and citable.",
   },
   {
     q: "How often is Wortins updated?",
@@ -37,13 +37,13 @@ export const SITE_FAQ: QA[] = [
   },
 ];
 
-// Per-section FAQ — question-shaped, answer-first, one short answer each. Keyed by
+// Per-section FAQ, question-shaped, answer-first, one short answer each. Keyed by
 // the internal section key (daily | funding | tools | articles).
 export const SECTION_FAQ: Record<string, QA[]> = {
   daily: [
     {
       q: "What is the Wortins Daily AI briefing?",
-      a: "It's a running feed of the day's most interesting AI developments — emerging startups, real product launches, applied real-world AI, and genuine breakthroughs — each with an original Wortins take. It refreshes through the day rather than once each morning.",
+      a: "It's a running feed of the day's most interesting AI developments, emerging startups, real product launches, applied real-world AI, and genuine breakthroughs, each with an original Wortins take. It refreshes through the day rather than once each morning.",
     },
     {
       q: "How is the daily AI news chosen?",
@@ -57,7 +57,7 @@ export const SECTION_FAQ: Record<string, QA[]> = {
   funding: [
     {
       q: "What is the AI Funding Tracker?",
-      a: "The Wortins AI Funding Tracker is a running record of notable AI funding events — the biggest venture raises, IPOs, and acquisitions — with the amounts, valuations, and lead investors, plus an original take on why each deal matters.",
+      a: "The Wortins AI Funding Tracker is a running record of notable AI funding events, the biggest venture raises, IPOs, and acquisitions, with the amounts, valuations, and lead investors, plus an original take on why each deal matters.",
     },
     {
       q: "What counts as notable AI funding?",
@@ -71,7 +71,7 @@ export const SECTION_FAQ: Record<string, QA[]> = {
   tools: [
     {
       q: "What are the New AI Tools on Wortins?",
-      a: "A stream of obscure, novel AI tools and launches — trending repositories, Show HN projects, and indie builds — surfaced early, often before they're widely known, each with a short original take on what it does and who it's for.",
+      a: "A stream of obscure, novel AI tools and launches, trending repositories, Show HN projects, and indie builds, surfaced early, often before they're widely known, each with a short original take on what it does and who it's for.",
     },
     {
       q: "How does Wortins find new AI tools?",
@@ -85,7 +85,7 @@ export const SECTION_FAQ: Record<string, QA[]> = {
   articles: [
     {
       q: "What are Interesting AI Articles on Wortins?",
-      a: "A curated set of the most worthwhile essays and analysis on the AI industry — competitive dynamics, strategy, and sharp insider takes — each with an original Wortins read on why it's worth your time.",
+      a: "A curated set of the most worthwhile essays and analysis on the AI industry, competitive dynamics, strategy, and sharp insider takes, each with an original Wortins read on why it's worth your time.",
     },
     {
       q: "What makes an AI article worth featuring?",
@@ -106,7 +106,7 @@ export const GLOSSARY: Term[] = [
   {
     term: "Applied AI",
     definition:
-      "Artificial intelligence put to concrete, real-world use — shipping products, workflows, and tools that solve an actual problem — as opposed to research demos or benchmark results.",
+      "Artificial intelligence put to concrete, real-world use, shipping products, workflows, and tools that solve an actual problem, as opposed to research demos or benchmark results.",
   },
   {
     term: "AI Funding Tracker",
@@ -116,11 +116,11 @@ export const GLOSSARY: Term[] = [
   {
     term: "Answer Engine Optimization (AEO)",
     definition:
-      "The practice of structuring web content so that AI answer engines — such as ChatGPT, Perplexity, and Google's AI overviews — can read, understand, and cite it accurately.",
+      "The practice of structuring web content so that AI answer engines, such as ChatGPT, Perplexity, and Google's AI overviews, can read, understand, and cite it accurately.",
   },
   {
     term: "Wortins take",
     definition:
-      "Wortins' own original, one-paragraph analysis of a story — why it matters and what to make of it — written in-house and never copied from the source article.",
+      "Wortins' own original, one-paragraph analysis of a story, why it matters and what to make of it, written in-house and never copied from the source article.",
   },
 ];

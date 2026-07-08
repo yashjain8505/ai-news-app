@@ -67,7 +67,7 @@ export default function PublicChrome({
 
       <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--faint)", flexWrap: "wrap", gap: 12 }}>
         <span style={{ textTransform: "uppercase" }}>
-          {SITE.name} &mdash; {SITE.tagline}
+          {SITE.name} · {SITE.tagline}
         </span>
         <nav style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", margin: "-8px 0" }}>
           <a href="/about" style={{ color: "var(--dim)", textDecoration: "none", padding: "8px 0" }}>About</a>

@@ -1,5 +1,5 @@
 // Reader-friendly topic labels for the taste picker + Tune page. Plain language
-// with concrete examples — NOT jargon like "big-lab power plays". Shared so the
+// with concrete examples, NOT jargon like "big-lab power plays". Shared so the
 // onboarding cards and the Tune bars always match.
 export const TOPICS: { tag: string; label: string; hint: string }[] = [
   { tag: "coding", label: "AI coding & agents", hint: "coding assistants, autonomous agents, dev AI" },
@@ -17,7 +17,7 @@ export const TOPICS: { tag: string; label: string; hint: string }[] = [
 
 // How much technical depth the reader wants: 1 = plain news, 4 = deep/jargon.
 export const LEVELS: { pref: number; label: string; hint: string }[] = [
-  { pref: 1, label: "Keep it simple", hint: "Just the news in plain English — no jargon" },
+  { pref: 1, label: "Keep it simple", hint: "Just the news in plain English, no jargon" },
   { pref: 2, label: "Mostly big-picture", hint: "The gist, with a little detail" },
   { pref: 3, label: "Some depth is good", hint: "I'm fine with technical detail" },
   { pref: 4, label: "Go as deep as it gets", hint: "Bring on the models, research and internals" },
