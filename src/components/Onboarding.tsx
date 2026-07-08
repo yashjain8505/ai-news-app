@@ -26,6 +26,17 @@ const REFERRALS = [
   "Other",
 ];
 
+// Light "is this a real-looking number" check (we don't SMS-verify). Accepts
+// 8-15 digits (the E.164 range), rejects all-same-digit and 1234567890 style
+// filler. Phone stays optional, so this only fires when one is actually entered.
+function isPlausiblePhone(raw: string): boolean {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.length < 8 || digits.length > 15) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+  if ("01234567890".includes(digits) || "09876543210".includes(digits)) return false;
+  return true;
+}
+
 // Status lines the curating animation cycles through while the taste saves.
 const CURATE_STEPS = [
   "Reading today's edition",
@@ -116,7 +127,9 @@ export default function Onboarding({
   const nameOk = fullName.trim().length >= 2;
   const emailOk = EMAIL_RE.test(verifiedEmail);
   const referralOk = referral !== "" && (referral !== "Other" || referralOther.trim().length > 0);
-  const profileOk = nameOk && emailOk && referralOk;
+  const phoneOk = !phone.trim() || isPlausiblePhone(phone);
+  const phoneInvalid = phone.trim().length > 0 && !phoneOk;
+  const profileOk = nameOk && emailOk && referralOk && phoneOk;
 
   function submitProfile() {
     if (!profileOk) return;
@@ -256,7 +269,12 @@ export default function Onboarding({
               <label className="mono" style={fieldLabel} htmlFor="ob-phone">
                 Phone number <span style={{ color: "var(--faint)" }}>(optional)</span>
               </label>
-              <input id="ob-phone" style={input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" type="tel" inputMode="tel" autoComplete="tel" />
+              <input id="ob-phone" style={{ ...input, border: `1px solid ${phoneInvalid ? "var(--accent)" : "var(--ruleStrong)"}` }} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" type="tel" inputMode="tel" autoComplete="tel" />
+              {phoneInvalid && (
+                <div className="mono" style={{ fontSize: 10, letterSpacing: "0.04em", color: "var(--accent)", marginTop: 6 }}>
+                  That doesn&#8217;t look like a real number. Enter a valid one or leave it blank.
+                </div>
+              )}
             </div>
             <div>
               <span className="mono" style={fieldLabel}>Where did you hear about us?</span>
@@ -289,9 +307,9 @@ export default function Onboarding({
           >
             Continue &rarr;
           </button>
-          {!profileOk && (nameOk || emailOk) && (
+          {!profileOk && (
             <p className="serif" style={{ fontSize: 13, color: "var(--dim)", margin: "12px 0 0" }}>
-              {!nameOk ? "Add your name" : !emailOk ? "Enter a valid email" : "Pick where you heard about us"} to continue.
+              {!nameOk ? "Add your name" : phoneInvalid ? "Enter a valid phone number, or leave it blank" : !referralOk ? "Pick where you heard about us" : ""} to continue.
             </p>
           )}
         </div>

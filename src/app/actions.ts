@@ -320,9 +320,72 @@ export async function subscribeNewsletter(
   if (!NL_EMAIL_RE.test(email)) return { ok: false, error: "invalid" };
   const svc = supabaseService();
   if (!svc) return { ok: false, error: "unavailable" };
-  const { error } = await svc
+
+  // Already subscribed -> silent success, and don't re-send the welcome.
+  const { data: existing } = await svc
     .from("subscribers")
-    .upsert({ email, source: "site" }, { onConflict: "email", ignoreDuplicates: true });
-  if (error) return { ok: false, error: error.message };
+    .select("email")
+    .eq("email", email)
+    .maybeSingle();
+  if (existing) return { ok: true };
+
+  // New subscriber. Insert and grab the token so the welcome email carries a
+  // working one-click unsubscribe (same as the daily send).
+  const { data: row, error } = await svc
+    .from("subscribers")
+    .insert({ email, source: "site" })
+    .select("unsubscribe_token")
+    .maybeSingle();
+  if (error) {
+    // Unique-violation race (inserted between the check and here) is still fine.
+    if ((error as { code?: string }).code === "23505") return { ok: true };
+    return { ok: false, error: error.message };
+  }
+
+  // Instant welcome so they "start receiving" the moment they subscribe; the
+  // daily edition follows each morning. Best-effort: a mail failure never fails
+  // the signup, and it no-ops until RESEND_KEY is set in the app's env.
+  await sendWelcomeEmail(email, row?.unsubscribe_token as string | undefined);
   return { ok: true };
+}
+
+async function sendWelcomeEmail(email: string, token?: string) {
+  const key = process.env.RESEND_KEY;
+  if (!key) return;
+  const site = "https://www.wortins.com";
+  const unsub = token ? `${site}/api/unsubscribe?token=${token}` : site;
+  const html = `<!doctype html><html><body style="margin:0;background:#f3ecda;padding:28px 0;font-family:Georgia,'Times New Roman',serif;color:#1b1712;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#f3ecda;border:1px solid #1b1712;">
+      <tr><td style="padding:28px 30px 24px;">
+        <div style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#9c2b1d;">The Wortins Daily</div>
+        <h1 style="font-size:26px;line-height:1.15;margin:10px 0 0;color:#1b1712;">You&#8217;re in.</h1>
+        <p style="font-size:16px;line-height:1.6;color:#4a4338;margin:14px 0 0;">Thanks for subscribing. Every morning you&#8217;ll get the most interesting AI news, curated and summarized, in a five-minute read.</p>
+        <p style="font-size:16px;line-height:1.6;color:#4a4338;margin:14px 0 0;">Your first full edition lands tomorrow morning. Today&#8217;s is already live:</p>
+        <p style="margin:22px 0 0;"><a href="${site}" style="display:inline-block;background:#9c2b1d;color:#f3ecda;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;padding:12px 22px;">Read today&#8217;s edition</a></p>
+        <div style="border-top:1px solid #c9bda4;margin-top:26px;padding-top:14px;font-family:'Courier New',monospace;font-size:11px;color:#938a76;">Wortins, wortins.com &#183; <a href="${unsub}" style="color:#938a76;">Unsubscribe</a></div>
+      </td></tr>
+    </table>
+  </td></tr></table>
+  </body></html>`;
+  const text = `You're in.\n\nThanks for subscribing to the Wortins Daily. Every morning you'll get the most interesting AI news, curated and summarized, in a five-minute read.\n\nToday's edition: ${site}\n\nUnsubscribe: ${unsub}`;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "Wortins Daily <daily@wortins.com>",
+        to: [email],
+        reply_to: "hello@wortins.com",
+        subject: "You’re subscribed to the Wortins Daily",
+        html,
+        text,
+        headers: token
+          ? { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+          : undefined,
+      }),
+    });
+  } catch {
+    // best-effort; the daily send still reaches them
+  }
 }
