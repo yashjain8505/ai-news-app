@@ -1,0 +1,52 @@
+name: Bluesky review packet (3x/day)
+
+on:
+  schedule:
+    # Morning / afternoon / evening IST, each just after that edition drop lands.
+    # 03:00 UTC = 08:30 IST (morning) · 08:30 UTC = 14:00 IST (afternoon) ·
+    # 13:30 UTC = 19:00 IST (evening). Idempotent per (run_date, slot).
+    - cron: "0 3 * * *"
+    - cron: "30 8 * * *"
+    - cron: "30 13 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Draft + print, write/email nothing"
+        type: boolean
+        default: false
+      force:
+        description: "Re-prepare even if this slot already exists"
+        type: boolean
+        default: false
+      slot:
+        description: "morning | afternoon | evening (blank = derive from time)"
+        type: string
+        default: ""
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code (for drafting)
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Prepare the Bluesky review packet
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_KEY: ${{ secrets.RESEND_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SITE_URL: https://www.wortins.com
+          BLUESKY_REVIEW_SECRET: ${{ secrets.BLUESKY_REVIEW_SECRET }}
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          MAIL_TO: earanyash@gmail.com
+          SLOT: ${{ github.event.inputs.slot }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node .github/scripts/bluesky-prepare.mjs
