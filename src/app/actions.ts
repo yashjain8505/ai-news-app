@@ -9,7 +9,7 @@ import {
   applyAffinity,
   normalizeMix,
   clickPerTag,
-  dwellPerTag,
+  skipPerTag,
   type Weights,
 } from "@/lib/taste";
 import type { Item, Section } from "@/lib/types";
@@ -160,26 +160,48 @@ export async function recordRating(
   return { ok: true };
 }
 
-export async function recordEngagement(
-  itemId: string,
-  tags: string[],
-  kind: "click" | "dwell",
-  rank: number,
-  dwellMs?: number,
-  mobile?: boolean
+// A feed click: a positive vote for the opened story's topics, plus a small
+// negative for every story shown ABOVE it that the reader scrolled past without
+// clicking (seen, not chosen). This replaces time-on-article (dwell), which was
+// noise because reading speed varies person to person. One read + one write.
+// Skips are NOT logged as interactions rows (the action CHECK only permits
+// click/dwell/like/less/neutral); they only nudge the affinity vector.
+export async function recordFeedClick(
+  clickedId: string,
+  clickedTags: string[],
+  clickedRank: number,
+  skippedTags: string[]
 ) {
   const uid = (await getSessionUser())?.id;
   if (!uid) return { ok: false };
   await supabase
     .from("interactions")
-    .insert({ user_id: uid, item_id: itemId, action: kind, dwell_ms: dwellMs ?? null });
+    .insert({ user_id: uid, item_id: clickedId, action: "click" });
 
-  const n = tags.length || 1;
-  const perTag =
-    kind === "click"
-      ? clickPerTag(rank, n)
-      : dwellPerTag(dwellMs ?? 0, rank, n, !!mobile);
-  if (perTag !== null && tags.length) await bumpAffinity(uid, tags, perTag);
+  const { data } = await supabase
+    .from("user_taste")
+    .select("affinity, prior, events")
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (!data) return { ok: true };
+
+  let affinity = data.affinity as Weights;
+  const prior = data.prior as Weights;
+  if (clickedTags.length) {
+    affinity = applyAffinity(affinity, prior, clickedTags, clickPerTag(clickedRank, clickedTags.length));
+  }
+  if (skippedTags.length) {
+    affinity = applyAffinity(affinity, prior, skippedTags, skipPerTag(skippedTags.length));
+  }
+  await supabase
+    .from("user_taste")
+    .update({
+      affinity,
+      weights: normalizeMix(affinity),
+      events: (data.events ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", uid);
   return { ok: true };
 }
 

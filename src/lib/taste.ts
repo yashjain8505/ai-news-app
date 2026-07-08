@@ -26,38 +26,28 @@ export function scoreItem(
 }
 
 // --- engagement signal math ---------------------------------------------------
+// We deliberately do NOT use time-on-article (dwell): reading speed varies wildly
+// person to person, so it's noise. The signal is CHOICE, what a reader clicks vs.
+// what they scroll past. A click is a positive vote for a story's topics; a story
+// shown ABOVE the one they chose (seen, passed over) is a small negative.
 
-const CLICK_GAIN = 0.3;
-const DWELL_GAIN = 0.8;
+const CLICK_GAIN = 0.55;
+const SKIP_LOSS = 0.14;
 const DECAY = 0.99; // per-event pull back toward the onboarding prior
 
-// A click is a weak, position-debiased nudge (top-slot clicks count less).
+// A click is a position-debiased positive nudge (a top-slot click counts a touch
+// less, since the top slot gets clicked partly just for being on top).
 export function clickPerTag(rank: number, n: number): number {
   if (n <= 0) return 0;
-  return (CLICK_GAIN / n) / (1 + 0.15 * rank);
+  return (CLICK_GAIN / n) / (1 + 0.12 * rank);
 }
 
-function dwellMultiplier(ms: number): number | null {
-  if (ms < 8000) return -0.3; // bounce
-  if (ms < 30000) return 0.5; // skim
-  if (ms < 180000) return 1.5; // real read
-  if (ms <= 900000) return 2.0; // deep read
-  return null; // walked away, discard
-}
-
-// Dwell is the dominant signal; it subsumes the click already applied so we
-// don't double-count. Returns null when the time away is uninformative.
-export function dwellPerTag(
-  ms: number,
-  rank: number,
-  n: number,
-  mobile: boolean
-): number | null {
-  if (n <= 0) return null;
-  const m = dwellMultiplier(ms);
-  if (m === null) return null;
-  const dwell = ((DWELL_GAIN * m) / n) * (mobile ? 0.5 : 1);
-  return dwell - clickPerTag(rank, n);
+// A skip is a weak negative: a story shown above the one the reader opened,
+// scrolled past without clicking. Split across its tags, so one skip barely moves
+// the needle, but a consistent pattern of skipping a topic pulls it down.
+export function skipPerTag(n: number): number {
+  if (n <= 0) return 0;
+  return -(SKIP_LOSS / n);
 }
 
 // Apply a per-tag delta to the raw affinity vector: gently decay every tag

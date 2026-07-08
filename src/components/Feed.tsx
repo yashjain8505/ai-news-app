@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Item, Section } from "@/lib/types";
-import { recordEngagement, recordRating } from "@/app/actions";
+import { recordFeedClick, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 import { optImg } from "@/lib/img";
 import ShareButton from "@/components/ShareButton";
@@ -143,22 +143,19 @@ export default function Feed({
     prevItemCount.current = items.length;
   }, [items.length]);
 
-  // Return-time dwell: when the reader comes back to our tab after opening a
-  // story, turn time-away into an engagement signal, and ask on that card.
+  // When the reader comes back to our tab after opening a story, show the rate
+  // prompt on that card. Time-away is NOT a taste signal (reading speed varies);
+  // it's only a gate so we don't prompt on an accidental blur.
   useEffect(() => {
     if (!signedIn) return;
     function resolve() {
       const p = pendingRef.current;
       if (!p) return;
-      const dwell = Date.now() - p.ts;
-      if (dwell < 1500) return;
+      if (Date.now() - p.ts < 1500) return;
       pendingRef.current = null;
       try {
         sessionStorage.removeItem("sig_pending");
       } catch {}
-      const mobile = /Mobi|Android/i.test(navigator.userAgent);
-      recordEngagement(p.id, p.tags, "dwell", p.rank, dwell, mobile);
-      // Ask for feedback after every read (the reader actually left and came back).
       setPromptItem({ id: p.id, tags: p.tags });
     }
     try {
@@ -230,7 +227,13 @@ export default function Feed({
   function onOpen(it: Item, rank: number) {
     if (!signedIn) return;
     const tags = it.tags ?? [];
-    recordEngagement(it.id, tags, "click", rank);
+    // Skip signal: every story shown ABOVE this one in the current list was on
+    // screen and passed over. Use the display position, not the passed rank.
+    const idx = list.findIndex((x) => x.id === it.id);
+    const above = idx > 0 ? list.slice(0, idx) : [];
+    const skippedTags = above.flatMap((x) => x.tags ?? []);
+    recordFeedClick(it.id, tags, idx < 0 ? rank : idx, skippedTags);
+    // Pending marker so the return-to-tab handler can show the rate prompt.
     const p: Pending = { id: it.id, tags, rank, ts: Date.now() };
     pendingRef.current = p;
     try {
