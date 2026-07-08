@@ -33,7 +33,12 @@ export async function generateMetadata({
 
   const take = item.wortins_take;
   const indexable = hasTake(take);
-  const description = (indexable ? take : item.summary) ?? SITE.description;
+  // Keep meta/OG description SHORT (the take is now multi-paragraph): prefer the
+  // one-line dek, else trim the take. The full take renders in the page body.
+  const description =
+    item.summary?.trim() ||
+    (indexable ? `${take.replace(/\s+/g, " ").slice(0, 197).trimEnd()}…` : "") ||
+    SITE.description;
   const url = absoluteUrl(`/story/${slug}`);
 
   return {
@@ -88,7 +93,10 @@ export default async function StoryPage({
         timeZone: "UTC",
       })
     : null;
-  const description = (indexable ? take : item.summary) ?? SITE.description;
+  const description =
+    item.summary?.trim() ||
+    (indexable ? `${take.replace(/\s+/g, " ").slice(0, 197).trimEnd()}…` : "") ||
+    SITE.description;
   const image = item.image_url ?? absoluteUrl(`/story/${slug}/opengraph-image`);
 
   const newsArticle: Record<string, unknown> = {
@@ -153,15 +161,22 @@ export default async function StoryPage({
           {item.title}
         </h1>
 
-        {/* Our original editorial take — the "Wortins' read" treatment. */}
+        {/* Our original multi-paragraph summary — read this first, then decide
+            whether to click through to the source. */}
         {indexable ? (
-          <div style={{ borderLeft: "3px solid var(--accent)", padding: "4px 0 4px 20px", margin: "8px 0 28px" }}>
-            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 10 }}>
-              Wortins&#8217; read
+          <div style={{ borderLeft: "3px solid var(--accent)", padding: "4px 0 4px 20px", margin: "8px 0 30px" }}>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>
+              The story
             </div>
-            <p className="serif" style={{ fontSize: 20, lineHeight: 1.55, color: "var(--ink)", margin: 0, whiteSpace: "pre-line" }}>
-              {take}
-            </p>
+            {take
+              .split(/\n{2,}/)
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((para, i) => (
+                <p key={i} className="serif" style={{ fontSize: 19, lineHeight: 1.65, color: "var(--ink)", margin: i === 0 ? 0 : "16px 0 0", maxWidth: "64ch", whiteSpace: "pre-line" }}>
+                  {para}
+                </p>
+              ))}
           </div>
         ) : (
           item.summary && (
