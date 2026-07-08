@@ -69,7 +69,9 @@ async function xrpc(nsid, body, token) {
 }
 
 function clip(s, n) {
-  s = (s || "").replace(/\s+/g, " ").trim();
+  // Normalize whitespace and strip em/en dashes (house style: commas), so a
+  // slipped-through dash in the source content never reaches the post.
+  s = (s || "").replace(/\s+/g, " ").replace(/\s*[—–]\s*/g, ", ").trim();
   return s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s;
 }
 
