@@ -359,6 +359,26 @@ export default function Feed({
             </div>
           </div>
         </div>
+        {/* Cold-visitor value hook: the differentiator + primary CTA, shown only
+            to non-personalized visitors (returning readers never see it). */}
+        {!personalized && (
+          <section style={{ marginTop: 18, border: "1px solid var(--ruleStrong)", background: "var(--ph1)", padding: "22px 26px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "18px 36px" }}>
+            <div style={{ flex: "1 1 440px", minWidth: 0 }}>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--accent)" }}>
+                Personalized &#183; Free
+              </div>
+              <h2 className="display" style={{ fontSize: "clamp(23px,2.8vw,30px)", lineHeight: 1.08, color: "var(--ink)", margin: "8px 0 0" }}>
+                AI news, tuned to you.
+              </h2>
+              <p className="serif" style={{ fontSize: 15.5, lineHeight: 1.5, color: "var(--muted)", margin: "9px 0 0", maxWidth: "58ch" }}>
+                The most interesting AI stories across new tools, funding, and applied AI, minus the big-lab hype. Answer a few questions and your daily briefing rebuilds around your taste.
+              </p>
+            </div>
+            <a href="/welcome" className="mono bs-tap" style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "14px 24px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", whiteSpace: "nowrap" }}>
+              Personalize your feed &rarr;
+            </a>
+          </section>
+        )}
         {active === "daily" && (
           <div style={{ marginTop: 18 }}>
             <NewsletterSignup />
