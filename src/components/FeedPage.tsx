@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
 import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { Item, Section } from "@/lib/types";
@@ -16,6 +17,20 @@ const MONTHS = [
 ];
 const FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// The active-items list is identical for every visitor, so cache it in Next's
+// Data Cache and refresh at most once a minute. This is the scalability lever:
+// a traffic spike hits Postgres ~once per minute instead of once per request,
+// so the DB (the real bottleneck) never saturates. Personalization stays live
+// because the per-user taste row is fetched separately, uncached.
+const getActiveItems = unstable_cache(
+  async (): Promise<Item[]> => {
+    const { data } = await supabase.from("items").select("*").eq("is_active", true);
+    return (data ?? []) as Item[];
+  },
+  ["feed-active-items"],
+  { revalidate: 60, tags: ["items"] }
+);
 
 // Per-section page metadata, shared by every section route so canonical/title agree.
 export function sectionMetadata(section: Section): Metadata {
@@ -39,8 +54,8 @@ export default async function FeedPage({ section }: { section: Section }) {
   const jar = await cookies();
   const initialMode = jar.get("sig_theme")?.value === "dark" ? "dark" : "light";
 
-  const [{ data: itemsData }, tasteRes] = await Promise.all([
-    supabase.from("items").select("*").eq("is_active", true),
+  const [itemsData, tasteRes] = await Promise.all([
+    getActiveItems(),
     user
       ? supabase.from("user_taste").select("weights, sources, tech_pref, dislikes").eq("user_id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -56,7 +71,7 @@ export default async function FeedPage({ section }: { section: Section }) {
   const techPref = (tasteRes.data?.tech_pref as number | null) ?? null;
   const dislikes = (tasteRes.data?.dislikes as string[]) ?? [];
   const nowMs = Date.now();
-  const items = ((itemsData ?? []) as Item[])
+  const items = itemsData
     .map((it) => {
       const pub = Date.parse(it.published_at ?? "") || 0;
       const hoursAgo = pub ? (nowMs - pub) / 3_600_000 : 999;
