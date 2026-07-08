@@ -354,13 +354,13 @@ export default function Feed({
               <OnboardingHero signedIn={signedIn} />
             )}
             </div>
-            {active === "daily" && (
-              <div style={{ width: "100%", maxWidth: 340 }}>
-                <NewsletterSignup />
-              </div>
-            )}
           </div>
         </div>
+        {active === "daily" && (
+          <div style={{ marginTop: 18 }}>
+            <NewsletterSignup />
+          </div>
+        )}
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
       </header>
 
