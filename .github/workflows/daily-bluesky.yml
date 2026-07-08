@@ -1,0 +1,45 @@
+name: Daily Bluesky post
+
+on:
+  schedule:
+    # 14:00 UTC = 19:30 IST = 09:00 ET. By now all the day's edition drops
+    # (01:30 / 07:30 / 12:30 UTC) have landed, so the post carries fresh stories.
+    # Idempotent per edition_date (bluesky_posts ledger), so a re-run never
+    # double-posts. If the secrets aren't set yet, the script skips cleanly.
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build + print the post, send nothing"
+        type: boolean
+        default: false
+      force:
+        description: "Post even if this edition was already posted"
+        type: boolean
+        default: false
+      edition_date:
+        description: "Post a specific edition (YYYY-MM-DD); blank = latest"
+        type: string
+        default: ""
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Post the daily Bluesky update
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          SITE_URL: https://www.wortins.com
+          EDITION_DATE: ${{ github.event.inputs.edition_date }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node .github/scripts/post-bluesky.mjs
