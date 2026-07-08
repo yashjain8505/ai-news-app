@@ -60,20 +60,27 @@ export default async function FeedPage({ section }: { section: Section }) {
     .map((it) => {
       const pub = Date.parse(it.published_at ?? "") || 0;
       const hoursAgo = pub ? (nowMs - pub) / 3_600_000 : 999;
-      // Freshness boost so new stories surface near the top; taste only applies
-      // when signed-in (logged-out is non-personalized = recency + editorial rank).
+      // Freshness boost so newer stories surface near the top within a day; taste
+      // only applies when signed-in (logged-out is non-personalized).
       const recency = 26 * Math.exp(-hoursAgo / 5);
       const taste = weights ? scoreItem(it.tags, weights, it.source, sources) : 0;
       // Down-rank stories more technical than the reader asked for; a story
       // simpler than their chosen level is never penalized.
       const techPenalty = techPref ? Math.max(0, (it.tech_level ?? 2) - techPref) * 40 : 0;
       // Muted topics sink below everything else, so in practice they drop out of
-      // the feed — but aren't hard-removed, so a section never goes empty.
+      // the feed, but aren't hard-removed, so a section never goes empty.
       const muted = dislikes.length > 0 && (it.tags ?? []).some((t) => dislikes.includes(t));
-      const dislikePenalty = muted ? 200 : 0;
-      return { it, s: taste + recency - techPenalty - dislikePenalty, pub };
+      return { it, muted, ed: it.edition_date ?? "", s: taste + recency - techPenalty, pub };
     })
-    .sort((a, b) => b.s - a.s || b.pub - a.pub)
+    // The LATEST edition always ranks first (so an older story never sits above a
+    // newer one), taste orders within a day, newest-first breaks ties, and muted
+    // topics fall to the very bottom.
+    .sort((a, b) =>
+      (a.muted === b.muted ? 0 : a.muted ? 1 : -1) ||
+      (a.ed < b.ed ? 1 : a.ed > b.ed ? -1 : 0) ||
+      b.s - a.s ||
+      b.pub - a.pub
+    )
     .map((x) => x.it);
 
   const now = Date.now();
