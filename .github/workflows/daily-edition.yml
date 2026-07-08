@@ -88,7 +88,10 @@ jobs:
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Curate and add a fresh drop
+      # PASS 1 — Haiku GATHERS: searches + fetches the day's candidate stories and
+      # writes /tmp/candidates.json. This is the token-heavy scraping, so it runs
+      # on cheap Haiku. No selection, no writing, no inserts.
+      - name: Gather candidates (Haiku)
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -98,17 +101,33 @@ jobs:
           # cron-job.org's 1 PM job sets skip_articles=true so that run skips Articles.
           SKIP_ARTICLES: ${{ github.event.inputs.skip_articles }}
         run: |
-          # Haiku for the scrape/curation — light on the Claude limit. --output-format
-          # json makes the run print its token usage + $ cost, echoed below so every
-          # run's cost against the limit is visible right here in the log.
-          claude -p "$(cat .github/scripts/daily-edition-prompt.md)" \
+          claude -p "$(cat .github/scripts/gather-prompt.md)" \
             --model haiku \
             --output-format json \
             --dangerously-skip-permissions \
-            --max-turns 80 | tee /tmp/claude_out.json
-          echo ""
-          echo "===== RUN USAGE (this run's Claude cost) ====="
-          jq -r '"input_tokens=\(.usage.input_tokens // 0)  output_tokens=\(.usage.output_tokens // 0)  cache_read=\(.usage.cache_read_input_tokens // 0)  cache_creation=\(.usage.cache_creation_input_tokens // 0)  total_cost_usd=\(.total_cost_usd // 0)  turns=\(.num_turns // 0)  duration_ms=\(.duration_ms // 0)"' /tmp/claude_out.json 2>/dev/null || echo "(usage not parseable; see JSON above)"
+            --max-turns 80 | tee /tmp/gather_out.json >/dev/null
+          echo "===== GATHER (Haiku) USAGE ====="
+          jq -r '"input_tokens=\(.usage.input_tokens // 0)  output_tokens=\(.usage.output_tokens // 0)  cache_read=\(.usage.cache_read_input_tokens // 0)  total_cost_usd=\(.total_cost_usd // 0)  turns=\(.num_turns // 0)  duration_ms=\(.duration_ms // 0)"' /tmp/gather_out.json 2>/dev/null || echo "(usage not parseable)"
+          echo "candidates gathered: $(jq 'length' /tmp/candidates.json 2>/dev/null || echo '?')"
+
+      # PASS 2 — Opus WRITES: reads /tmp/candidates.json, selects the best, writes
+      # the 2-3 paragraph takes, and inserts. This is the small, intelligent part,
+      # so it runs on Opus for quality (measured at ~$0.17/run).
+      - name: Write + insert (Opus)
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          EDITION_DATE: ${{ github.event.inputs.target_date }}
+        run: |
+          claude -p "$(cat .github/scripts/write-prompt.md)" \
+            --model opus \
+            --output-format json \
+            --dangerously-skip-permissions \
+            --max-turns 40 | tee /tmp/write_out.json >/dev/null
+          echo "===== WRITE (Opus) USAGE ====="
+          jq -r '"input_tokens=\(.usage.input_tokens // 0)  output_tokens=\(.usage.output_tokens // 0)  cache_read=\(.usage.cache_read_input_tokens // 0)  total_cost_usd=\(.total_cost_usd // 0)  turns=\(.num_turns // 0)  duration_ms=\(.duration_ms // 0)"' /tmp/write_out.json 2>/dev/null || echo "(usage not parseable)"
 
       # Guard: HTTP-check every image + source link on the fresh drop and drop
       # anything dead (fabricated/404). No LLM, ~free. Runs regardless of model.
