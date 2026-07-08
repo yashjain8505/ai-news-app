@@ -1,12 +1,12 @@
 name: Daily Substack note
 
 on:
-  schedule:
-    # 14:00 UTC = 19:30 IST = 09:00 ET — prime US-morning window for Substack
-    # Notes reach, and by now all of the day's edition drops (01:30/06:30/11:30
-    # UTC) have landed, so the note carries fresh stories. Idempotent per
-    # edition_date (substack_notes ledger), so a re-run never double-posts.
-    - cron: "0 14 * * *"
+  # Schedule DISABLED: Substack sits behind Cloudflare bot protection, which
+  # blocks automated posts from a datacenter IP (GitHub Actions) with a 403
+  # "Just a moment" challenge, even with a full browser fingerprint + a valid
+  # login cookie. So a scheduled run just fails daily. Kept as manual-only
+  # (workflow_dispatch) for testing; real auto-distribution should use a channel
+  # with an official API (e.g. Bluesky) instead.
   workflow_dispatch:
     inputs:
       dry_run:
