@@ -30,7 +30,9 @@ import { execFileSync } from "node:child_process";
 import { findReplyTargets } from "./lib/bluesky-search.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.supabase.co";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+// Service role for CI (writes); anon is enough for a local DRY_RUN (reads only).
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const DRAFT_MODEL = process.env.DRAFT_MODEL || ""; // blank = account default (what CI already uses)
 const RESEND_KEY = process.env.RESEND_KEY;
 const SITE_URL = (process.env.SITE_URL || "https://www.wortins.com").replace(/\/$/, "");
 const REVIEW_SECRET = process.env.BLUESKY_REVIEW_SECRET || "";
@@ -67,7 +69,9 @@ async function sb(path, init = {}) {
 // ---- Claude drafting (via the CLI; degrades gracefully if unavailable) -------
 function claudeJSON(prompt) {
   try {
-    const out = execFileSync("claude", ["-p", prompt, "--output-format", "text"], {
+    const args = ["-p", prompt, "--output-format", "text"];
+    if (DRAFT_MODEL) args.splice(2, 0, "--model", DRAFT_MODEL);
+    const out = execFileSync("claude", args, {
       encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 180000, env: process.env,
     });
     const m = out.match(/\{[\s\S]*\}/);
@@ -80,22 +84,43 @@ function claudeJSON(prompt) {
 }
 
 function buildPrompt(items, targets) {
-  const itemsList = items.map((it, i) => `${i + 1}. [${it.slug}] ${it.title}\n   ${deDash(it.summary || "")}`).join("\n");
-  const targetsList = targets.map((t, i) => `${i + 1}. @${t.authorHandle}: ${t.text.replace(/\s+/g, " ").slice(0, 220)}`).join("\n");
-  return `You write the Bluesky voice for "Wortins", an AI news brief. Tone: sharp, first-person, opinionated but substantive, no hype, no hashtags, NO em dashes (use commas). Each post/reply must be under 280 characters.
+  const itemsList = items
+    .map((it, i) => `${i + 1}. slug: ${it.slug}\nHEADLINE: ${it.title}\nEDITORIAL TAKE (where the real, specific point lives, mine on this story): ${deDash(it.wortins_take || it.summary || "")}`)
+    .join("\n\n");
+  const targetsList = targets
+    .map((t, i) => `${i + 1}. @${t.authorHandle} posted: "${(t.text || "").replace(/\s+/g, " ").slice(0, 240)}"`)
+    .join("\n");
 
-TODAY'S AI STORIES:
+  return `You ghost-write Bluesky posts for the person behind Wortins, an independent AI-news brief. You are NOT a brand account and NOT a LinkedIn thought-leader. You sound like one sharp, well-read person talking to other builders: plain, direct, a little dry, opinionated because you actually read the details.
+
+Each story below has an EDITORIAL TAKE already written. That take is where the real, specific point lives. Your job: compress its single sharpest, most concrete point into a short post a smart reader actually learns something from.
+
+HARD RULES (breaking these is what makes writing read as AI slop):
+- Do NOT open by restating the headline. Assume the reader sees the link. Open with the point, the consequence, or the one buried detail that changes how you read the story.
+- Carry ONE specific, concrete idea the headline alone doesn't give: a second-order effect, a buried number, a contradiction, who actually wins or loses. Never vague filler like "this is huge", "changes everything", "the risk nobody priced in".
+- BANNED phrasings: "X sounds/seems ... until you remember ...", "not vibes", "here's the thing", "the real story", "make no mistake", "let that sink in", rhetorical questions, a cute closing one-liner, any "not X, but Y" ending. No hashtags, no emoji, no thread bait, no "🧵".
+- Plain words, short sentences, contractions fine. Blunt is good. Do NOT make it symmetrical or over-polished; slightly rough reads more human.
+- No em dashes. Under 280 characters.
+
+BAD (never write like this): "Musk folded xAI into SpaceX for 1.25T, rebranded SpaceXAI, and now they're filing to launch a million compute satellites. Compute in orbit sounds wild until you remember cooling and bandwidth are still physics problems, not vibes."
+  Why bad: restates the headline, then a generic skeptical quip. Zero specific insight.
+BETTER: "A million satellites to run inference in orbit, and the FCC filing is real. The number nobody's answering: you can't dump that much waste heat in vacuum without a radiator roughly the size of the solar array feeding it. It's a thermal budget problem cosplaying as a compute story."
+  Why better: leads with the concrete stakes, gives one specific idea (the heat-radiation constraint), plain voice.
+
+TODAY'S STORIES:
 ${itemsList}
 
-FIVE BLUESKY POSTS TO REPLY TO:
+POSTS OTHER PEOPLE MADE THAT YOU COULD REPLY TO:
 ${targetsList}
 
-Return ONLY a JSON object, no prose, shaped exactly:
+For each reply: react to the specific thing they said, like a person who read it and had one genuine thought. Add a fact, a sharpened version of their point, or a real disagreement. Never "great point", never restate their post, same banned phrasings, under 280 chars.
+
+Return ONLY a JSON object, no prose around it:
 {
   "selected_slug": "<slug of the single most interesting story to post about>",
-  "post": "<a punchy first-person take on that story, under 280 chars>",
-  "candidates": [ {"slug":"<slug>", "draft":"<a first-person take on this story, under 280 chars>"} , ... up to 5, most interesting first ],
-  "replies": [ "<a thoughtful, human reply to post 1, under 280 chars>", ... exactly ${targets.length} in order ]
+  "post": "<the post for that story>",
+  "candidates": [ {"slug":"<slug>","draft":"<a post for this story>"}, ... up to 5, most interesting first ],
+  "replies": [ "<reply to post 1>", ... exactly ${targets.length} in order ]
 }`;
 }
 
@@ -147,20 +172,24 @@ async function main() {
   const dateISO = new Date().toISOString().slice(0, 10);
   console.log(`→ Preparing ${slot} packet for ${dateISO}`);
 
-  if (!FORCE) {
-    const existing = await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}&select=id,status`);
-    if (existing?.length) { console.log(`✓ ${slot} ${dateISO} already prepared (${existing[0].status}). Skipping (FORCE=1 to redo).`); return; }
-  } else {
-    // FORCE: clear any existing packet for this slot so we re-insert cleanly.
-    await sb(`bluesky_reply_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
-    await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+  // A DRY_RUN only drafts + prints: never skip (so you can always preview) and
+  // never delete (so a preview can't wipe the current live packet).
+  if (!DRY_RUN) {
+    if (!FORCE) {
+      const existing = await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}&select=id,status`);
+      if (existing?.length) { console.log(`✓ ${slot} ${dateISO} already prepared (${existing[0].status}). Skipping (FORCE=1 to redo).`); return; }
+    } else {
+      // FORCE: clear any existing packet for this slot so we re-insert cleanly.
+      await sb(`bluesky_reply_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+      await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+    }
   }
 
   // 1. Content
   const latest = await sb("items?is_active=eq.true&edition_date=not.is.null&select=edition_date&order=edition_date.desc&limit=1");
   const editionDate = latest?.[0]?.edition_date;
   if (!editionDate) die("No edition found");
-  const items = await sb(`items?is_active=eq.true&edition_date=eq.${editionDate}&section=eq.daily&select=slug,title,summary,rank&order=rank.asc&limit=12`);
+  const items = await sb(`items?is_active=eq.true&edition_date=eq.${editionDate}&section=eq.daily&select=slug,title,summary,wortins_take,rank&order=rank.asc&limit=12`);
   if (!items?.length) die(`No daily items for ${editionDate}`);
 
   // 2. Reply targets
