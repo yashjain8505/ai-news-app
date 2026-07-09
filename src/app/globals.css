@@ -154,6 +154,72 @@ body {
   opacity: 0.55;
 }
 
+/* Branded fallback "plate" for stories with no usable photo — same frame + dot
+   screen as a real photo so the two sit side by side without looking broken. A
+   vintage masthead cut: kicker, source name set large, W monogram. Sizes are in
+   container units so one plate works from a 116px thumb up to a full hero. */
+.news-photo--art {
+  container-type: inline-size;
+  background: linear-gradient(158deg, var(--ph2) 0%, var(--ph1) 58%, var(--ph2) 100%);
+  filter: none;
+}
+.news-photo--art .news-photo__screen {
+  opacity: 0.3;
+}
+.news-photo__art {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8cqi;
+  gap: 4cqi;
+}
+.news-photo__sec {
+  font-size: clamp(8px, 3.4cqi, 12px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.news-photo__src {
+  font-weight: 700;
+  font-size: clamp(15px, 13cqi, 54px);
+  line-height: 1.03;
+  color: var(--ink);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.news-photo__mark {
+  position: absolute;
+  left: 6cqi;
+  bottom: 5cqi;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(15px, 9cqi, 34px);
+  height: clamp(15px, 9cqi, 34px);
+  background: var(--accent);
+  color: var(--onAccent);
+  font-family: var(--font-display), "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(10px, 5.6cqi, 22px);
+  line-height: 1;
+}
+/* On small thumbnails the kicker + mark become illegible noise — drop them and
+   let the source name carry the plate. */
+@container (max-width: 232px) {
+  .news-photo__sec,
+  .news-photo__mark {
+    display: none;
+  }
+  .news-photo__src {
+    font-size: clamp(14px, 19cqi, 30px);
+  }
+}
+
 /* layout (responsive) */
 .bs-main {
   max-width: 1180px;

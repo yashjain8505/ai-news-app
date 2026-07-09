@@ -14,7 +14,7 @@ STEPS:
    Drop anything off-taste, duplicative, thin, or not clearly about AI. If a section's candidates are weak, insert FEWER rather than padding with filler.
 4. For EACH selected story, build a row for `public.items`:
    - `section`, `title`, `url`, `source` (from the candidate)
-   - `image_url`: use the candidate's `image_url` verbatim, or `null`. NEVER invent or alter an image URL.
+   - `image_url`: always `null`. A separate mechanical step resolves the real og:image from each article after you insert it — do not set, copy, or invent an image URL yourself.
    - `highlight`: a short EXACT substring of the `title` to underline (null for tools)
    - `summary`: one clean line, no em-dashes (for tools a plain-English pitch; for funding the amount + valuation + lead investor)
    - `tags`: JSON array of 1-3 from this taxonomy ONLY (matches the reader's topic picker): coding, media, writing, music, science, business, safety, policy, jobs, daily-life, world (media = AI images/video/voice, business = startups/funding/the industry, science = science & health, jobs = work & careers, world = AI outside the US)

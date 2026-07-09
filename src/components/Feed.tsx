@@ -58,9 +58,19 @@ function storyHref(it: Item): string {
   return `/story/${it.slug}`;
 }
 
-// Clickable story photo. Renders NOTHING when there's no image (or it fails to
-// load) — so image-less stories become clean text-forward cards instead of an
-// awkward placeholder tile. The headline stays clickable independently.
+// Kicker shown on the branded fallback plate, by section.
+const ART_KICKER: Record<string, string> = {
+  daily: "Daily Brief",
+  tools: "New Tool",
+  articles: "Analysis",
+  funding: "Funding",
+};
+
+// Clickable story visual. Uses the real photo when we have one; otherwise falls
+// back to a branded newspaper "plate" (kicker + source name + W monogram) so
+// every card carries a visual instead of a hole — many AI-news sources bot-block
+// or hotlink-protect their images, so a real photo isn't always attainable. The
+// headline stays clickable independently.
 function CardPhoto({
   it,
   ratio,
@@ -79,7 +89,7 @@ function CardPhoto({
   imgWidth?: number;
 }) {
   const [failed, setFailed] = useState(false);
-  if (!it.image_url || failed) return null;
+  const art = !it.image_url || failed;
   return (
     <a
       href={storyHref(it)}
@@ -89,9 +99,19 @@ function CardPhoto({
       className={className}
       style={{ display: "block", ...style }}
     >
-      <div className="news-photo" style={{ aspectRatio: ratio }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={optImg(it.image_url, imgWidth)} alt="" onError={() => setFailed(true)} />
+      <div className={art ? "news-photo news-photo--art" : "news-photo"} style={{ aspectRatio: ratio }}>
+        {art ? (
+          <div className="news-photo__art">
+            <span className="news-photo__sec mono">{ART_KICKER[it.section] ?? "Wortins"}</span>
+            <span className="news-photo__src display">{it.source || "Wortins"}</span>
+            <span className="news-photo__mark" aria-hidden="true">
+              W
+            </span>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={optImg(it.image_url, imgWidth)} alt="" onError={() => setFailed(true)} />
+        )}
         <div className="news-photo__screen" />
       </div>
     </a>
@@ -427,7 +447,7 @@ export default function Feed({
                 {lead && (
                   <article>
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
-                    <div style={{ marginTop: lead.image_url ? 16 : 0 }}>{meta(lead, "·", 11, true)}</div>
+                    <div style={{ marginTop: 16 }}>{meta(lead, "·", 11, true)}</div>
                     <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" className="bs-hl">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
@@ -482,9 +502,9 @@ export default function Feed({
                     </span>
                     <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
                   </div>
-                  {/* Row list: text-forward, with a small thumbnail on the right only
-                      when the story has an image. Row height follows the text, so
-                      image-less stories never leave a hole (no equal-height grid). */}
+                  {/* Row list: text-forward, with a small thumbnail on the right.
+                      Real photo when we have one, else a branded plate — so every
+                      row reads as a complete card. Row height follows the text. */}
                   <div className="bs-more">
                     {more.map((it, i) => (
                       <article className="bs-story" key={it.id}>

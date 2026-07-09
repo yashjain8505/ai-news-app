@@ -10,7 +10,7 @@ STEPS:
 3. GATHER brand-new stories from roughly the last 24 hours using WebSearch + WebFetch. Cast a WIDE net: aim for ~30 to 40 GOOD candidates total across the four sections (deliberately MORE than needed so the writer can choose). For EACH candidate you MUST actually FETCH the page and extract:
    - `section`: one of 'daily' | 'tools' | 'articles' | 'funding' (rules below)
    - `title`, `url`, `source`
-   - `image_url`: the REAL og:image actually present on the fetched page. NEVER guess, construct, or fabricate an image URL (do NOT invent paths like `openai.com/images/dalle-4.jpg`). If the page has no real og:image, or you could not fetch it, use `null`.
+   - `image_url`: always `null`. Do NOT try to find, extract, or guess an image — a separate mechanical step resolves the real og:image from each article's raw HTML after selection (reliable and free). Never fabricate an image URL.
    - `dek`: the og:description cleaned to one line, no em-dashes
    - `facts`: an array of 3 to 5 SHORT factual bullets (key who / what / numbers / quotes) in your own brief words — raw material for the writer, NOT a polished paragraph
    - `tags_hint`: 1 to 3 from this taxonomy ONLY: coding, media, writing, music, science, business, safety, policy, jobs, daily-life, world

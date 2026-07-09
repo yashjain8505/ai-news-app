@@ -1,0 +1,28 @@
+name: Resolve images
+
+# Manually re-run the image resolver + link checker on an edition, without
+# re-curating. Use it to backfill real og:images into an existing edition (e.g.
+# after tweaking verify-content.mjs), or to re-check links on demand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_date:
+        description: "Edition date (YYYY-MM-DD, blank = today UTC)"
+        required: false
+        default: ""
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Resolve images + check links
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          EDITION_DATE: ${{ github.event.inputs.target_date }}
+        run: node .github/scripts/verify-content.mjs
