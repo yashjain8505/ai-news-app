@@ -610,7 +610,10 @@ export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
 export function normalizeRange(input: string | number | undefined): AnalyticsRange {
   const n = typeof input === "string" ? parseInt(input, 10) : input;
-  return (ANALYTICS_RANGES as readonly number[]).includes(n ?? 28)
+  // Test n itself — NOT `n ?? 28`. The old `.includes(n ?? 28)` returned true for
+  // the default (undefined) case but then returned `n` (undefined), which flowed
+  // into `new Date(Date.now() - undefined)` → Invalid Date → toISOString() 500.
+  return (ANALYTICS_RANGES as readonly number[]).includes(n as number)
     ? (n as AnalyticsRange)
     : 28;
 }
@@ -618,10 +621,20 @@ export function normalizeRange(input: string | number | undefined): AnalyticsRan
 export async function getAnalyticsOverview(
   days: AnalyticsRange
 ): Promise<AnalyticsOverview> {
+  // Each source is isolated: a failure in one degrades that section to empty
+  // (with an error note where the type allows) instead of 500-ing the page.
   const [ga, product, newsletter] = await Promise.all([
-    getGa(days),
-    getProduct(days),
-    getNewsletter(days),
+    getGa(days).catch((e) =>
+      emptyGa(true, e instanceof Error ? e.message : "GA request failed")
+    ),
+    getProduct(days).catch((e) => {
+      console.error("analytics getProduct failed", e);
+      return { ...EMPTY_PRODUCT, configured: true };
+    }),
+    getNewsletter(days).catch((e) => {
+      console.error("analytics getNewsletter failed", e);
+      return EMPTY_NEWSLETTER;
+    }),
   ]);
 
   return {
