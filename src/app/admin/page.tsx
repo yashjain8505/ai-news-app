@@ -80,7 +80,7 @@ export default async function AdminPage({
   const { configured, metrics, users } = await getAdminOverview();
 
   return (
-    <AdminShell subtitle="Users & activity">
+    <AdminShell subtitle="Users & activity" active="overview">
       {!configured ? (
         <p
           className="serif"
