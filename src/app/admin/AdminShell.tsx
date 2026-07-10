@@ -12,11 +12,12 @@ export function AdminShell({
 }: {
   children: React.ReactNode;
   subtitle?: string;
-  active?: "overview" | "analytics";
+  active?: "overview" | "analytics" | "search";
 }) {
-  const navItems: { key: "overview" | "analytics"; label: string; href: string }[] = [
+  const navItems: { key: "overview" | "analytics" | "search"; label: string; href: string }[] = [
     { key: "overview", label: "Overview", href: "/admin" },
     { key: "analytics", label: "Analytics", href: "/admin/analytics" },
+    { key: "search", label: "Search", href: "/admin/seo" },
   ];
   return (
     <main className="bs-main" style={{ position: "relative", paddingTop: 18 }}>
