@@ -8,10 +8,17 @@ import { login, logout } from "./actions";
 export function AdminShell({
   children,
   subtitle,
+  active,
 }: {
   children: React.ReactNode;
   subtitle?: string;
+  active?: "overview" | "analytics" | "search";
 }) {
+  const navItems: { key: "overview" | "analytics" | "search"; label: string; href: string }[] = [
+    { key: "overview", label: "Overview", href: "/admin" },
+    { key: "analytics", label: "Analytics", href: "/admin/analytics" },
+    { key: "search", label: "Search", href: "/admin/seo" },
+  ];
   return (
     <main className="bs-main" style={{ position: "relative", paddingTop: 18 }}>
       <header>
@@ -94,7 +101,30 @@ export function AdminShell({
         >
           {subtitle ?? "Admin console"}
         </div>
-        <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
+        <nav style={{ display: "flex", gap: 18, marginTop: 14 }}>
+          {navItems.map((item) => {
+            const on = item.key === active;
+            return (
+              <a
+                key={item.key}
+                href={item.href}
+                className="mono"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  textDecoration: "none",
+                  paddingBottom: 8,
+                  color: on ? "var(--ink)" : "var(--dim)",
+                  borderBottom: `2px solid ${on ? "var(--accent)" : "transparent"}`,
+                }}
+              >
+                {item.label}
+              </a>
+            );
+          })}
+        </nav>
+        <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: -2 }} />
       </header>
       <div style={{ marginTop: 28 }}>{children}</div>
     </main>
