@@ -17,7 +17,16 @@ import { createSign } from "node:crypto";
 // --- config ------------------------------------------------------------------
 
 const PROPERTY_ID = process.env.GA4_PROPERTY_ID?.trim();
-const SA_JSON_B64 = process.env.GA_SERVICE_ACCOUNT_JSON_B64?.trim();
+// The base64 service-account JSON, accepted under several names so a small naming
+// slip doesn't silently disable GA. GA-specific names win; otherwise fall back to
+// the Search Console service account — it's the SAME Google account, so granting
+// it GA "Viewer" makes it work for both. Only GA4_PROPERTY_ID is strictly needed.
+const SA_JSON_B64 = (
+  process.env.GA_SERVICE_ACCOUNT_JSON_B64 ??
+  process.env.GA_SERVICE_ACCOUNT_B64 ??
+  process.env.GSC_SERVICE_ACCOUNT_B64 ??
+  ""
+).trim();
 
 const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 const DEFAULT_TOKEN_URI = "https://oauth2.googleapis.com/token";
