@@ -192,7 +192,11 @@ export type SeoRange = (typeof SEO_RANGES)[number];
 
 export function normalizeRange(input: string | number | undefined): SeoRange {
   const n = typeof input === "string" ? parseInt(input, 10) : input;
-  return (SEO_RANGES as readonly number[]).includes(n ?? 28)
+  // Test `n` itself — NOT `n ?? 28`. The old `.includes(n ?? 28)` was true for the
+  // default (undefined) case but then returned `n` (undefined), which flowed into
+  // windows() → setUTCDate(NaN) → Invalid Date → toISOString() → a 500 on bare
+  // /admin/seo (no ?range=). Same bug the analytics page hit; keep them in sync.
+  return (SEO_RANGES as readonly number[]).includes(n as number)
     ? (n as SeoRange)
     : 28;
 }
