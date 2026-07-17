@@ -4,13 +4,13 @@ ENVIRONMENT: `$SUPABASE_URL` and `$SUPABASE_SERVICE_KEY` (service-role) are set.
 
 STEPS:
 1. `TODAY="${EDITION_DATE:-$(date -u +%F)}"`. ALSO run `NOW="$(date -u +%FT%TZ)"` and keep it: every new row's `published_at` MUST be this FULL ISO-8601 timestamp WITH the time-of-day (e.g. `2026-07-07T16:42:00Z`), NEVER a bare date (a bare date becomes midnight and buries the whole drop).
-2. READ existing items for today to get the MAX `rank` per section (new rows continue from it) and to avoid duplicating anything:
+2. READ existing items for today to get the MAX `rank` per section (new rows continue from it) and to avoid duplicating anything (for funding, the SAME raise worded differently or from another source is a duplicate — never re-add a round already in the feed):
    `curl -s "$SUPABASE_URL/rest/v1/items?select=section,title,rank&edition_date=eq.$TODAY" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
 3. READ `/tmp/candidates.json`. SELECT the final set (the scraper over-gathered on purpose, so you choose the best and drop the rest):
    - **daily**: pick AT LEAST 12 (count them; today's active total should reach 15+). ONE STORY PER TOPIC (never two about the same event). Never more than 2 from the same outlet, never more than 2 centred on the same company, never all-megacap. Every pick must be genuinely, centrally ABOUT AI. Favor significance + a real "huh, interesting" factor, mixing big and small.
    - **articles**: pick 2+ (skip entirely if the candidates contain none).
-   - **tools**: pick 2+. The `title` MUST be the product/app NAME ONLY.
-   - **funding**: pick 3-4 when notable candidates exist.
+   - **tools**: pick 2+ genuine indie/hidden-gem apps a non-engineer can use; `title` = product NAME ONLY. **HARD EXCLUDE (drop, never insert):** coding/dev tools & app-builders (Cursor, Claude Code, Codex, Copilot, Windsurf, Replit, Bolt.new, Lovable, v0, Devin), any developer/infra tooling, big-name assistants (ChatGPT, Gemini, Claude, Perplexity, Grok, Siri, NotebookLM, Midjourney), a big lab's model/version release (e.g. "Veo 3.1", "Claude Sonnet 5"), and anything that's really news/funding/hardware. If it's famous or built for engineers, DROP it.
+   - **funding**: pick 3-4 when notable candidates exist. Each must be a REAL, verifiable round (NEVER a fabricated or inflated amount/valuation) **announced in the last ~7 days**, from a reputable outlet or the company's own announcement — DROP items from SEO/aggregator/newsletter sources (Mean CEO, Crescendo, AI Funding Tracker, BuildFastWithAI, "Tech Startup Funding Roundup", "Multiple sources"). **One per round:** never insert a raise already in the feed or duplicated among candidates — dedup by company + round, not exact wording.
    Drop anything off-taste, duplicative, thin, or not clearly about AI. If a section's candidates are weak, insert FEWER rather than padding with filler.
 4. For EACH selected story, build a row for `public.items`:
    - `section`, `title`, `url`, `source` (from the candidate)
