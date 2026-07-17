@@ -1,0 +1,40 @@
+name: SEO brief
+
+# Fired by the /admin/seo "Generate action plan" button (workflow_dispatch via the
+# GitHub API, using GITHUB_DISPATCH_TOKEN — same mechanism as the curator). One
+# run per job row; the dashboard passes the seo_briefs row id to synthesize.
+concurrency:
+  group: seo-brief-${{ github.event.inputs.brief_id }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      brief_id:
+        description: "The seo_briefs job row id to synthesize"
+        type: string
+        required: true
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Reads the pending row's evidence, runs Claude on the subscription, writes
+      # the brief back to Supabase. No API key — CLAUDE_CODE_OAUTH_TOKEN only.
+      - name: Synthesize brief
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BRIEF_ID: ${{ github.event.inputs.brief_id }}
+          SEO_BRIEF_MODEL: sonnet
+        run: node .github/scripts/seo-brief.mjs
