@@ -1,4 +1,5 @@
 import { SITE } from "@/lib/seo";
+import NewsletterSignup from "@/components/NewsletterSignup";
 
 // Shared masthead + section nav + footer for the public (logged-out) pages.
 // Plain anchors keep it server-only and fully crawlable.
@@ -65,7 +66,13 @@ export default function PublicChrome({
 
       <div style={{ marginTop: 28 }}>{children}</div>
 
-      <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--faint)", flexWrap: "wrap", gap: 12 }}>
+      {/* Subscribe band on every page — a reader who lands here from search or
+          social can join the daily without hunting for the home page. */}
+      <div style={{ marginTop: 56 }}>
+        <NewsletterSignup />
+      </div>
+
+      <footer className="mono" style={{ marginTop: 40, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--faint)", flexWrap: "wrap", gap: 12 }}>
         <span style={{ textTransform: "uppercase" }}>
           {SITE.name} · {SITE.tagline}
         </span>

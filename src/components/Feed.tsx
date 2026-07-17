@@ -403,11 +403,9 @@ export default function Feed({
             </a>
           </section>
         )}
-        {active === "daily" && (
-          <div style={{ marginTop: 18 }}>
-            <NewsletterSignup />
-          </div>
-        )}
+        <div style={{ marginTop: 18 }}>
+          <NewsletterSignup />
+        </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
       </header>
 
