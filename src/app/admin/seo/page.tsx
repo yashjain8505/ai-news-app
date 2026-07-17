@@ -7,6 +7,7 @@ import {
   SEO_RANGES,
   type SeoOverview,
   type SeoRange,
+  type NamedMetric,
 } from "@/lib/seoData";
 import { seoBriefConfigured, getLatestReadyBrief } from "@/lib/seoBrief";
 import { Brief } from "./Brief";
@@ -19,6 +20,13 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: "Search",
   robots: { index: false, follow: false },
+};
+
+const label: React.CSSProperties = {
+  fontSize: 10,
+  letterSpacing: "0.14em",
+  textTransform: "uppercase",
+  color: "var(--dim)",
 };
 
 // Times in IST + UTC (operator is in India).
@@ -57,7 +65,6 @@ function plainSummary(o: SeoOverview, days: number): string {
   return `Over the last ${days} days Wortins appeared in Google ${fmtNum(impr)} times and earned ${fmtNum(clicks)} clicks — a ${fmtPct(ctr)} click-through rate. You're getting seen; the job now is turning more of those impressions into clicks. Most pages rank ${rank}.`;
 }
 
-// A plain reason a page needs attention.
 function pageReason(p: { impressions: number; position: number; clicks: number }): string {
   if (p.position > 15) {
     return `Seen ${fmtNum(p.impressions)} times but buried around position ${fmtPos(p.position)} — Google isn't ranking it. Strengthen the page (more depth, internal links from your blog).`;
@@ -68,21 +75,67 @@ function pageReason(p: { impressions: number; position: number; clicks: number }
   return `${fmtNum(p.impressions)} impressions at position ${fmtPos(p.position)}.`;
 }
 
-const label: React.CSSProperties = {
-  fontSize: 10,
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  color: "var(--dim)",
-};
+// --- small presentational bits ----------------------------------------------
 
-// A clean focus row: bold identifier + one plain-English line. No table.
+function InsightList({ items, tone }: { items: string[]; tone: "good" | "bad" }) {
+  const mark = tone === "good" ? "var(--accent)" : "var(--dim)";
+  if (items.length === 0) {
+    return (
+      <p className="serif" style={{ fontSize: 13, color: "var(--dim)", fontStyle: "italic", margin: 0 }}>
+        {tone === "good" ? "Nothing clearly working yet — early days." : "Nothing obviously broken in this window."}
+      </p>
+    );
+  }
+  return (
+    <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+      {items.map((t, i) => (
+        <li key={i} className="serif" style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.4, paddingLeft: 18, position: "relative" }}>
+          <span className="mono" style={{ position: "absolute", left: 0, top: 1, fontSize: 10, color: mark }}>{tone === "good" ? "▲" : "▼"}</span>
+          {t}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function BarGroup({ title, items, metric }: { title: string; items: NamedMetric[]; metric: "clicks" | "impressions" }) {
+  const rows = items.filter((i) => i[metric] > 0).slice(0, 6);
+  const max = Math.max(...rows.map((i) => i[metric]), 1);
+  return (
+    <div style={{ border: "1px solid var(--rule)", padding: "14px 16px" }}>
+      <div className="mono" style={{ ...label, marginBottom: 12 }}>
+        {title}
+      </div>
+      {rows.length === 0 ? (
+        <p className="serif" style={{ fontSize: 13, color: "var(--dim)", fontStyle: "italic", margin: 0 }}>
+          Nothing yet.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+          {rows.map((it, i) => (
+            <div key={`${it.name}-${i}`}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 3 }}>
+                <span className="mono" style={{ fontSize: 12, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={it.name}>
+                  {it.name}
+                </span>
+                <span className="mono" style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>
+                  {fmtNum(it[metric])}
+                </span>
+              </div>
+              <div style={{ height: 6, background: "var(--rule)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.max(2, (it[metric] / max) * 100)}%`, background: "var(--accent)" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FocusRow({ head, href, body }: { head: string; href?: string; body: string }) {
   const headEl = (
-    <span
-      className="mono"
-      style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}
-      title={head}
-    >
+    <span className="mono" style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }} title={head}>
       {head}
     </span>
   );
@@ -102,17 +155,7 @@ function FocusRow({ head, href, body }: { head: string; href?: string; body: str
   );
 }
 
-function FocusColumn({
-  title,
-  hint,
-  children,
-  empty,
-}: {
-  title: string;
-  hint: string;
-  children: React.ReactNode;
-  empty: boolean;
-}) {
+function FocusColumn({ title, hint, children, empty }: { title: string; hint: string; children: React.ReactNode; empty: boolean }) {
   return (
     <div style={{ border: "1px solid var(--rule)", padding: "16px 18px" }}>
       <div className="mono" style={label}>
@@ -132,6 +175,27 @@ function FocusColumn({
   );
 }
 
+function Kicker({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mono" style={{ ...label, color: "var(--accent)", marginBottom: 6 }}>
+      {children}
+    </div>
+  );
+}
+function Title({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="display" style={{ fontSize: 22, lineHeight: 1.05, color: "var(--ink)", margin: "0 0 16px" }}>
+      {children}
+    </h2>
+  );
+}
+
+const twoCol: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+  gap: 16,
+};
+
 export default async function SeoPage({
   searchParams,
 }: {
@@ -148,20 +212,12 @@ export default async function SeoPage({
 
   const pagesToFix = o.pages.underperforming.slice(0, 4);
   const keywords = o.opportunities.strikingDistance.slice(0, 6);
+  const trafficMetric: "clicks" | "impressions" = o.kpis.clicks.value > 0 ? "clicks" : "impressions";
 
   return (
     <AdminShell subtitle="Search Console" active="search">
       {/* Range selector + freshness */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 6,
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
         <div style={{ display: "flex", gap: 8 }}>
           {SEO_RANGES.map((r) => {
             const on = r === range;
@@ -203,75 +259,105 @@ export default async function SeoPage({
         <Notice tone="accent">Search Console request failed: {o.error}</Notice>
       ) : (
         <>
-          {/* 1 — Plain-English "what's happening" */}
-          <p
-            className="serif"
-            style={{ fontSize: 18, lineHeight: 1.5, color: "var(--ink)", margin: "0 0 26px", maxWidth: 760 }}
-          >
+          {/* 1 — Plain-English "what's happening" + glanceable reach */}
+          <p className="serif" style={{ fontSize: 18, lineHeight: 1.5, color: "var(--ink)", margin: "0 0 14px", maxWidth: 760 }}>
             {plainSummary(o, range)}
           </p>
+          {o.hasData ? (
+            <p className="serif" style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 26px", maxWidth: 760, lineHeight: 1.5 }}>
+              You show up for <b style={{ color: "var(--ink)" }}>{fmtNum(o.reach.keywords)}</b> searches —{" "}
+              <b style={{ color: "var(--ink)" }}>{o.reach.page1}</b> on page 1 and{" "}
+              <b style={{ color: "var(--ink)" }}>{o.reach.page2}</b> on page 2 (within reach). Of{" "}
+              {o.reach.pagesSeen} pages Google shows, {o.reach.pagesClicked} earn any clicks.
+            </p>
+          ) : null}
 
           {/* 2 — The four numbers */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-              gap: 12,
-              marginBottom: 34,
-            }}
-          >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 36 }}>
             <StatCard label="Clicks" kpi={o.kpis.clicks} />
             <StatCard label="Impressions" kpi={o.kpis.impressions} />
             <StatCard label="Click rate" kpi={o.kpis.ctr} format="pct" />
             <StatCard label="Avg position" kpi={o.kpis.position} format="position" lowerIsBetter hint="Lower is better" />
           </div>
 
-          {/* 3 — The AI action plan: what's working / broken / do next */}
-          <div style={{ marginBottom: 34 }}>
-            <Brief key={range} range={range} enabled={seoBriefConfigured} initial={latestBrief} />
-          </div>
+          {o.hasData ? (
+            <>
+              {/* 3 — What's working / not working */}
+              <section style={{ marginBottom: 36 }}>
+                <Kicker>The read</Kicker>
+                <Title>What&rsquo;s working, what&rsquo;s not</Title>
+                <div style={twoCol}>
+                  <div style={{ border: "1px solid var(--rule)", padding: "16px 18px" }}>
+                    <div className="mono" style={{ ...label, marginBottom: 12 }}>
+                      Working
+                    </div>
+                    <InsightList items={o.insights.working} tone="good" />
+                  </div>
+                  <div style={{ border: "1px solid var(--rule)", padding: "16px 18px" }}>
+                    <div className="mono" style={{ ...label, marginBottom: 12 }}>
+                      Not working
+                    </div>
+                    <InsightList items={o.insights.notWorking} tone="bad" />
+                  </div>
+                </div>
+              </section>
 
-          {/* 4 — A short, plain-English focus list (no tables) */}
+              {/* 4 — Where the traffic comes from */}
+              <section style={{ marginBottom: 36 }}>
+                <Kicker>Where it comes from</Kicker>
+                <Title>Your traffic mix {trafficMetric === "impressions" ? "(by impressions)" : "(by clicks)"}</Title>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16 }}>
+                  <BarGroup title="By page type" items={o.traffic.contentTypes} metric={trafficMetric} />
+                  <BarGroup title="By device" items={o.traffic.devices} metric={trafficMetric} />
+                  <BarGroup title="By country" items={o.traffic.countries} metric={trafficMetric} />
+                </div>
+              </section>
+
+              {/* 5 — The single next best move */}
+              {o.insights.nextBestThing ? (
+                <section style={{ marginBottom: 36 }}>
+                  <div style={{ border: "1px solid var(--accent)", borderLeft: "4px solid var(--accent)", padding: "16px 20px" }}>
+                    <div className="mono" style={{ ...label, color: "var(--accent)", marginBottom: 8 }}>
+                      The next best thing to do
+                    </div>
+                    <p className="serif" style={{ fontSize: 15.5, lineHeight: 1.5, color: "var(--ink)", margin: 0 }}>
+                      {o.insights.nextBestThing}
+                    </p>
+                  </div>
+                </section>
+              ) : null}
+            </>
+          ) : (
+            <Notice>
+              Barely any Search Console data in this window yet — Wortins is still early in Google&rsquo;s index. The
+              read and the traffic mix fill in as more pages get crawled and ranked.
+            </Notice>
+          )}
+
+          {/* 6 — The AI action plan (deep dive, on your subscription) */}
+          <section style={{ marginBottom: 36 }}>
+            <Brief key={range} range={range} enabled={seoBriefConfigured} initial={latestBrief} />
+          </section>
+
+          {/* 7 — Concrete shortlist */}
           {o.hasData ? (
             <section>
-              <div className="mono" style={{ ...label, color: "var(--accent)", marginBottom: 6 }}>
-                Where to focus
-              </div>
-              <h2 className="display" style={{ fontSize: 22, lineHeight: 1.05, color: "var(--ink)", margin: "0 0 18px" }}>
-                Do these next
-              </h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-                <FocusColumn
-                  title="Pages to fix"
-                  hint="Real demand, but Google is either burying them or they're not earning the click."
-                  empty={pagesToFix.length === 0}
-                >
+              <Kicker>Where to focus</Kicker>
+              <Title>The specific fixes</Title>
+              <div style={twoCol}>
+                <FocusColumn title="Pages to fix" hint="Real demand, but Google is either burying them or they're not earning the click." empty={pagesToFix.length === 0}>
                   {pagesToFix.map((p) => (
                     <FocusRow key={p.path} head={p.path} href={p.url} body={pageReason(p)} />
                   ))}
                 </FocusColumn>
-
-                <FocusColumn
-                  title="Keywords within reach"
-                  hint="You already rank on page 2 for these. A nudge gets you to page 1, where the clicks are."
-                  empty={keywords.length === 0}
-                >
+                <FocusColumn title="Keywords within reach" hint="You already rank on page 2 for these. A nudge gets you to page 1, where the clicks are." empty={keywords.length === 0}>
                   {keywords.map((q) => (
-                    <FocusRow
-                      key={q.query}
-                      head={q.query}
-                      body={`Position ${fmtPos(q.position)} · ${fmtNum(q.impressions)} impressions — one step from page 1.`}
-                    />
+                    <FocusRow key={q.query} head={q.query} body={`Position ${fmtPos(q.position)} · ${fmtNum(q.impressions)} impressions — one step from page 1.`} />
                   ))}
                 </FocusColumn>
               </div>
             </section>
-          ) : (
-            <Notice>
-              Barely any Search Console data in this window yet — Wortins is still early in Google&rsquo;s index. The
-              numbers and this list fill in as more pages get crawled and ranked.
-            </Notice>
-          )}
+          ) : null}
         </>
       )}
     </AdminShell>
