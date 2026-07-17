@@ -7,7 +7,7 @@ import {
   SEO_RANGES,
   type SeoRange,
 } from "@/lib/seoData";
-import { seoBriefConfigured } from "@/lib/seoBrief";
+import { seoBriefConfigured, getLatestReadyBrief } from "@/lib/seoBrief";
 import { Brief } from "./Brief";
 import {
   StatCard,
@@ -61,6 +61,8 @@ export default async function SeoPage({
   const sp = await searchParams;
   const range: SeoRange = normalizeRange(sp.range);
   const o = await getSeoOverview(range);
+  // Last completed action plan for this window (the CI job writes these).
+  const latestBrief = await getLatestReadyBrief(range);
 
   const clicksTrend = o.dailyTrend.map((d) => ({ date: d.date, value: d.clicks }));
   const imprTrend = o.dailyTrend.map((d) => ({ date: d.date, value: d.impressions }));
@@ -124,7 +126,7 @@ export default async function SeoPage({
         <>
           {/* AI action plan */}
           <div style={{ marginBottom: 40 }}>
-            <Brief range={range} enabled={seoBriefConfigured} />
+            <Brief key={range} range={range} enabled={seoBriefConfigured} initial={latestBrief} />
           </div>
 
           {!o.hasData ? (
