@@ -2,12 +2,10 @@ name: Bluesky review packet (3x/day)
 
 on:
   schedule:
-    # Morning / afternoon / evening IST, each just after that edition drop lands.
-    # 03:00 UTC = 08:30 IST (morning) · 08:30 UTC = 14:00 IST (afternoon) ·
-    # 13:30 UTC = 19:00 IST (evening). Idempotent per (run_date, slot).
+    # Once a day: 03:00 UTC = 08:30 IST, just after the morning edition drop.
+    # One packet -> you approve the top 3 -> they auto-post 1 hour apart (~3/day).
+    # Add more cron lines here later if you want more packets per day.
     - cron: "0 3 * * *"
-    - cron: "30 8 * * *"
-    - cron: "30 13 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

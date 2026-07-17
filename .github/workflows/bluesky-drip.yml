@@ -1,0 +1,25 @@
+name: Bluesky drip
+
+# Posts any approved-and-due scheduled posts. The heavy lifting lives in the
+# /api/bluesky/drip route (reuses the app's Bluesky posting code); this workflow
+# is just a cheap heartbeat that pokes it, so it costs almost no Actions minutes.
+# Approved posts are spaced 1 hour apart, so a ~20 min tick is plenty of
+# resolution. GitHub cron can run late; that is fine here (the schedule times,
+# not the tick, define the spacing).
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+jobs:
+  drip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Poke the drip endpoint
+        run: |
+          code=$(curl -s -o /tmp/drip.txt -w "%{http_code}" -X POST \
+            "https://www.wortins.com/api/bluesky/drip" \
+            -H "Authorization: Bearer ${{ secrets.BLUESKY_REVIEW_SECRET }}")
+          echo "HTTP $code"; cat /tmp/drip.txt || true
+          if [ "$code" != "200" ]; then echo "drip endpoint returned $code"; exit 1; fi
