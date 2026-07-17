@@ -351,11 +351,14 @@ export async function subscribeNewsletter(
     .maybeSingle();
   if (existing) return { ok: true };
 
-  // New subscriber. Insert and grab the token so the welcome email carries a
+  // New subscriber. We run SINGLE opt-in: submitting the form IS the opt-in, so
+  // we mark `confirmed: true` immediately (there is no separate double-opt-in
+  // email). This keeps the `confirmed` metric honest instead of stranding every
+  // signup at confirmed=false. Grab the token so the welcome email carries a
   // working one-click unsubscribe (same as the daily send).
   const { data: row, error } = await svc
     .from("subscribers")
-    .insert({ email, source: "site" })
+    .insert({ email, source: "site", confirmed: true })
     .select("unsubscribe_token")
     .maybeSingle();
   if (error) {
