@@ -5,19 +5,12 @@ import {
   getSeoOverview,
   normalizeRange,
   SEO_RANGES,
+  type SeoOverview,
   type SeoRange,
 } from "@/lib/seoData";
 import { seoBriefConfigured, getLatestReadyBrief } from "@/lib/seoBrief";
 import { Brief } from "./Brief";
-import {
-  StatCard,
-  Sparkline,
-  SectionTitle,
-  Panel,
-  Notice,
-  QueryTable,
-  PageTable,
-} from "./charts";
+import { StatCard, Notice, fmtNum, fmtPct, fmtPos } from "./charts";
 
 // Reads request cookies + live data on every hit — never cache or prerender.
 export const dynamic = "force-dynamic";
@@ -28,13 +21,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const twoCol: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-  gap: 16,
-};
-
-// Times in IST + UTC (operator is in India). Mirrors the analytics page.
+// Times in IST + UTC (operator is in India).
 function fmtIstUtc(iso: string): string {
   const d = new Date(iso);
   const opts: Intl.DateTimeFormatOptions = {
@@ -49,6 +36,102 @@ function fmtIstUtc(iso: string): string {
   return `${ist} IST · ${utc} UTC`;
 }
 
+// One plain-English sentence about the whole window — the "what's happening".
+function plainSummary(o: SeoOverview, days: number): string {
+  const clicks = o.kpis.clicks.value;
+  const impr = o.kpis.impressions.value;
+  const ctr = o.kpis.ctr.value;
+  const pos = o.kpis.position.value;
+  if (impr === 0) {
+    return `Over the last ${days} days Google hasn't shown Wortins in search results yet — there's nothing to report until impressions start building.`;
+  }
+  const rank =
+    pos <= 10
+      ? `on page 1 (around position ${pos.toFixed(0)})`
+      : pos <= 20
+        ? "on page 2"
+        : `around position ${pos.toFixed(0)}, which is page ${Math.ceil(pos / 10)}`;
+  if (clicks === 0) {
+    return `Over the last ${days} days Wortins appeared in Google ${fmtNum(impr)} times but earned no clicks. You're showing up ${rank} — too low, and the snippets aren't compelling enough, to win the click yet.`;
+  }
+  return `Over the last ${days} days Wortins appeared in Google ${fmtNum(impr)} times and earned ${fmtNum(clicks)} clicks — a ${fmtPct(ctr)} click-through rate. You're getting seen; the job now is turning more of those impressions into clicks. Most pages rank ${rank}.`;
+}
+
+// A plain reason a page needs attention.
+function pageReason(p: { impressions: number; position: number; clicks: number }): string {
+  if (p.position > 15) {
+    return `Seen ${fmtNum(p.impressions)} times but buried around position ${fmtPos(p.position)} — Google isn't ranking it. Strengthen the page (more depth, internal links from your blog).`;
+  }
+  if (p.clicks === 0) {
+    return `Ranks ${fmtPos(p.position)} yet gets no clicks — the title or description isn't pulling. Rewrite it to be more specific and clickable.`;
+  }
+  return `${fmtNum(p.impressions)} impressions at position ${fmtPos(p.position)}.`;
+}
+
+const label: React.CSSProperties = {
+  fontSize: 10,
+  letterSpacing: "0.14em",
+  textTransform: "uppercase",
+  color: "var(--dim)",
+};
+
+// A clean focus row: bold identifier + one plain-English line. No table.
+function FocusRow({ head, href, body }: { head: string; href?: string; body: string }) {
+  const headEl = (
+    <span
+      className="mono"
+      style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}
+      title={head}
+    >
+      {head}
+    </span>
+  );
+  return (
+    <li style={{ padding: "11px 0", borderBottom: "1px solid var(--rule)" }}>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+          {headEl}
+        </a>
+      ) : (
+        headEl
+      )}
+      <span className="serif" style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.4, display: "block", marginTop: 2 }}>
+        {body}
+      </span>
+    </li>
+  );
+}
+
+function FocusColumn({
+  title,
+  hint,
+  children,
+  empty,
+}: {
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+  empty: boolean;
+}) {
+  return (
+    <div style={{ border: "1px solid var(--rule)", padding: "16px 18px" }}>
+      <div className="mono" style={label}>
+        {title}
+      </div>
+      <div className="serif" style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 4, marginBottom: empty ? 0 : 6, lineHeight: 1.35 }}>
+        {hint}
+      </div>
+      {empty ? (
+        <p className="serif" style={{ fontSize: 13, color: "var(--dim)", fontStyle: "italic", margin: "8px 0 0" }}>
+          Nothing to flag in this window yet.
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>{children}</ul>
+      )}
+    </div>
+  );
+}
+
 export default async function SeoPage({
   searchParams,
 }: {
@@ -61,11 +144,10 @@ export default async function SeoPage({
   const sp = await searchParams;
   const range: SeoRange = normalizeRange(sp.range);
   const o = await getSeoOverview(range);
-  // Last completed action plan for this window (the CI job writes these).
   const latestBrief = await getLatestReadyBrief(range);
 
-  const clicksTrend = o.dailyTrend.map((d) => ({ date: d.date, value: d.clicks }));
-  const imprTrend = o.dailyTrend.map((d) => ({ date: d.date, value: d.impressions }));
+  const pagesToFix = o.pages.underperforming.slice(0, 4);
+  const keywords = o.opportunities.strikingDistance.slice(0, 6);
 
   return (
     <AdminShell subtitle="Search Console" active="search">
@@ -77,12 +159,12 @@ export default async function SeoPage({
           alignItems: "center",
           gap: 12,
           flexWrap: "wrap",
-          marginBottom: 10,
+          marginBottom: 6,
         }}
       >
         <div style={{ display: "flex", gap: 8 }}>
           {SEO_RANGES.map((r) => {
-            const activeR = r === range;
+            const on = r === range;
             return (
               <a
                 key={r}
@@ -94,12 +176,12 @@ export default async function SeoPage({
                   textTransform: "uppercase",
                   padding: "7px 13px",
                   textDecoration: "none",
-                  border: `1px solid ${activeR ? "var(--accent)" : "var(--rule)"}`,
-                  background: activeR ? "var(--accent)" : "transparent",
-                  color: activeR ? "var(--onAccent)" : "var(--muted)",
+                  border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`,
+                  background: on ? "var(--accent)" : "transparent",
+                  color: on ? "var(--onAccent)" : "var(--muted)",
                 }}
               >
-                {r}d
+                {r} days
               </a>
             );
           })}
@@ -108,11 +190,8 @@ export default async function SeoPage({
           as of {fmtIstUtc(o.generatedAt)}
         </span>
       </div>
-
-      {/* Data window / latency note */}
-      <p className="mono" style={{ fontSize: 10, letterSpacing: "0.04em", color: "var(--dim)", marginTop: 0, marginBottom: 22 }}>
-        {o.property} · Google finalizes Search data ~2–3 days late, so this window covers{" "}
-        {o.range.currentStart} → {o.range.currentEnd}. Position: lower is better (1 = top of page 1).
+      <p className="mono" style={{ fontSize: 10, letterSpacing: "0.04em", color: "var(--dim)", margin: "0 0 26px" }}>
+        {o.property} · Google finalizes data ~2–3 days late, so this covers {o.range.currentStart} → {o.range.currentEnd}.
       </p>
 
       {!o.configured ? (
@@ -124,109 +203,75 @@ export default async function SeoPage({
         <Notice tone="accent">Search Console request failed: {o.error}</Notice>
       ) : (
         <>
-          {/* AI action plan */}
-          <div style={{ marginBottom: 40 }}>
+          {/* 1 — Plain-English "what's happening" */}
+          <p
+            className="serif"
+            style={{ fontSize: 18, lineHeight: 1.5, color: "var(--ink)", margin: "0 0 26px", maxWidth: 760 }}
+          >
+            {plainSummary(o, range)}
+          </p>
+
+          {/* 2 — The four numbers */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 12,
+              marginBottom: 34,
+            }}
+          >
+            <StatCard label="Clicks" kpi={o.kpis.clicks} />
+            <StatCard label="Impressions" kpi={o.kpis.impressions} />
+            <StatCard label="Click rate" kpi={o.kpis.ctr} format="pct" />
+            <StatCard label="Avg position" kpi={o.kpis.position} format="position" lowerIsBetter hint="Lower is better" />
+          </div>
+
+          {/* 3 — The AI action plan: what's working / broken / do next */}
+          <div style={{ marginBottom: 34 }}>
             <Brief key={range} range={range} enabled={seoBriefConfigured} initial={latestBrief} />
           </div>
 
-          {!o.hasData ? (
-            <div style={{ marginBottom: 32 }}>
-              <Notice>
-                Barely any Search Console data in this window yet — Wortins is still early in Google&rsquo;s index.
-                Impressions will build as more pages get crawled and ranked; check back as the numbers grow.
-              </Notice>
-            </div>
-          ) : null}
+          {/* 4 — A short, plain-English focus list (no tables) */}
+          {o.hasData ? (
+            <section>
+              <div className="mono" style={{ ...label, color: "var(--accent)", marginBottom: 6 }}>
+                Where to focus
+              </div>
+              <h2 className="display" style={{ fontSize: 22, lineHeight: 1.05, color: "var(--ink)", margin: "0 0 18px" }}>
+                Do these next
+              </h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+                <FocusColumn
+                  title="Pages to fix"
+                  hint="Real demand, but Google is either burying them or they're not earning the click."
+                  empty={pagesToFix.length === 0}
+                >
+                  {pagesToFix.map((p) => (
+                    <FocusRow key={p.path} head={p.path} href={p.url} body={pageReason(p)} />
+                  ))}
+                </FocusColumn>
 
-          {/* ---------------- PERFORMANCE ---------------- */}
-          <section style={{ marginBottom: 44 }}>
-            <SectionTitle
-              kicker="Search performance"
-              title="How you show up on Google"
-              note="Clicks are visits from search; impressions are times you appeared; CTR is clicks ÷ impressions; position is your average rank."
-            />
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: 12,
-                marginBottom: 20,
-              }}
-            >
-              <StatCard label="Clicks" kpi={o.kpis.clicks} />
-              <StatCard label="Impressions" kpi={o.kpis.impressions} />
-              <StatCard label="CTR" kpi={o.kpis.ctr} format="pct" />
-              <StatCard label="Avg position" kpi={o.kpis.position} format="position" lowerIsBetter hint="Lower is better" />
-            </div>
-            <div style={twoCol}>
-              <Panel title="Clicks per day">
-                <Sparkline points={clicksTrend} height={80} emptyLabel="No clicks in this window yet." />
-              </Panel>
-              <Panel title="Impressions per day">
-                <Sparkline points={imprTrend} height={80} emptyLabel="Not enough data for a trend yet." />
-              </Panel>
-            </div>
-          </section>
-
-          {/* ---------------- OPPORTUNITIES ---------------- */}
-          <section style={{ marginBottom: 44 }}>
-            <SectionTitle
-              kicker="Opportunities · highest leverage"
-              title="The quickest wins"
-              note="Where a small change should pay off fastest — ranked by existing demand."
-            />
-            <div style={twoCol}>
-              <Panel
-                title="Striking distance (page 2 → page 1)"
-                hint="You rank ~5–20 with real impressions. A content/internal-link nudge can reach page 1, where clicks actually happen."
-              >
-                <QueryTable rows={o.opportunities.strikingDistance} emptyLabel="No page-2 keywords with demand yet." />
-              </Panel>
-              <Panel
-                title="Good rank, poor CTR"
-                hint="You rank in the top ~10 but earn far fewer clicks than the rank deserves — usually a weak title or description you can rewrite today."
-              >
-                <QueryTable rows={o.opportunities.lowCtrWinners} emptyLabel="No obvious title/description problems flagged." />
-              </Panel>
-            </div>
-          </section>
-
-          {/* ---------------- PAGES ---------------- */}
-          <section style={{ marginBottom: 44 }}>
-            <SectionTitle
-              kicker="Pages"
-              title="Which pages earn — and which are stuck"
-              note="Your best performers, and the ones with demand that Google is burying."
-            />
-            <div style={twoCol}>
-              <Panel title="Top pages">
-                <PageTable rows={o.pages.top} emptyLabel="No pages with search data yet." />
-              </Panel>
-              <Panel
-                title="Underperforming pages"
-                hint="High impressions but buried (poor rank), or ranking well yet getting no clicks."
-              >
-                <PageTable rows={o.pages.underperforming} emptyLabel="Nothing obviously underperforming." />
-              </Panel>
-            </div>
-          </section>
-
-          {/* ---------------- MOVERS ---------------- */}
-          <section>
-            <SectionTitle
-              kicker="Momentum"
-              title="What's moving"
-              note="Queries whose average rank rose or fell vs the previous period."
-            />
-            <div style={twoCol}>
-              <Panel title="Rising queries">
-                <QueryTable rows={o.movers.risingQueries} emptyLabel="No clear risers yet." />
-              </Panel>
-              <Panel title="Falling queries">
-                <QueryTable rows={o.movers.decayingQueries} emptyLabel="No clear decliners — nothing slipping." />
-              </Panel>
-            </div>
-          </section>
+                <FocusColumn
+                  title="Keywords within reach"
+                  hint="You already rank on page 2 for these. A nudge gets you to page 1, where the clicks are."
+                  empty={keywords.length === 0}
+                >
+                  {keywords.map((q) => (
+                    <FocusRow
+                      key={q.query}
+                      head={q.query}
+                      body={`Position ${fmtPos(q.position)} · ${fmtNum(q.impressions)} impressions — one step from page 1.`}
+                    />
+                  ))}
+                </FocusColumn>
+              </div>
+            </section>
+          ) : (
+            <Notice>
+              Barely any Search Console data in this window yet — Wortins is still early in Google&rsquo;s index. The
+              numbers and this list fill in as more pages get crawled and ranked.
+            </Notice>
+          )}
         </>
       )}
     </AdminShell>
