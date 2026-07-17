@@ -7,7 +7,7 @@ import {
   ANALYTICS_RANGES,
   type AnalyticsRange,
 } from "@/lib/analyticsData";
-import { briefConfigured } from "@/lib/aiBrief";
+import { getStoredBrief } from "@/lib/brief";
 import { Brief } from "./Brief";
 import {
   StatCard,
@@ -86,7 +86,10 @@ export default async function AnalyticsPage({
 
   const sp = await searchParams;
   const range: AnalyticsRange = normalizeRange(sp.range);
-  const o = await getAnalyticsOverview(range);
+  const [o, storedBrief] = await Promise.all([
+    getAnalyticsOverview(range),
+    getStoredBrief(range),
+  ]);
 
   return (
     <AdminShell subtitle="Analytics" active="analytics">
@@ -132,7 +135,7 @@ export default async function AnalyticsPage({
 
       {/* AI brief */}
       <div style={{ marginBottom: 40 }}>
-        <Brief range={range} enabled={briefConfigured} />
+        <Brief stored={storedBrief} />
       </div>
 
       {/* ---------------- GROWTH ---------------- */}

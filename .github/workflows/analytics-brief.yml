@@ -1,0 +1,44 @@
+name: Analytics brief
+
+# Regenerates the /admin/analytics AI analyst brief and stores it in Supabase.
+# Uses the `claude` CLI on your Claude subscription token (CLAUDE_CODE_OAUTH_TOKEN)
+# — no Anthropic API key, no metered cost. A missed run is harmless (the previous
+# brief keeps showing), so unlike the curator this can rely on GitHub's own cron;
+# workflow_dispatch is always available for an on-demand refresh.
+
+concurrency:
+  group: analytics-brief
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      range:
+        description: "Window to analyze (7 / 28 / 90 days)"
+        type: string
+        default: "28"
+  schedule:
+    - cron: "0 4 * * *" # 04:00 UTC daily (09:30 IST), after the morning drop
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate + store brief
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          APP_URL: https://www.wortins.com
+          RANGE: ${{ github.event.inputs.range || '28' }}
+          BRIEF_MODEL: sonnet
+        run: node .github/scripts/analytics-brief.mjs
