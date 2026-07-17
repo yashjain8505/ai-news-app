@@ -105,40 +105,6 @@ export default function Review({ queue, replies, envKey }: Props) {
 }
 
 function ReviewBody({ queue, replies, envKey }: { queue: QueueRow; replies: ReplyRow[]; envKey: string }) {
-  const candidates = queue.candidates ?? [];
-
-  const [text, setText] = useState<string>(queue.final_text ?? queue.draft_text ?? "");
-  const [slug, setSlug] = useState<string | null>(queue.selected_slug ?? null);
-  const [post, setPost] = useState<PostState>({
-    loading: false,
-    url: queue.posted_uri ? bskyUrl(queue.posted_uri) : null,
-    error: null,
-  });
-  const [done, setDone] = useState<boolean>(queue.status === "posted");
-
-  const over = text.length > MAX;
-
-  async function submitPost() {
-    if (!text.trim() || over || post.loading || done) return;
-    setPost({ loading: true, url: null, error: null });
-    try {
-      const res = await fetch("/api/bluesky/post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: queue.id, key: envKey, text: text.trim(), slug }),
-      });
-      const data = (await res.json()) as { ok?: boolean; url?: string; error?: string };
-      if (!res.ok || !data.ok) {
-        setPost({ loading: false, url: null, error: data.error || `Failed (${res.status}).` });
-        return;
-      }
-      setPost({ loading: false, url: data.url ?? null, error: null });
-      setDone(true);
-    } catch (e) {
-      setPost({ loading: false, url: null, error: e instanceof Error ? e.message : "Network error." });
-    }
-  }
-
   return (
     <div className="cx">
       <style>{CSS}</style>
@@ -147,77 +113,12 @@ function ReviewBody({ queue, replies, envKey }: { queue: QueueRow; replies: Repl
           <span className="logo">W</span>
           <h1>WORTINS → BLUESKY</h1>
           <div className="sub">
-            {queue.run_date} · {queue.slot} · review, edit, post
+            {queue.run_date} · {queue.slot} · review, edit, schedule
           </div>
         </header>
 
-        {/* YOUR POST */}
-        <h2>Your post</h2>
-        <div className={`card${done ? " posted" : ""}`}>
-          <div className="head">
-            <span className="label">Post text</span>
-            <span className={`count${over ? " over" : ""}`}>
-              {text.length} / {MAX}
-            </span>
-          </div>
-          <p className="hint">
-            Edit freely, or pick one of the drafts below. Bluesky caps posts at {MAX} characters.
-          </p>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            disabled={done}
-            spellCheck
-          />
-
-          {candidates.length > 0 && (
-            <div className="chips">
-              {candidates.slice(0, 5).map((c, i) => {
-                const active = slug != null && c.slug === slug;
-                return (
-                  <button
-                    type="button"
-                    key={c.slug ?? i}
-                    className={`chip${active ? " active" : ""}`}
-                    disabled={done}
-                    onClick={() => {
-                      setText(c.draft_text ?? "");
-                      setSlug(c.slug ?? null);
-                    }}
-                  >
-                    <span className="n">{i + 1}</span>
-                    {c.title ?? c.slug ?? `Candidate ${i + 1}`}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="row">
-            <span className="status">
-              {done ? "Posted." : slug ? `Selected: ${slug}` : "No candidate selected."}
-            </span>
-            <button type="button" onClick={submitPost} disabled={done || post.loading || over || !text.trim()}>
-              {done ? "Posted" : post.loading ? "Posting…" : "Post to Bluesky"}
-            </button>
-          </div>
-
-          {post.url && (
-            <p className="row">
-              <span className="ok">
-                Live at{" "}
-                <a href={post.url} target="_blank" rel="noreferrer">
-                  {post.url}
-                </a>
-              </span>
-            </p>
-          )}
-          {post.error && (
-            <p className="row">
-              <span className="err">{post.error}</span>
-            </p>
-          )}
-        </div>
+        {/* YOUR POSTS, auto-post 1 hour apart */}
+        <ScheduleSection queue={queue} envKey={envKey} />
 
         {/* REPLIES */}
         <h2>Reply to {replies.length} posts</h2>
@@ -228,6 +129,128 @@ function ReviewBody({ queue, replies, envKey }: { queue: QueueRow; replies: Repl
         )}
       </div>
     </div>
+  );
+}
+
+type SchedState = { loading: boolean; error: string | null; times: string[] | null };
+
+// Approve the top ~3 candidate posts; they schedule now, +1h, +2h via
+// /api/bluesky/schedule, each linking to its own story page. Editing locks once
+// the queue row has been actioned (status "posted") so a revisit cannot
+// double-schedule.
+function ScheduleSection({ queue, envKey }: { queue: QueueRow; envKey: string }) {
+  const top = (queue.candidates ?? []).slice(0, 3);
+  const already = queue.status === "posted";
+
+  const [texts, setTexts] = useState<string[]>(top.map((c) => c.draft_text ?? ""));
+  const [state, setState] = useState<SchedState>({ loading: false, error: null, times: null });
+  const [done, setDone] = useState<boolean>(already);
+
+  const overAny = texts.some((t) => t.length > MAX);
+  const emptyAny = texts.some((t) => !t.trim());
+  const canSchedule = top.length > 0 && !done && !state.loading && !overAny && !emptyAny;
+
+  function setAt(i: number, value: string) {
+    setTexts((prev) => prev.map((t, j) => (j === i ? value : t)));
+  }
+
+  async function schedule() {
+    if (!canSchedule) return;
+    setState({ loading: true, error: null, times: null });
+    try {
+      const posts = top.map((c, i) => ({ slug: c.slug ?? "", text: texts[i].trim() }));
+      const res = await fetch("/api/bluesky/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: envKey, queueId: queue.id, posts }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        scheduled?: { scheduled_for: string }[];
+        count?: number;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setState({ loading: false, error: data.error || `Failed (${res.status}).`, times: null });
+        return;
+      }
+      setState({
+        loading: false,
+        error: null,
+        times: (data.scheduled ?? []).map((s) => s.scheduled_for),
+      });
+      setDone(true);
+    } catch (e) {
+      setState({ loading: false, error: e instanceof Error ? e.message : "Network error.", times: null });
+    }
+  }
+
+  if (top.length === 0) {
+    return (
+      <>
+        <h2>Your posts</h2>
+        <p className="status">No candidate posts to schedule.</p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h2>Your posts, auto-post 1 hour apart</h2>
+      {already && <p className="status">These posts were already approved and scheduled.</p>}
+      {top.map((c, i) => {
+        const t = texts[i];
+        const over = t.length > MAX;
+        const when = i === 0 ? "now" : `+${i}h`;
+        return (
+          <div className={`card${done ? " posted" : ""}`} key={c.slug ?? i}>
+            <div className="head">
+              <span className="label">
+                Post {i + 1} · {when}
+              </span>
+              <span className={`count${over ? " over" : ""}`}>
+                {t.length} / {MAX}
+              </span>
+            </div>
+            <p className="hint">{c.title ?? c.slug ?? `Story ${i + 1}`}</p>
+            <textarea value={t} onChange={(e) => setAt(i, e.target.value)} disabled={done} spellCheck />
+          </div>
+        );
+      })}
+
+      <div className="row">
+        <span className="status">
+          {done
+            ? "Approved and scheduled."
+            : `${top.length} post${top.length > 1 ? "s" : ""}, posting now, +1h, +2h.`}
+        </span>
+        <button type="button" onClick={schedule} disabled={!canSchedule}>
+          {done ? "Scheduled" : state.loading ? "Scheduling…" : "Approve & schedule"}
+        </button>
+      </div>
+
+      {state.times && state.times.length > 0 && (
+        <p className="row">
+          <span className="ok">
+            Scheduled:{" "}
+            {state.times
+              .map(
+                (iso, i) =>
+                  `${i === 0 ? "now" : `+${i}h`} (${new Date(iso).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })})`
+              )
+              .join(" · ")}
+          </span>
+        </p>
+      )}
+      {state.error && (
+        <p className="row">
+          <span className="err">{state.error}</span>
+        </p>
+      )}
+    </>
   );
 }
 

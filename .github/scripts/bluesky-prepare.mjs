@@ -30,7 +30,9 @@ import { execFileSync } from "node:child_process";
 import { findReplyTargets } from "./lib/bluesky-search.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.supabase.co";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+// Service role for CI (writes); anon is enough for a local DRY_RUN (reads only).
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const DRAFT_MODEL = process.env.DRAFT_MODEL || ""; // blank = account default (what CI already uses)
 const RESEND_KEY = process.env.RESEND_KEY;
 const SITE_URL = (process.env.SITE_URL || "https://www.wortins.com").replace(/\/$/, "");
 const REVIEW_SECRET = process.env.BLUESKY_REVIEW_SECRET || "";
@@ -67,7 +69,9 @@ async function sb(path, init = {}) {
 // ---- Claude drafting (via the CLI; degrades gracefully if unavailable) -------
 function claudeJSON(prompt) {
   try {
-    const out = execFileSync("claude", ["-p", prompt, "--output-format", "text"], {
+    const args = ["-p", prompt, "--output-format", "text"];
+    if (DRAFT_MODEL) args.splice(2, 0, "--model", DRAFT_MODEL);
+    const out = execFileSync("claude", args, {
       encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 180000, env: process.env,
     });
     const m = out.match(/\{[\s\S]*\}/);
@@ -80,22 +84,48 @@ function claudeJSON(prompt) {
 }
 
 function buildPrompt(items, targets) {
-  const itemsList = items.map((it, i) => `${i + 1}. [${it.slug}] ${it.title}\n   ${deDash(it.summary || "")}`).join("\n");
-  const targetsList = targets.map((t, i) => `${i + 1}. @${t.authorHandle}: ${t.text.replace(/\s+/g, " ").slice(0, 220)}`).join("\n");
-  return `You write the Bluesky voice for "Wortins", an AI news brief. Tone: sharp, first-person, opinionated but substantive, no hype, no hashtags, NO em dashes (use commas). Each post/reply must be under 280 characters.
+  const itemsList = items
+    .map((it, i) => `${i + 1}. slug: ${it.slug}\nHEADLINE: ${it.title}\nEDITORIAL TAKE (where the real, specific point lives, mine on this story): ${deDash(it.wortins_take || it.summary || "")}`)
+    .join("\n\n");
+  const targetsList = targets
+    .map((t, i) => `${i + 1}. @${t.authorHandle} posted: "${(t.text || "").replace(/\s+/g, " ").slice(0, 240)}"`)
+    .join("\n");
 
-TODAY'S AI STORIES:
+  return `You ghost-write short Bluesky posts for the person behind Wortins, an independent AI-news brief. You are ONE real person reacting to the day's AI news, not a brand and not a thought-leader. You do not perform cleverness. You say what happened, then what you honestly think or how it landed for you.
+
+Each story below has an EDITORIAL TAKE with the real details. Use it for the facts and the angle.
+
+STRUCTURE, follow it closely:
+1. Open by stating the news plainly, in your own words: name the company or thing and what they did, so the reader gets the story from your first line or two. Factual and short.
+2. Then give YOUR genuine reaction: what you actually think, or how it landed. Honest, personal, a little understated. Lines like "kind of felt this coming", "not surprised honestly", "this is the part that gets me", "been saying this for a while", "kind of grim", "wild". Ground it in the real detail, never vague. It can trail off with "..." if that is the natural beat.
+
+VOICE MODEL, hit exactly this register (news stated, then a real reaction):
+"Bluelearn is shutting down their operations and will no longer be functional. I kind of felt this coming....."
+
+RULES:
+- No em dashes. Under 280 characters. No hashtags, no emoji, no thread bait.
+- Do NOT force a punchline or a neat symmetrical closer. Understated and honest beats clever. A reaction that just trails off is fine.
+- Contractions and lowercase are fine. Slightly rough and human beats polished.
+- The reaction is a real opinion or feeling, not an analyst's "insight" and not a hot-take written for engagement.
+
+BAD (hides the news, strains to sound smart): "A million satellites to run inference in orbit, and the number nobody's answering is the waste heat. A thermal problem cosplaying as a compute story."
+  Why bad: never plainly says what happened, and it is performing a clever take.
+GOOD (states the news, then an honest reaction): "Musk merged xAI into SpaceX and filed to put a million AI-compute satellites in orbit. Wild, and very on brand. I've stopped betting against him, but the heat and bandwidth math on this one really doesn't look real to me..."
+
+TODAY'S STORIES:
 ${itemsList}
 
-FIVE BLUESKY POSTS TO REPLY TO:
+POSTS OTHER PEOPLE MADE THAT YOU COULD REPLY TO:
 ${targetsList}
 
-Return ONLY a JSON object, no prose, shaped exactly:
+For each reply: read what they actually said and give one honest, personal reaction, same plain understated voice. Agree and add something real, or push back for real. Never "great point", never just restate their post, no em dashes, under 280 chars.
+
+Return ONLY a JSON object, no prose around it:
 {
   "selected_slug": "<slug of the single most interesting story to post about>",
-  "post": "<a punchy first-person take on that story, under 280 chars>",
-  "candidates": [ {"slug":"<slug>", "draft":"<a first-person take on this story, under 280 chars>"} , ... up to 5, most interesting first ],
-  "replies": [ "<a thoughtful, human reply to post 1, under 280 chars>", ... exactly ${targets.length} in order ]
+  "post": "<the post: news stated plainly, then your honest reaction>",
+  "candidates": [ {"slug":"<slug>","draft":"<a post, same news-then-reaction shape>"}, ... up to 5, most interesting first ],
+  "replies": [ "<reply to post 1>", ... exactly ${targets.length} in order ]
 }`;
 }
 
@@ -147,20 +177,24 @@ async function main() {
   const dateISO = new Date().toISOString().slice(0, 10);
   console.log(`→ Preparing ${slot} packet for ${dateISO}`);
 
-  if (!FORCE) {
-    const existing = await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}&select=id,status`);
-    if (existing?.length) { console.log(`✓ ${slot} ${dateISO} already prepared (${existing[0].status}). Skipping (FORCE=1 to redo).`); return; }
-  } else {
-    // FORCE: clear any existing packet for this slot so we re-insert cleanly.
-    await sb(`bluesky_reply_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
-    await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+  // A DRY_RUN only drafts + prints: never skip (so you can always preview) and
+  // never delete (so a preview can't wipe the current live packet).
+  if (!DRY_RUN) {
+    if (!FORCE) {
+      const existing = await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}&select=id,status`);
+      if (existing?.length) { console.log(`✓ ${slot} ${dateISO} already prepared (${existing[0].status}). Skipping (FORCE=1 to redo).`); return; }
+    } else {
+      // FORCE: clear any existing packet for this slot so we re-insert cleanly.
+      await sb(`bluesky_reply_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+      await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+    }
   }
 
   // 1. Content
   const latest = await sb("items?is_active=eq.true&edition_date=not.is.null&select=edition_date&order=edition_date.desc&limit=1");
   const editionDate = latest?.[0]?.edition_date;
   if (!editionDate) die("No edition found");
-  const items = await sb(`items?is_active=eq.true&edition_date=eq.${editionDate}&section=eq.daily&select=slug,title,summary,rank&order=rank.asc&limit=12`);
+  const items = await sb(`items?is_active=eq.true&edition_date=eq.${editionDate}&section=eq.daily&select=slug,title,summary,wortins_take,rank&order=rank.asc&limit=12`);
   if (!items?.length) die(`No daily items for ${editionDate}`);
 
   // 2. Reply targets
