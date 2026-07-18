@@ -49,6 +49,33 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+// Build app.bsky.richtext link facets for any URLs in the text, so a pasted
+// wortins.com article link renders as a real clickable link on Bluesky. Offsets
+// are UTF-8 byte positions, per the AT Protocol facet spec.
+type LinkFacet = {
+  index: { byteStart: number; byteEnd: number };
+  features: Array<{ $type: "app.bsky.richtext.facet#link"; uri: string }>;
+};
+function linkFacets(text: string): LinkFacet[] {
+  const facets: LinkFacet[] = [];
+  const enc = new TextEncoder();
+  const re = /https?:\/\/[^\s\])]+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const url = m[0].replace(/[.,;:!?)\]]+$/, ""); // drop trailing punctuation
+    const start = m.index;
+    const end = start + url.length;
+    facets.push({
+      index: {
+        byteStart: enc.encode(text.slice(0, start)).length,
+        byteEnd: enc.encode(text.slice(0, end)).length,
+      },
+      features: [{ $type: "app.bsky.richtext.facet#link", uri: url }],
+    });
+  }
+  return facets;
+}
+
 export async function POST(req: NextRequest): Promise<Response> {
   let body: ReplyBody;
   try {
@@ -109,11 +136,13 @@ export async function POST(req: NextRequest): Promise<Response> {
     handleOrDid = session.handle || did;
 
     const ref = { uri: row.target_uri, cid: row.target_cid };
+    const facets = linkFacets(text);
     const record = {
       $type: "app.bsky.feed.post",
       text,
       createdAt: new Date().toISOString(),
       reply: { root: ref, parent: ref },
+      ...(facets.length ? { facets } : {}),
     };
     const posted = await xrpc<{ uri?: string }>(
       "com.atproto.repo.createRecord",

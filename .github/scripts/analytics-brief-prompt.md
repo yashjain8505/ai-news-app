@@ -10,7 +10,6 @@ HARD rules — follow exactly:
 - "working" and "notWorking": exactly 2–3 items each.
 - "doNext": exactly 3 items. action = max ~8 words, imperative, specific to Wortins (a section, page, channel, or flow). why = one short clause, max ~10 words, or "".
 - No hedging, no filler, no restating raw numbers, no jargon. Punchy.
-- Growth is the primary lens: at least one item (across working/notWorking) and the #1 doNext must be about acquisition or the visitor→signup funnel — where traffic comes from and whether it converts — not only in-app sections.
 - If the sample is too small to trust, say it once in "caveat" (max ~14 words), else "".
 
 Respond with ONLY this JSON object — no prose, no markdown fence:

@@ -67,33 +67,6 @@ export type SeoPage = {
   prevClicks: number | null;
 };
 
-// A traffic source — a device, a country, or a content-type bucket.
-export type NamedMetric = { name: string; clicks: number; impressions: number };
-export type ContentBucket = NamedMetric & { key: string; pages: number };
-
-// "Where your clicks come from" — bucketed by page type, plus device + country.
-export type SeoTraffic = {
-  contentTypes: ContentBucket[];
-  devices: NamedMetric[];
-  countries: NamedMetric[];
-};
-
-// A few glanceable, plain-English counts.
-export type SeoReach = {
-  keywords: number; // distinct searches you appear for (>=3 impressions)
-  page1: number; // ...ranking on page 1 (position <= 10)
-  page2: number; // ...ranking on page 2 (position 11–20) — within reach
-  pagesSeen: number; // pages that got any impressions
-  pagesClicked: number; // ...that earned at least one click
-};
-
-// Deterministic, always-present analysis. The AI plan goes deeper on demand.
-export type SeoInsights = {
-  working: string[];
-  notWorking: string[];
-  nextBestThing: string | null;
-};
-
 export type SeoOverview = {
   configured: boolean;
   property: string;
@@ -129,9 +102,6 @@ export type SeoOverview = {
     risingQueries: SeoQuery[];
     decayingQueries: SeoQuery[];
   };
-  traffic: SeoTraffic;
-  reach: SeoReach;
-  insights: SeoInsights;
 };
 
 // --- expected-CTR curve ------------------------------------------------------
@@ -198,100 +168,6 @@ function avgPosition(rows: GscRow[]): number {
   return imp > 0 ? weighted / imp : 0;
 }
 
-// Bucket a page path into a human content-type. Wortins' surfaces: /blog posts,
-// /story pages, /section landing pages, /edition archives, the home page.
-function contentBucket(path: string): { key: string; label: string } {
-  if (path === "/") return { key: "home", label: "Home page" };
-  if (path.startsWith("/blog")) return { key: "blog", label: "Blog posts" };
-  if (path.startsWith("/story")) return { key: "story", label: "Story pages" };
-  if (path.startsWith("/section")) return { key: "section", label: "Section pages" };
-  if (path.startsWith("/edition") || path.startsWith("/daily")) return { key: "edition", label: "Daily editions" };
-  return { key: "other", label: "Other pages" };
-}
-
-const titleCase = (s: string): string =>
-  s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
-
-// GSC's country dimension is an ISO-3166-1 alpha-3 code ("ind", "usa"). Name the
-// common ones; fall back to the upper-cased code.
-const COUNTRY_NAMES: Record<string, string> = {
-  ind: "India", usa: "United States", gbr: "United Kingdom", can: "Canada",
-  aus: "Australia", deu: "Germany", fra: "France", nld: "Netherlands",
-  sgp: "Singapore", are: "UAE", pak: "Pakistan", bgd: "Bangladesh",
-  bra: "Brazil", esp: "Spain", ita: "Italy", jpn: "Japan", kor: "South Korea",
-  idn: "Indonesia", phl: "Philippines", nga: "Nigeria", zaf: "South Africa",
-  irl: "Ireland", che: "Switzerland", swe: "Sweden", isr: "Israel",
-};
-const countryName = (code: string): string =>
-  COUNTRY_NAMES[(code || "").toLowerCase()] ?? (code || "Unknown").toUpperCase();
-
-const pctOf = (part: number, whole: number): number =>
-  whole > 0 ? Math.round((part / whole) * 100) : 0;
-
-// Deterministic "what's working / what's not / next best thing" — always present,
-// grounded strictly in this window's numbers (the AI plan goes deeper on demand).
-function deriveInsights(a: {
-  days: number;
-  kpis: { clicks: Kpi; impressions: Kpi; ctr: Kpi; position: Kpi };
-  totalClicks: number;
-  totalImpr: number;
-  contentTypes: ContentBucket[];
-  topPages: SeoPage[];
-  pages: SeoPage[];
-  strikingDistance: SeoQuery[];
-  decayingQueries: SeoQuery[];
-}): SeoInsights {
-  const { days, kpis, totalClicks, totalImpr, contentTypes, topPages, pages, strikingDistance, decayingQueries } = a;
-  const n = (x: number) => Math.round(x).toLocaleString("en-US");
-  const working: string[] = [];
-  const notWorking: string[] = [];
-
-  // --- what's working ---
-  if (kpis.impressions.deltaPct !== null && kpis.impressions.deltaPct >= 15)
-    working.push(`Visibility is climbing — you showed up ${kpis.impressions.deltaPct}% more often than the previous ${days} days.`);
-  if (kpis.clicks.deltaPct !== null && kpis.clicks.deltaPct >= 15)
-    working.push(`Clicks are growing — up ${kpis.clicks.deltaPct}% vs the previous period.`);
-  if (kpis.position.deltaPct !== null && kpis.position.deltaPct <= -5)
-    working.push(`Your average rank is improving — from position ${kpis.position.prev} to ${kpis.position.value}.`);
-  const topCT = contentTypes.find((c) => c.clicks > 0);
-  if (topCT)
-    working.push(`Your ${topCT.name.toLowerCase()} pull the most traffic — ${n(topCT.clicks)} of ${n(totalClicks)} clicks (${pctOf(topCT.clicks, totalClicks)}%).`);
-  const topPage = topPages.find((p) => p.clicks > 0);
-  if (topPage && working.length < 4)
-    working.push(`${topPage.path} is your single biggest click source (${n(topPage.clicks)} clicks at position ${topPage.position.toFixed(1)}).`);
-
-  // --- what's not working ---
-  const ctr = kpis.ctr.value;
-  if (totalImpr >= 100 && ctr < 0.02)
-    notWorking.push(`You're seen far more than you're clicked — a ${(ctr * 100).toFixed(1)}% click rate turns ${n(totalImpr)} impressions into just ${n(totalClicks)} clicks.`);
-  const buried = pages
-    .filter((p) => p.impressions >= 20 && p.position > 15)
-    .sort((x, y) => y.impressions - x.impressions)[0];
-  if (buried)
-    notWorking.push(`${buried.path} has real demand (${n(buried.impressions)} impressions) but ranks around position ${buried.position.toFixed(0)} — Google is burying it.`);
-  const zeroClick = pages.filter((p) => p.position <= 10 && p.clicks === 0 && p.impressions >= 20);
-  if (zeroClick.length)
-    notWorking.push(`${zeroClick.length} page${zeroClick.length === 1 ? "" : "s"} rank on page 1 but earn no clicks — each is a title/description you can rewrite today.`);
-  const decay = decayingQueries.find((q) => q.prevPosition !== null && q.position - (q.prevPosition as number) >= 3);
-  if (decay && notWorking.length < 4)
-    notWorking.push(`"${decay.query}" is slipping — from position ${(decay.prevPosition as number).toFixed(0)} to ${decay.position.toFixed(0)}.`);
-
-  // --- the one next best thing ---
-  let nextBestThing: string | null = null;
-  if (strikingDistance.length >= 4) {
-    const eg = strikingDistance.slice(0, 2).map((q) => `"${q.query}"`).join(" and ");
-    nextBestThing = `Push your page-2 keywords onto page 1. You rank just short of the first page for ${strikingDistance.length} searches (like ${eg}) — a little more depth on those pages plus internal links could move several up to where the clicks actually are.`;
-  } else if (zeroClick.length >= 2) {
-    nextBestThing = `Rewrite your titles. ${zeroClick.length} pages already rank on page 1 but get no clicks — more specific, clickable titles and descriptions are the single fastest win.`;
-  } else if (buried) {
-    nextBestThing = `Rescue ${buried.path}. It has your most untapped demand (${n(buried.impressions)} impressions) but sits on page ${Math.ceil(buried.position / 10)} — beef it up and link to it from your best posts.`;
-  } else if (totalImpr > 0 && totalClicks === 0) {
-    nextBestThing = `Keep publishing and building links. You're getting indexed and seen, but nothing ranks high enough to click yet — consistency is the play.`;
-  }
-
-  return { working: working.slice(0, 4), notWorking: notWorking.slice(0, 4), nextBestThing };
-}
-
 const EMPTY: Omit<SeoOverview, "range" | "generatedAt" | "property"> = {
   configured: false,
   error: null,
@@ -307,9 +183,6 @@ const EMPTY: Omit<SeoOverview, "range" | "generatedAt" | "property"> = {
   opportunities: { strikingDistance: [], lowCtrWinners: [] },
   pages: { top: [], underperforming: [] },
   movers: { risingQueries: [], decayingQueries: [] },
-  traffic: { contentTypes: [], devices: [], countries: [] },
-  reach: { keywords: 0, page1: 0, page2: 0, pagesSeen: 0, pagesClicked: 0 },
-  insights: { working: [], notWorking: [], nextBestThing: null },
 };
 
 // --- ranges + orchestration --------------------------------------------------
@@ -351,8 +224,6 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       curPages,
       prevPages,
       byDate,
-      byCountry,
-      byDevice,
     ] = await Promise.all([
       searchAnalytics({ ...current, dataState: "final" }),
       searchAnalytics({ ...previous, dataState: "final" }),
@@ -361,8 +232,6 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       searchAnalytics({ ...current, dimensions: ["page"], rowLimit: BIG, dataState: "final" }),
       searchAnalytics({ ...previous, dimensions: ["page"], rowLimit: BIG, dataState: "final" }),
       searchAnalytics({ ...current, dimensions: ["date"], rowLimit: 1000, dataState: "final" }),
-      searchAnalytics({ ...current, dimensions: ["country"], rowLimit: 250, dataState: "final" }),
-      searchAnalytics({ ...current, dimensions: ["device"], rowLimit: 10, dataState: "final" }),
     ]);
 
     const ct = curTotals[0];
@@ -475,51 +344,6 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // --- traffic: where the clicks come from ---------------------------------
-    const buckets = new Map<string, ContentBucket>();
-    for (const p of pages) {
-      const b = contentBucket(p.path);
-      const cur = buckets.get(b.key) ?? { key: b.key, name: b.label, clicks: 0, impressions: 0, pages: 0 };
-      cur.clicks += p.clicks;
-      cur.impressions += p.impressions;
-      cur.pages += 1;
-      buckets.set(b.key, cur);
-    }
-    const byClicks = (a: NamedMetric, b: NamedMetric) => b.clicks - a.clicks || b.impressions - a.impressions;
-    const traffic: SeoTraffic = {
-      contentTypes: [...buckets.values()].sort(byClicks),
-      devices: byDevice
-        .map((r) => ({ name: titleCase(r.keys[0]), clicks: r.clicks, impressions: r.impressions }))
-        .sort(byClicks),
-      countries: byCountry
-        .map((r) => ({ name: countryName(r.keys[0]), clicks: r.clicks, impressions: r.impressions }))
-        .sort(byClicks)
-        .slice(0, 5),
-    };
-
-    // --- reach: glanceable counts --------------------------------------------
-    const seenQueries = queries.filter((q) => q.impressions >= 3);
-    const reach: SeoReach = {
-      keywords: seenQueries.length,
-      page1: seenQueries.filter((q) => q.position <= 10).length,
-      page2: seenQueries.filter((q) => q.position > 10 && q.position <= 20).length,
-      pagesSeen: pages.filter((p) => p.impressions > 0).length,
-      pagesClicked: pages.filter((p) => p.clicks > 0).length,
-    };
-
-    // --- insights: what's working / not / next -------------------------------
-    const insights = deriveInsights({
-      days,
-      kpis,
-      totalClicks: ct?.clicks ?? 0,
-      totalImpr: ct?.impressions ?? 0,
-      contentTypes: traffic.contentTypes,
-      topPages,
-      pages,
-      strikingDistance,
-      decayingQueries,
-    });
-
     const hasData = (ct?.impressions ?? 0) > 0 || queries.length > 0;
 
     return {
@@ -532,9 +356,6 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       opportunities: { strikingDistance, lowCtrWinners },
       pages: { top: topPages, underperforming },
       movers: { risingQueries, decayingQueries },
-      traffic,
-      reach,
-      insights,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "GSC request failed";
