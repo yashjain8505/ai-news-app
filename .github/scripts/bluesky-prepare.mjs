@@ -206,17 +206,24 @@ async function main() {
   const items = await sb(`items?is_active=eq.true&edition_date=eq.${editionDate}&section=eq.daily&select=slug,title,summary,wortins_take,rank&order=rank.asc&limit=12`);
   if (!items?.length) die(`No daily items for ${editionDate}`);
 
+  // Later slots skip stories already scheduled earlier today, so the afternoon
+  // and evening packets carry fresh news instead of repeating the morning's.
+  const already = await sb(`bluesky_scheduled?run_date=eq.${dateISO}&select=story_slug`).catch(() => []);
+  const usedSlugs = new Set((already || []).map((r) => r.story_slug));
+  const freshPool = items.filter((it) => !usedSlugs.has(it.slug));
+  const stories = freshPool.length ? freshPool : items;
+
   // 2. Reply targets
   let targets = [];
   try { targets = await findReplyTargets({ limit: 5 }); } catch (e) { console.warn(`⚠ search failed: ${e.message}`); }
-  console.log(`→ ${items.length} stories · ${targets.length} reply targets`);
+  console.log(`→ ${stories.length} fresh stories of ${items.length} · ${targets.length} reply targets`);
 
   // 3. Drafts
-  const drafted = (targets.length ? claudeJSON(buildPrompt(items, targets)) : null) || fallbackDrafts(items, targets);
-  const bySlug = Object.fromEntries(items.map((it) => [it.slug, it]));
+  const drafted = (targets.length ? claudeJSON(buildPrompt(stories, targets)) : null) || fallbackDrafts(stories, targets);
+  const bySlug = Object.fromEntries(stories.map((it) => [it.slug, it]));
   const candidates = (drafted.candidates || []).map((c) => ({ slug: c.slug, title: bySlug[c.slug]?.title || c.slug, summary: bySlug[c.slug]?.summary || "", draft_text: deDash(c.draft || "") }));
-  const postText = deDash(drafted.post || candidates[0]?.draft_text || items[0].title);
-  const selectedSlug = drafted.selected_slug || items[0].slug;
+  const postText = deDash(drafted.post || candidates[0]?.draft_text || stories[0].title);
+  const selectedSlug = drafted.selected_slug || stories[0].slug;
 
   console.log("─".repeat(56));
   console.log(`POST: ${postText}`);
