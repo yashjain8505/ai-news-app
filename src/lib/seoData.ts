@@ -14,7 +14,15 @@ import "server-only";
 // windows, graceful degradation) so /admin/seo is a true sibling of
 // /admin/analytics. Callers MUST verify isAdmin() first — same contract.
 
-import { searchAnalytics, gscConfigured, gscProperty, isoDay, type GscRow } from "@/lib/gsc";
+import {
+  searchAnalytics,
+  listSitemaps,
+  gscConfigured,
+  gscProperty,
+  isoDay,
+  type GscRow,
+  type Sitemap,
+} from "@/lib/gsc";
 
 // --- shared shapes (kept identical to analyticsData.ts) ----------------------
 
@@ -94,6 +102,48 @@ export type SeoInsights = {
   nextBestThing: string | null;
 };
 
+// A single ranked recommendation with an estimated weekly click gain. This is
+// the heart of the "Plan" view — what to actually do, biggest payoff first.
+export type SeoPlay = {
+  kind: "retitle" | "push" | "rescue" | "publish";
+  action: string; // imperative one-liner ("Rewrite the title for /blog/…")
+  target: string; // the page path or query it concerns
+  targetUrl: string | null; // clickable url when it's a page
+  why: string; // one plain-English sentence: the evidence + the how
+  perWeekClicks: number; // estimated extra clicks/week if done (0 = unquantified)
+  effort: "quick win" | "bigger project";
+};
+
+// Presence + click movement vs the previous window — the "what changed" story.
+export type SeoDelta = {
+  name: string;
+  url: string | null;
+  clicks: number;
+  impressions: number;
+  position: number;
+};
+export type SeoWhatChanged = {
+  newQueries: SeoDelta[]; // searches you started appearing for
+  lostQueries: SeoDelta[]; // searches you dropped out of
+  newPages: SeoDelta[]; // pages that started getting impressions
+  gainers: SeoQuery[]; // biggest click gains (present in both windows)
+  fallers: SeoQuery[]; // biggest click losses
+};
+
+// Indexing & sitemap health. Honest about what a "Full" (non-Owner) service
+// account can actually see: we can't call URL Inspection, so "indexed" here means
+// "appearing in Google search" (inferred from Search Analytics), which is real
+// but only counts pages with demand. Sitemap listing may be denied → null.
+export type SeoHealth = {
+  sitemaps: Sitemap[] | null; // null = couldn't read (likely needs Owner access)
+  sitemapsReadable: boolean;
+  sitemapOk: boolean; // at least one sitemap read recently with no errors
+  pagesIndexedSeen: number; // distinct pages appearing in search (inferred indexed)
+  pagesSubmitted: number | null; // total URLs across sitemaps (often 0/unknown)
+  searchAppearances: NamedMetric[]; // rich-result / special appearance types, if any
+  note: string | null; // permission caveat to surface in the UI
+};
+
 export type SeoOverview = {
   configured: boolean;
   property: string;
@@ -106,6 +156,13 @@ export type SeoOverview = {
   };
   generatedAt: string;
   hasData: boolean;
+  // The one-line bottom line: are you growing, and what's the single biggest
+  // lever right now. Rendered as the hero sentence on the Plan view.
+  verdict: string;
+  // Ranked "do this now", biggest estimated click payoff first.
+  plays: SeoPlay[];
+  whatChanged: SeoWhatChanged;
+  health: SeoHealth;
   // NOTE: for `position`, LOWER is better — a negative deltaPct is an IMPROVEMENT.
   // The UI/brief invert the coloring for this one KPI.
   kpis: { clicks: Kpi; impressions: Kpi; ctr: Kpi; position: Kpi };
@@ -212,6 +269,10 @@ function contentBucket(path: string): { key: string; label: string } {
 const titleCase = (s: string): string =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
+// GSC search-appearance keys look like "AMP_TOP_STORIES" / "PAGE_EXPERIENCE".
+const prettyAppearance = (k: string): string =>
+  (k || "").toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 // GSC's country dimension is an ISO-3166-1 alpha-3 code ("ind", "usa"). Name the
 // common ones; fall back to the upper-cased code.
 const COUNTRY_NAMES: Record<string, string> = {
@@ -292,10 +353,147 @@ function deriveInsights(a: {
   return { working: working.slice(0, 4), notWorking: notWorking.slice(0, 4), nextBestThing };
 }
 
+const lowerFirst = (s: string): string => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+// Build the ranked action list. Every play carries an ESTIMATED weekly click
+// gain so the list sorts by real payoff — deliberately conservative (rounded,
+// floored) because inflated numbers would erode trust. The estimate uses the
+// expected-CTR curve: fixing CTR or rank moves you from where you are to a
+// realistic target, and the delta × impressions (normalized to /week) is the prize.
+function derivePlays(a: {
+  days: number;
+  pages: SeoPage[];
+  strikingDistance: SeoQuery[];
+}): SeoPlay[] {
+  const { days, pages, strikingDistance } = a;
+  const perWeek = (windowClicks: number) => Math.max(0, Math.round((windowClicks / days) * 7));
+  const n = (x: number) => Math.round(x).toLocaleString("en-US");
+  const cands: SeoPlay[] = [];
+
+  // 1. RETITLE — ranks on page 1 but earns far fewer clicks than the rank
+  //    deserves. The single fastest win: rewrite the title/description today.
+  for (const p of pages) {
+    if (p.impressions < 15 || p.position > 10) continue;
+    const exp = expectedCtr(p.position);
+    if (p.ctr >= exp * 0.6) continue; // already clicking about as well as expected
+    const gain = p.impressions * (exp - p.ctr);
+    if (gain < 1) continue;
+    const clickPart =
+      p.clicks === 0
+        ? `hasn't earned a single click yet`
+        : `only ${(p.ctr * 100).toFixed(1)}% of people click`;
+    cands.push({
+      kind: "retitle",
+      action: `Rewrite the title & description for ${p.path}`,
+      target: p.path,
+      targetUrl: p.url,
+      why: `It ranks at position ${p.position.toFixed(0)} — page 1 — but ${clickPart}. A sharper, more specific title is a same-day fix.`,
+      perWeekClicks: perWeek(gain),
+      effort: "quick win",
+    });
+  }
+
+  // 2. PUSH — page-2 keywords with real demand, one nudge from page 1 where
+  //    almost all the clicks are. Target a realistic position 8.
+  for (const q of strikingDistance) {
+    if (q.position <= 10) continue;
+    const gain = q.impressions * Math.max(0, expectedCtr(8) - q.ctr);
+    if (gain < 1) continue;
+    cands.push({
+      kind: "push",
+      action: `Push "${q.query}" onto page 1`,
+      target: `q:${q.query}`,
+      targetUrl: null,
+      why: `You rank around position ${q.position.toFixed(0)} for this — just off page 1. More depth on the page that ranks, plus a couple of internal links, can lift it into the clicks.`,
+      perWeekClicks: perWeek(gain),
+      effort: "quick win",
+    });
+  }
+
+  // 3. RESCUE — buried pages (page 2+) with the most untapped demand. Bigger job
+  //    than a retitle; estimate the prize of reaching the bottom of page 1.
+  for (const p of pages) {
+    if (p.impressions < 20 || p.position <= 15) continue;
+    const gain = p.impressions * Math.max(0, expectedCtr(10) - p.ctr);
+    if (gain < 1) continue;
+    cands.push({
+      kind: "rescue",
+      action: `Rescue ${p.path} — it's buried on page ${Math.ceil(p.position / 10)}`,
+      target: p.path,
+      targetUrl: p.url,
+      why: `It's been seen ${n(p.impressions)} times but sits around position ${p.position.toFixed(0)}. Expand it and link to it from your strongest posts to pull it up.`,
+      perWeekClicks: perWeek(gain),
+      effort: "bigger project",
+    });
+  }
+
+  // Dedupe by target (a page can be both a retitle and a rescue) — keep the
+  // higher-payoff framing — then rank by estimated weekly clicks.
+  const byTarget = new Map<string, SeoPlay>();
+  for (const c of cands) {
+    const ex = byTarget.get(c.target);
+    if (!ex || c.perWeekClicks > ex.perWeekClicks) byTarget.set(c.target, c);
+  }
+  const plays = [...byTarget.values()].sort((x, y) => y.perWeekClicks - x.perWeekClicks);
+
+  // Nothing specific? Give the honest structural play rather than a fake number.
+  if (plays.length === 0) {
+    plays.push({
+      kind: "publish",
+      action: "Keep publishing and earning links",
+      target: "site",
+      targetUrl: null,
+      why: "There's no single obvious quick win in the data yet — you're indexed and being seen, but nothing ranks high enough to click. Consistency (more posts, more internal links) is the play.",
+      perWeekClicks: 0,
+      effort: "bigger project",
+    });
+  }
+
+  return plays.slice(0, 6);
+}
+
+// The hero sentence: growing or not + the single biggest lever, in plain English.
+function deriveVerdict(a: {
+  hasData: boolean;
+  clicksDelta: number | null;
+  topPlay: SeoPlay | undefined;
+}): string {
+  const { hasData, clicksDelta: c, topPlay } = a;
+  if (!hasData)
+    return "No search clicks or impressions in this period yet — keep publishing, and check back once Google has more to show.";
+
+  let trend: string;
+  if (c === null) trend = "You're starting to pull clicks from Google search.";
+  else if (c >= 10) trend = `You're growing — clicks are up ${c}% vs the previous period.`;
+  else if (c <= -10) trend = `Traffic dipped — clicks are down ${Math.abs(c)}% vs the previous period.`;
+  else trend = "Traffic is holding roughly steady vs the previous period.";
+
+  if (topPlay) {
+    const gain =
+      topPlay.perWeekClicks > 0
+        ? ` (about ${topPlay.perWeekClicks} more click${topPlay.perWeekClicks === 1 ? "" : "s"} a week)`
+        : "";
+    return `${trend} Your biggest lever right now: ${lowerFirst(topPlay.action)}${gain}.`;
+  }
+  return trend;
+}
+
 const EMPTY: Omit<SeoOverview, "range" | "generatedAt" | "property"> = {
   configured: false,
   error: null,
   hasData: false,
+  verdict: "",
+  plays: [],
+  whatChanged: { newQueries: [], lostQueries: [], newPages: [], gainers: [], fallers: [] },
+  health: {
+    sitemaps: null,
+    sitemapsReadable: false,
+    sitemapOk: false,
+    pagesIndexedSeen: 0,
+    pagesSubmitted: null,
+    searchAppearances: [],
+    note: null,
+  },
   kpis: {
     clicks: { value: 0, prev: 0, deltaPct: 0 },
     impressions: { value: 0, prev: 0, deltaPct: 0 },
@@ -342,7 +540,9 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
 
   const BIG = 25000;
   try {
-    // GSC has no batch endpoint, so fan out the seven queries in parallel.
+    // GSC has no batch endpoint, so fan out every query in parallel. The last two
+    // (search-appearance + sitemaps) may legitimately fail on a non-Owner account,
+    // so they self-catch rather than take the whole page down with them.
     const [
       curTotals,
       prevTotals,
@@ -353,6 +553,8 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       byDate,
       byCountry,
       byDevice,
+      curAppearance,
+      sitemapsResult,
     ] = await Promise.all([
       searchAnalytics({ ...current, dataState: "final" }),
       searchAnalytics({ ...previous, dataState: "final" }),
@@ -363,6 +565,10 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       searchAnalytics({ ...current, dimensions: ["date"], rowLimit: 1000, dataState: "final" }),
       searchAnalytics({ ...current, dimensions: ["country"], rowLimit: 250, dataState: "final" }),
       searchAnalytics({ ...current, dimensions: ["device"], rowLimit: 10, dataState: "final" }),
+      searchAnalytics({ ...current, dimensions: ["searchAppearance"], rowLimit: 25, dataState: "final" }).catch(
+        () => [] as GscRow[],
+      ),
+      listSitemaps().catch(() => null),
     ]);
 
     const ct = curTotals[0];
@@ -465,6 +671,35 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       .slice(0, 8)
       .map((x) => x.q);
 
+    // --- what changed: presence + click movement vs the previous window ------
+    const curQKeys = new Set(curQueries.map((r) => r.keys[0]));
+    const asDelta = (r: GscRow, isPage: boolean): SeoDelta => ({
+      name: isPage ? stripOrigin(r.keys[0]) : r.keys[0],
+      url: isPage ? r.keys[0] : null,
+      clicks: r.clicks,
+      impressions: r.impressions,
+      position: r.position,
+    });
+    const byImpr = (a: GscRow, b: GscRow) => b.impressions - a.impressions;
+    const newQueries = curQueries
+      .filter((r) => r.impressions >= 3 && !prevQByKey.has(r.keys[0]))
+      .sort(byImpr).slice(0, 10).map((r) => asDelta(r, false));
+    const lostQueries = prevQueries
+      .filter((r) => r.impressions >= 3 && !curQKeys.has(r.keys[0]))
+      .sort(byImpr).slice(0, 10).map((r) => asDelta(r, false));
+    const newPages = curPages
+      .filter((r) => r.impressions >= 3 && !prevPByKey.has(r.keys[0]))
+      .sort(byImpr).slice(0, 10).map((r) => asDelta(r, true));
+    const clickMovers = queries
+      .filter((q) => q.prevClicks !== null)
+      .map((q) => ({ q, d: q.clicks - (q.prevClicks as number) }));
+    const gainers = clickMovers.filter((x) => x.d >= 1).sort((a, b) => b.d - a.d).slice(0, 8).map((x) => x.q);
+    const fallers = clickMovers.filter((x) => x.d <= -1).sort((a, b) => a.d - b.d).slice(0, 8).map((x) => x.q);
+    const whatChanged: SeoWhatChanged = { newQueries, lostQueries, newPages, gainers, fallers };
+
+    // --- plays: the ranked action list ---------------------------------------
+    const plays = derivePlays({ days, pages, strikingDistance });
+
     const dailyTrend: SeoTrendPoint[] = byDate
       .map((r) => ({
         date: r.keys[0],
@@ -507,6 +742,33 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
       pagesClicked: pages.filter((p) => p.clicks > 0).length,
     };
 
+    // --- health: indexing & sitemaps (honest about non-Owner limits) ----------
+    const searchAppearances: NamedMetric[] = curAppearance
+      .map((r) => ({ name: prettyAppearance(r.keys[0]), clicks: r.clicks, impressions: r.impressions }))
+      .sort(byClicks);
+    const sitemapErrors = sitemapsResult ? sitemapsResult.reduce((s, m) => s + m.errors, 0) : 0;
+    const pagesSubmitted =
+      sitemapsResult && sitemapsResult.length
+        ? sitemapsResult.reduce((s, m) => s + m.submitted, 0) || null
+        : null;
+    const health: SeoHealth = {
+      sitemaps: sitemapsResult,
+      sitemapsReadable: sitemapsResult !== null,
+      sitemapOk: Boolean(
+        sitemapsResult &&
+          sitemapsResult.length &&
+          sitemapErrors === 0 &&
+          sitemapsResult.some((m) => m.lastDownloaded),
+      ),
+      pagesIndexedSeen: reach.pagesSeen,
+      pagesSubmitted,
+      searchAppearances,
+      note:
+        sitemapsResult === null
+          ? "Full per-URL indexing status needs Owner access to this property in Search Console. Below is what we can confirm from the search data you already appear in."
+          : null,
+    };
+
     // --- insights: what's working / not / next -------------------------------
     const insights = deriveInsights({
       days,
@@ -522,10 +784,20 @@ export async function getSeoOverview(days: SeoRange): Promise<SeoOverview> {
 
     const hasData = (ct?.impressions ?? 0) > 0 || queries.length > 0;
 
+    const verdict = deriveVerdict({
+      hasData,
+      clicksDelta: kpis.clicks.deltaPct,
+      topPlay: plays[0],
+    });
+
     return {
       ...base,
       configured: true,
       hasData,
+      verdict,
+      plays,
+      whatChanged,
+      health,
       kpis,
       dailyTrend,
       topQueries,

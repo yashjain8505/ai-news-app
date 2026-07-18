@@ -218,6 +218,72 @@ export async function searchAnalytics(q: SearchAnalyticsQuery): Promise<GscRow[]
   }));
 }
 
+// --- sitemaps ----------------------------------------------------------------
+
+// One submitted sitemap, flattened from the Sitemaps API. `submitted`/`indexed`
+// sum the per-content-type counts Google reports; `indexed` is often 0 even for
+// healthy sitemaps (Google stopped populating it reliably), so treat a present
+// `lastDownloaded` + zero errors as the real "it's being read" signal.
+export type Sitemap = {
+  path: string;
+  lastSubmitted: string | null;
+  lastDownloaded: string | null;
+  isPending: boolean;
+  isSitemapsIndex: boolean;
+  warnings: number;
+  errors: number;
+  submitted: number;
+};
+
+// List submitted sitemaps for the property. Returns null (not []) when the call
+// fails — a "Full" (non-Owner) service account may be denied here, and null lets
+// the UI say "couldn't read sitemaps" instead of the wrong "no sitemap submitted".
+// An empty array is a real answer: the property has no sitemaps submitted.
+export async function listSitemaps(): Promise<Sitemap[] | null> {
+  if (!gscConfigured) return null;
+  let token: string;
+  try {
+    token = await getAccessToken();
+  } catch {
+    return null;
+  }
+  const url = `${API}/sites/${encodeURIComponent(PROPERTY)}/sitemaps`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+
+  if (!res || !res.ok) return null;
+
+  const json = (await res.json().catch(() => null)) as {
+    sitemap?: {
+      path?: string;
+      lastSubmitted?: string;
+      lastDownloaded?: string;
+      isPending?: boolean;
+      isSitemapsIndex?: boolean;
+      warnings?: string | number;
+      errors?: string | number;
+      contents?: { submitted?: string | number }[];
+    }[];
+  } | null;
+  if (!json) return null;
+
+  return (json.sitemap ?? []).map((s) => ({
+    path: s.path ?? "",
+    lastSubmitted: s.lastSubmitted ?? null,
+    lastDownloaded: s.lastDownloaded ?? null,
+    isPending: Boolean(s.isPending),
+    isSitemapsIndex: Boolean(s.isSitemapsIndex),
+    warnings: Number(s.warnings ?? 0),
+    errors: Number(s.errors ?? 0),
+    submitted: (s.contents ?? []).reduce(
+      (acc, c) => acc + Number(c.submitted ?? 0),
+      0,
+    ),
+  }));
+}
+
 // --- date helpers ------------------------------------------------------------
 
 // GSC wants YYYY-MM-DD in the property's timezone (America/Los_Angeles for GSC).
