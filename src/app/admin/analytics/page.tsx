@@ -8,7 +8,7 @@ import {
   type AnalyticsRange,
 } from "@/lib/analyticsData";
 import { getStoredBrief } from "@/lib/brief";
-import { Brief, type BriefSnapshot } from "./Brief";
+import { Brief } from "./Brief";
 import {
   StatCard,
   BarList,
@@ -91,22 +91,6 @@ export default async function AnalyticsPage({
     getStoredBrief(range),
   ]);
 
-  // Plain, always-accurate numbers for the summary card (computed live, not LLM).
-  const topSectionRow = [...o.product.sections].sort(
-    (a, b) => b.interactions - a.interactions
-  )[0];
-  const snapshot: BriefSnapshot = {
-    gaConfigured: o.ga.configured,
-    visitors: o.ga.kpis.users.value,
-    visitorsDeltaPct: o.ga.kpis.users.deltaPct,
-    signups: o.product.totalUsers,
-    activeThisWeek: o.product.activeThisWeek,
-    subscribers: o.newsletter.subscribers,
-    channels: o.ga.channels.slice(0, 3),
-    topSection:
-      topSectionRow && topSectionRow.interactions > 0 ? topSectionRow.label : null,
-  };
-
   return (
     <AdminShell subtitle="Analytics" active="analytics">
       {/* Range selector + freshness */}
@@ -151,7 +135,7 @@ export default async function AnalyticsPage({
 
       {/* AI brief */}
       <div style={{ marginBottom: 40 }}>
-        <Brief stored={storedBrief} snapshot={snapshot} />
+        <Brief stored={storedBrief} />
       </div>
 
       {/* ---------------- GROWTH ---------------- */}
