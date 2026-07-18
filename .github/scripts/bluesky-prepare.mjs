@@ -127,6 +127,8 @@ ${targetsList}
 
 For each reply: read what they actually said and give one clear, honest, specific reaction. Agree and add a real point, or push back for real, in plain language. Never "great point", never just restate their post, never a fake-deep closer, no em dashes, under 290 chars.
 
+LINKING (use sparingly): for a FEW replies, ONLY where one of TODAY'S STORIES above is genuinely relevant to what the person said, you may mention it naturally and paste its link. The link is https://www.wortins.com/story/<slug> using that exact story's slug. Phrase it like you are sharing something you read, e.g. "we actually covered this, worth a look: <link>" or "there's a good rundown on it here: <link>". Never salesy, never forced, and leave MOST replies with no link at all. If nothing fits, do not link.
+
 Return ONLY a JSON object, no prose around it:
 {
   "selected_slug": "<slug of the single most interesting story to post about>",

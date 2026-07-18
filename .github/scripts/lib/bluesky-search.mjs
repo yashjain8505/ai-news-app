@@ -54,6 +54,28 @@ const MIN_LIKES = 3; // some traction, but not so viral we're shouting into a mo
 const MAX_AGE_MS = 2 * 24 * 60 * 60 * 1000; // posted within the last ~2 days
 const TOPICS_PER_RUN = 6; // how many of the rotating topics to actually query
 const PER_QUERY = 25; // results to pull per query before filtering
+const SORTS = ["latest", "top"]; // pull recent AND top, so normal people (not
+                                 // just the viral big accounts) surface
+
+// Reply to normal people, not media brands or big names. Look up each candidate
+// author's follower count and keep only human-scale accounts.
+const MAX_FOLLOWERS = 20_000; // above this it reads as a brand / news org / big name
+const MIN_FOLLOWERS = 25; // below this the reply reaches almost no one
+
+// Backstop for outlet/brand handles that might sit under the follower cap.
+const HANDLE_DENYLIST = new Set([
+  "forbes.com","techcrunch.com","theverge.com","wired.com","404media.co",
+  "bloomberg.com","reuters.com","nytimes.com","wsj.com","cnbc.com","ft.com",
+  "businessinsider.com","engadget.com","arstechnica.com","axios.com",
+  "theinformation.com","venturebeat.com","mashable.com","gizmodo.com","cnn.com",
+  "bbc.com","bbc.co.uk","theguardian.com","washingtonpost.com","politico.com",
+  "semafor.com","fastcompany.com","zdnet.com","techmeme.com","time.com",
+]);
+function isBrandHandle(handle) {
+  const h = (handle || "").toLowerCase();
+  if (HANDLE_DENYLIST.has(h)) return true;
+  return /\b(news|media|newsroom|magazine|press)\b/.test(h);
+}
 
 function normalizeHandle(v) {
   if (!v) return null;
@@ -68,7 +90,7 @@ function normalizeHandle(v) {
 // Tries each AppView host in turn so a per-host block (see APPVIEW_HOSTS) doesn't
 // sink the query; throws with the last error only if every host fails.
 async function xrpcGet(nsid, params) {
-  const qs = new URLSearchParams(params).toString();
+  const qs = typeof params === "string" ? params : new URLSearchParams(params).toString();
   let lastErr;
   for (const host of APPVIEW_HOSTS) {
     try {
@@ -83,6 +105,24 @@ async function xrpcGet(nsid, params) {
     }
   }
   throw new Error(`Bluesky ${nsid} failed on all hosts: ${lastErr?.message || "unknown"}`);
+}
+
+// Look up follower counts for a batch of authors (getProfiles takes 25 actors
+// per call). Returns a Map of lowercased handle -> followersCount.
+async function fetchFollowerCounts(dids) {
+  const counts = new Map();
+  for (let i = 0; i < dids.length; i += 25) {
+    const qs = dids.slice(i, i + 25).map((d) => `actors=${encodeURIComponent(d)}`).join("&");
+    try {
+      const data = await xrpcGet("app.bsky.actor.getProfiles", qs);
+      for (const p of data?.profiles || []) {
+        if (p?.handle) counts.set(p.handle.toLowerCase(), p.followersCount ?? 0);
+      }
+    } catch (err) {
+      console.error(`  ! getProfiles chunk failed: ${err.message}`);
+    }
+  }
+  return counts;
 }
 
 // Fisher–Yates, so the topic rotation is actually random across runs.
@@ -157,36 +197,55 @@ export async function findReplyTargets({ limit = 5, session = null } = {}) {
 
   const byUri = new Map();
   for (const topic of topics) {
-    // Defensive: one failing query must not kill the whole run.
-    try {
-      const data = await xrpcGet("app.bsky.feed.searchPosts", {
-        q: topic,
-        limit: String(PER_QUERY),
-        sort: "top",
-        lang: "en",
-      });
-      for (const post of data?.posts || []) {
-        if (!isGoodTarget(post, nowMs)) continue;
-        // De-dupe by uri; keep whichever copy reports more likes.
-        const existing = byUri.get(post.uri);
-        if (!existing || (post.likeCount || 0) > (existing.likeCount || 0)) {
-          byUri.set(post.uri, post);
+    for (const sort of SORTS) {
+      // Defensive: one failing query must not kill the whole run.
+      try {
+        const data = await xrpcGet("app.bsky.feed.searchPosts", {
+          q: topic,
+          limit: String(PER_QUERY),
+          sort,
+          lang: "en",
+        });
+        for (const post of data?.posts || []) {
+          if (!isGoodTarget(post, nowMs)) continue;
+          // De-dupe by uri; keep whichever copy reports more likes.
+          const existing = byUri.get(post.uri);
+          if (!existing || (post.likeCount || 0) > (existing.likeCount || 0)) {
+            byUri.set(post.uri, post);
+          }
         }
+      } catch (err) {
+        console.error(`  ! searchPosts "${topic}"/${sort} failed: ${err.message}`);
       }
-    } catch (err) {
-      console.error(`  ! searchPosts "${topic}" failed: ${err.message}`);
     }
   }
 
-  // Rank by likeCount desc, then keep at most one post per author.
-  const ranked = [...byUri.values()].sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+  // The whole point: reply to normal people, not brands or big names. Look up
+  // follower counts and keep only human-scale accounts (plus the brand denylist).
+  const candidates = [...byUri.values()];
+  const dids = [...new Set(candidates.map((p) => p.author?.did).filter(Boolean))];
+  const followers = await fetchFollowerCounts(dids);
+  const haveFollowerData = followers.size > 0;
+  const human = candidates.filter((post) => {
+    const handle = (post.author?.handle || "").toLowerCase();
+    if (isBrandHandle(handle)) return false;
+    if (!haveFollowerData) return true; // profile lookup failed; don't over-filter to zero
+    const f = followers.get(handle);
+    if (f == null) return false; // can't confirm human-scale; leave it out
+    return f >= MIN_FOLLOWERS && f <= MAX_FOLLOWERS;
+  });
+
+  // Rank by likeCount desc (best posts among normal people), one per author.
+  const ranked = human.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
   const seenAuthors = new Set();
   const out = [];
   for (const post of ranked) {
     const handle = (post.author?.handle || "").toLowerCase();
     if (seenAuthors.has(handle)) continue;
     seenAuthors.add(handle);
-    out.push(toTarget(post));
+    const target = toTarget(post);
+    target.followerCount = followers.get(handle) ?? null;
+    out.push(target);
     if (out.length >= limit) break;
   }
   return out;
@@ -215,7 +274,7 @@ if (isMain) {
       }
       console.log(`Found ${targets.length} reply target(s):\n`);
       targets.forEach((t, i) => {
-        console.log(`${i + 1}. @${t.authorHandle} (${t.authorDisplay}) · ♥ ${t.likeCount} · ${t.createdAt}`);
+        console.log(`${i + 1}. @${t.authorHandle} (${t.authorDisplay}) · ♥ ${t.likeCount} · ${t.followerCount ?? "?"} followers · ${t.createdAt}`);
         console.log(`   ${t.text.replace(/\s+/g, " ").slice(0, 180)}`);
         console.log(`   ${t.url}`);
         console.log("");
