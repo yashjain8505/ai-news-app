@@ -2,10 +2,14 @@ name: Bluesky review packet (3x/day)
 
 on:
   schedule:
-    # Once a day: 03:00 UTC = 08:30 IST, just after the morning edition drop.
-    # One packet -> you approve the top 3 -> they auto-post 1 hour apart (~3/day).
-    # Add more cron lines here later if you want more packets per day.
+    # Three packets a day, each just after that edition drop lands, so the
+    # afternoon and evening ones carry the fresh news (not a repeat of morning):
+    # 03:00 UTC = 08:30 IST (morning) · 08:30 UTC = 14:00 IST (afternoon) ·
+    # 13:30 UTC = 19:00 IST (evening). Each: you approve the top 3, they drip 1h
+    # apart. The prepare script skips stories already scheduled earlier today.
     - cron: "0 3 * * *"
+    - cron: "30 8 * * *"
+    - cron: "30 13 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
