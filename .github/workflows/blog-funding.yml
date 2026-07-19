@@ -1,0 +1,103 @@
+name: Blog — funding posts
+
+# Turns AI funding rounds the curator has already captured (the `funding` section)
+# into full per-company blog deep-dives, and opens a PR for review — so the /blog
+# corpus grows automatically instead of by hand. PR-mode: nothing goes live until
+# a human merges. Runs on a schedule (below) and on demand.
+concurrency:
+  group: blog-funding
+  cancel-in-progress: false
+
+on:
+  # Auto-run twice a week, off the daily curator's slots. GitHub's scheduler can
+  # occasionally drop a run — low-stakes here (a miss just defers posts to the
+  # next run). Point cron-job.org at this workflow if you want guaranteed timing.
+  schedule:
+    - cron: "0 20 * * 1,4" # Mon & Thu 20:00 UTC (01:30 IST Tue/Fri)
+  workflow_dispatch:
+    inputs:
+      max_posts:
+        description: "Max new posts to draft this run"
+        type: string
+        default: "5"
+      write_model:
+        description: "Model for the writing pass (sonnet is plenty; opus for max quality)"
+        type: string
+        default: "sonnet"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # PASS 1 — Haiku RESEARCHES: reads the curated funding items, finds the ones
+      # with no blog post yet, web-enriches each, writes /tmp/blog-candidates.json.
+      - name: Gather funding candidates (Haiku)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MAX_POSTS: ${{ github.event.inputs.max_posts || '5' }}
+        run: |
+          claude -p "$(cat .github/scripts/blog-funding-gather-prompt.md)" \
+            --model haiku \
+            --output-format json \
+            --dangerously-skip-permissions \
+            --max-turns 80 | tee /tmp/gather_out.json >/dev/null
+          echo "===== GATHER (Haiku) USAGE ====="
+          jq -r '"input=\(.usage.input_tokens // 0) output=\(.usage.output_tokens // 0) cost_usd=\(.total_cost_usd // 0) turns=\(.num_turns // 0)"' /tmp/gather_out.json 2>/dev/null || echo "(usage not parseable)"
+
+      - name: Count candidates
+        id: count
+        run: |
+          n=$(jq 'length' /tmp/blog-candidates.json 2>/dev/null || echo 0)
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+          echo "candidates: $n"
+
+      # PASS 2 — writer turns each candidate into a full post file. Skipped if the
+      # researcher found nothing new (so no empty PR is opened).
+      - name: Write posts
+        if: ${{ steps.count.outputs.n != '0' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          claude -p "$(cat .github/scripts/blog-funding-write-prompt.md)" \
+            --model "${{ github.event.inputs.write_model || 'sonnet' }}" \
+            --output-format json \
+            --dangerously-skip-permissions \
+            --max-turns 60 | tee /tmp/write_out.json >/dev/null
+          echo "===== WRITE USAGE ====="
+          jq -r '"input=\(.usage.input_tokens // 0) output=\(.usage.output_tokens // 0) cost_usd=\(.total_cost_usd // 0) turns=\(.num_turns // 0)"' /tmp/write_out.json 2>/dev/null || echo "(usage not parseable)"
+          echo "new/changed blog files:"; git status --porcelain content/blog | sed 's/^/  /'
+
+      - name: Open pull request
+        if: ${{ steps.count.outputs.n != '0' }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: content/blog/*.md
+          branch: auto/funding-blogs
+          delete-branch: true
+          commit-message: "Blog: auto-drafted funding deep-dives"
+          title: "Blog: auto-drafted funding deep-dives"
+          body: |
+            Automated draft posts from `blog-funding.yml` — one per AI funding round
+            the curator captured that had no blog page yet, enriched from sources and
+            written in Wortins' voice.
+
+            **Review before merging:** spot-check the amounts, valuations, investors,
+            and internal links against the cited source. Merging deploys them.
+          labels: |
+            blog
+            automated
