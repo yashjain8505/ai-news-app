@@ -3,13 +3,17 @@ name: Blog — funding posts
 # Turns AI funding rounds the curator has already captured (the `funding` section)
 # into full per-company blog deep-dives, and opens a PR for review — so the /blog
 # corpus grows automatically instead of by hand. PR-mode: nothing goes live until
-# a human merges. Trigger manually, or point cron-job.org at it (the app's other
-# scheduled jobs use GitHub's own cron unreliably, so we don't schedule here).
+# a human merges. Runs on a schedule (below) and on demand.
 concurrency:
   group: blog-funding
   cancel-in-progress: false
 
 on:
+  # Auto-run twice a week, off the daily curator's slots. GitHub's scheduler can
+  # occasionally drop a run — low-stakes here (a miss just defers posts to the
+  # next run). Point cron-job.org at this workflow if you want guaranteed timing.
+  schedule:
+    - cron: "0 20 * * 1,4" # Mon & Thu 20:00 UTC (01:30 IST Tue/Fri)
   workflow_dispatch:
     inputs:
       max_posts:
