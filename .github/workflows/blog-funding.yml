@@ -82,8 +82,27 @@ jobs:
           jq -r '"input=\(.usage.input_tokens // 0) output=\(.usage.output_tokens // 0) cost_usd=\(.total_cost_usd // 0) turns=\(.num_turns // 0)"' /tmp/write_out.json 2>/dev/null || echo "(usage not parseable)"
           echo "new/changed blog files:"; git status --porcelain content/blog | sed 's/^/  /'
 
-      - name: Open pull request
+      # PASS 3 — HTTP-verify each drafted post's cited source and DELETE any whose
+      # source is dead (404/410/unreachable) so a fabricated citation never ships.
+      # Bot-blocks (401/403/429) and transient 5xx are kept. Composes the PR body.
+      - name: Verify sources + drop bad posts
+        id: verify
         if: ${{ steps.count.outputs.n != '0' }}
+        run: |
+          node .github/scripts/verify-blog.mjs
+          kept=$(git ls-files --others --exclude-standard -- content/blog | grep -c '\.md$' || true)
+          echo "kept=$kept" >> "$GITHUB_OUTPUT"
+          echo "posts surviving verification: $kept"
+          {
+            echo "Automated drafts from \`blog-funding.yml\` — one per AI funding round the curator captured that had no blog page yet, enriched from sources and written in Wortins' voice. Every cited source was HTTP-verified below."
+            echo ""
+            cat /tmp/verify-blog.md 2>/dev/null || true
+            echo ""
+            echo "**Review before merging:** spot-check amounts, valuations, and investors against the cited source. Merging deploys them live."
+          } > /tmp/pr-body.md
+
+      - name: Open pull request
+        if: ${{ steps.verify.outputs.kept != '0' && steps.verify.outputs.kept != '' }}
         uses: peter-evans/create-pull-request@v7
         with:
           add-paths: content/blog/*.md
@@ -91,13 +110,7 @@ jobs:
           delete-branch: true
           commit-message: "Blog: auto-drafted funding deep-dives"
           title: "Blog: auto-drafted funding deep-dives"
-          body: |
-            Automated draft posts from `blog-funding.yml` — one per AI funding round
-            the curator captured that had no blog page yet, enriched from sources and
-            written in Wortins' voice.
-
-            **Review before merging:** spot-check the amounts, valuations, investors,
-            and internal links against the cited source. Merging deploys them.
+          body-path: /tmp/pr-body.md
           labels: |
             blog
             automated
