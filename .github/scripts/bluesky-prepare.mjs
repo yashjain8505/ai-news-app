@@ -186,12 +186,11 @@ async function main() {
   // never delete (so a preview can't wipe the current live packet).
   if (!DRY_RUN) {
     if (!FORCE) {
-      const existing = await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}&select=id,status`);
-      if (existing?.length) { console.log(`✓ ${slot} ${dateISO} already prepared (${existing[0].status}). Skipping (FORCE=1 to redo).`); return; }
+      const existing = await sb(`bluesky_scheduled?run_date=eq.${dateISO}&slot=eq.${slot}&select=id&limit=1`);
+      if (existing?.length) { console.log(`✓ ${slot} ${dateISO} already scheduled. Skipping (FORCE=1 to redo).`); return; }
     } else {
-      // FORCE: clear any existing packet for this slot so we re-insert cleanly.
-      await sb(`bluesky_reply_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
-      await sb(`bluesky_queue?run_date=eq.${dateISO}&slot=eq.${slot}`, { method: "DELETE" }).catch(() => {});
+      // FORCE: clear this slot's still-pending scheduled rows so we re-insert cleanly.
+      await sb(`bluesky_scheduled?run_date=eq.${dateISO}&slot=eq.${slot}&status=eq.pending`, { method: "DELETE" }).catch(() => {});
     }
   }
 
@@ -246,13 +245,15 @@ async function main() {
     .map((t, i) => ({ t, text: deDash(drafted.replies?.[i] || "") }))
     .filter((r) => r.text && r.t.uri && r.t.cid);
 
+  // Uniform keys across every row (PostgREST bulk insert requires it): posts
+  // carry story_slug, replies carry reply_uri/reply_cid, the rest stay null.
   const rows = [
     ...posts.map((c, i) => ({
-      run_date: dateISO, slot, kind: "post", story_slug: c.slug,
+      run_date: dateISO, slot, kind: "post", story_slug: c.slug, reply_uri: null, reply_cid: null,
       text: c.draft_text, scheduled_for: at(i * 60), status: "pending",
     })),
     ...replyRows.map((r, i) => ({
-      run_date: dateISO, slot, kind: "reply", reply_uri: r.t.uri, reply_cid: r.t.cid,
+      run_date: dateISO, slot, kind: "reply", story_slug: null, reply_uri: r.t.uri, reply_cid: r.t.cid,
       text: r.text, scheduled_for: at(30 + i * 60), status: "pending",
     })),
   ];
