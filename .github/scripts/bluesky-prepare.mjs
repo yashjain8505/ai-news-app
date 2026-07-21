@@ -152,21 +152,17 @@ function fallbackDrafts(items, targets) {
 // ---- email ------------------------------------------------------------------
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-function renderEmail({ reviewUrl, post, candidates, replies, targets, slot, dateISO }) {
-  const cand = candidates.map((c) => `<li style="margin:0 0 6px"><b>${esc(c.title || c.slug)}</b></li>`).join("");
-  const reps = targets.map((t, i) => `<div style="padding:8px 0;border-bottom:1px solid #e6dcc4"><div style="color:#6a6052;font-size:12px">@${esc(t.authorHandle)}</div><div style="font-size:13px;color:#3a342a">${esc((t.text || "").slice(0, 160))}</div><div style="font-size:13px;color:#1b1712;margin-top:3px"><b>Draft reply:</b> ${esc(replies[i] || "(write your own)")}</div></div>`).join("");
+function renderEmail({ slot, dateISO, posts, replyRows }) {
+  const postList = posts.map((c, i) => `<div style="padding:8px 0;border-bottom:1px solid #e6dcc4"><div style="color:#6a6052;font-size:12px">Post ${i + 1} · +${i}h</div><div style="font-size:14px;color:#1b1712;line-height:1.5">${esc(c.draft_text)}</div></div>`).join("");
+  const replyList = replyRows.map((r) => `<div style="padding:8px 0;border-bottom:1px solid #e6dcc4"><div style="color:#6a6052;font-size:12px">Reply to @${esc(r.t.authorHandle)}</div><div style="font-size:14px;color:#1b1712;line-height:1.5">${esc(r.text)}</div></div>`).join("");
   return `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#1b1712">
     <div style="font-family:monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9c2b1d">Wortins on Bluesky · ${esc(slot)} · ${esc(dateISO)}</div>
-    <h2 style="font-size:18px;margin:8px 0 4px">Your take, ready to review</h2>
-    <div style="background:#fbf6e9;border:1px solid #d8ccb2;border-radius:8px;padding:12px 14px;font-size:15px;line-height:1.5">${esc(post)}</div>
-    <p style="font-size:13px;color:#6a6052;margin:14px 0 4px">Other stories you could post instead:</p>
-    <ul style="font-size:14px;padding-left:18px;margin:0">${cand}</ul>
-    <h3 style="font-size:15px;margin:20px 0 6px">5 posts to reply to</h3>
-    ${reps}
-    <div style="text-align:center;margin:26px 0">
-      <a href="${reviewUrl}" style="background:#9c2b1d;color:#f3ecda;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:700">Review &amp; post →</a>
-    </div>
-    <p style="font-size:12px;color:#938a76">Edit anything on the page before it posts. Nothing goes out until you click Post.</p>
+    <h2 style="font-size:18px;margin:8px 0 4px">Auto-posting today</h2>
+    <p style="font-size:13px;color:#6a6052;margin:0 0 12px">These are scheduled to post automatically over the next couple of hours. If one is off, delete it on Bluesky.</p>
+    <h3 style="font-size:15px;margin:16px 0 6px">Posts</h3>
+    ${postList || '<p style="font-size:13px;color:#938a76">None.</p>'}
+    <h3 style="font-size:15px;margin:20px 0 6px">Replies</h3>
+    ${replyList || '<p style="font-size:13px;color:#938a76">None.</p>'}
   </div>`;
 }
 
@@ -219,7 +215,9 @@ async function main() {
   console.log(`→ ${stories.length} fresh stories of ${items.length} · ${targets.length} reply targets`);
 
   // 3. Drafts
-  const drafted = (targets.length ? claudeJSON(buildPrompt(stories, targets)) : null) || fallbackDrafts(stories, targets);
+  const ai = targets.length ? claudeJSON(buildPrompt(stories, targets)) : null;
+  const drafted = ai || fallbackDrafts(stories, targets);
+  const isAI = !!ai;
   const bySlug = Object.fromEntries(stories.map((it) => [it.slug, it]));
   const candidates = (drafted.candidates || []).map((c) => ({ slug: c.slug, title: bySlug[c.slug]?.title || c.slug, summary: bySlug[c.slug]?.summary || "", draft_text: deDash(c.draft || "") }));
   const postText = deDash(drafted.post || candidates[0]?.draft_text || stories[0].title);
@@ -230,29 +228,41 @@ async function main() {
   drafted.replies?.forEach((r, i) => console.log(`REPLY ${i + 1} -> @${targets[i]?.authorHandle}: ${deDash(r)}`));
   console.log("─".repeat(56));
 
-  if (DRY_RUN) { console.log("\n[DRY RUN] Nothing written or emailed."); return; }
+  if (DRY_RUN) { console.log("\n[DRY RUN] Nothing scheduled or emailed."); return; }
 
-  // 4. Write the queues
-  const [queued] = await sb("bluesky_queue", {
-    method: "POST", headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ run_date: dateISO, slot, status: "pending", draft_text: postText, candidates, selected_slug: selectedSlug }),
-  });
-  const queueId = queued?.id;
-  if (targets.length) {
-    await sb("bluesky_reply_queue", {
-      method: "POST", headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(targets.map((t, i) => ({
-        run_date: dateISO, slot, target_uri: t.uri, target_cid: t.cid, target_author: t.authorHandle,
-        target_text: (t.text || "").slice(0, 500), target_url: t.url, draft_reply: deDash(drafted.replies?.[i] || ""), status: "pending",
-      }))),
-    });
+  // Full auto: only ship real Claude drafts, never the headline-only fallback.
+  if (!isAI) {
+    console.log("⚠ Claude drafting unavailable; skipping this slot (nothing auto-posted).");
+    return;
   }
 
-  // 5. Email the review link
-  const reviewUrl = `${SITE_URL}/social?id=${queueId}&key=${encodeURIComponent(REVIEW_SECRET)}`;
-  const html = renderEmail({ reviewUrl, post: postText, candidates, replies: drafted.replies || [], targets, slot, dateISO });
-  await sendEmail(`Your Bluesky drafts · ${slot} · ${dateISO}`, html);
-  console.log(`✓ Prepared. Review: ${reviewUrl.replace(REVIEW_SECRET, "…")}`);
+  // 4. Auto-schedule the top 3 posts + top 3 replies into the drip queue, spaced
+  // ~30 min apart so the account never fires a burst. The drip endpoint posts
+  // each once it comes due (posts get a story link card; replies are threaded).
+  const base = Date.now();
+  const at = (min) => new Date(base + min * 60000).toISOString();
+  const posts = candidates.slice(0, 3).filter((c) => c.slug && c.draft_text);
+  const replyRows = targets.slice(0, 3)
+    .map((t, i) => ({ t, text: deDash(drafted.replies?.[i] || "") }))
+    .filter((r) => r.text && r.t.uri && r.t.cid);
+
+  const rows = [
+    ...posts.map((c, i) => ({
+      run_date: dateISO, slot, kind: "post", story_slug: c.slug,
+      text: c.draft_text, scheduled_for: at(i * 60), status: "pending",
+    })),
+    ...replyRows.map((r, i) => ({
+      run_date: dateISO, slot, kind: "reply", reply_uri: r.t.uri, reply_cid: r.t.cid,
+      text: r.text, scheduled_for: at(30 + i * 60), status: "pending",
+    })),
+  ];
+  if (!rows.length) { console.log("Nothing to schedule."); return; }
+  await sb("bluesky_scheduled", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(rows) });
+
+  // 5. Notification email (informational; nothing to approve).
+  const html = renderEmail({ slot, dateISO, posts, replyRows });
+  await sendEmail(`Wortins on Bluesky: ${posts.length} posts + ${replyRows.length} replies auto-scheduled (${slot})`, html);
+  console.log(`✓ Auto-scheduled ${posts.length} posts + ${replyRows.length} replies for ${slot} ${dateISO}.`);
 }
 
 main().catch((e) => die(e.message));

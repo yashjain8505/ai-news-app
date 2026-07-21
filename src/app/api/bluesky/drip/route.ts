@@ -36,9 +36,38 @@ type BskyExternal = {
 
 type ScheduledRow = {
   id: string;
-  story_slug: string;
+  kind: string; // 'post' | 'reply'
+  story_slug: string | null;
+  reply_uri: string | null;
+  reply_cid: string | null;
   text: string;
 };
+
+// app.bsky.richtext link facets for any URLs in the text (byte offsets), so an
+// article link in a reply renders clickable. Mirrors the reply route.
+type LinkFacet = {
+  index: { byteStart: number; byteEnd: number };
+  features: Array<{ $type: "app.bsky.richtext.facet#link"; uri: string }>;
+};
+function linkFacets(text: string): LinkFacet[] {
+  const facets: LinkFacet[] = [];
+  const enc = new TextEncoder();
+  const re = /https?:\/\/[^\s\])]+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const url = m[0].replace(/[.,;:!?)\]]+$/, "");
+    const start = m.index;
+    const end = start + url.length;
+    facets.push({
+      index: {
+        byteStart: enc.encode(text.slice(0, start)).length,
+        byteEnd: enc.encode(text.slice(0, end)).length,
+      },
+      features: [{ $type: "app.bsky.richtext.facet#link", uri: url }],
+    });
+  }
+  return facets;
+}
 
 // Same xrpc helper as post/route.ts: POST JSON to the PDS, throw on non-2xx.
 async function xrpc<T = unknown>(
@@ -117,7 +146,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Due = pending and scheduled_for at or before now, oldest first.
   const { data: due, error: dueErr } = await svc
     .from("bluesky_scheduled")
-    .select("id, story_slug, text")
+    .select("id, kind, story_slug, reply_uri, reply_cid, text")
     .eq("status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .order("scheduled_for", { ascending: true })
@@ -155,40 +184,52 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   for (const row of due) {
     try {
-      // Best-effort link card to this story's own page. Missing item copy falls
-      // back to sensible defaults; the post always links to /story/<slug>.
-      const { data: item } = await svc
-        .from("items")
-        .select("title, summary, image_url")
-        .eq("slug", row.story_slug)
-        .eq("is_active", true)
-        .maybeSingle<{
-          title: string | null;
-          summary: string | null;
-          image_url: string | null;
-        }>();
-
-      const external: BskyExternal = {
-        uri: `${SITE_URL}/story/${row.story_slug}`,
-        title: clip(item?.title || "Wortins", 120),
-        description: clip(
-          item?.summary ||
-            "The day's most interesting AI news, tuned to you.",
-          200
-        ),
-      };
-      if (item?.image_url) {
-        const thumb = await uploadThumb(item.image_url, accessJwt);
-        if (thumb) external.thumb = thumb;
+      let record: Record<string, unknown>;
+      if (row.kind === "reply") {
+        // Reply to the target post, with clickable link facets for any URL.
+        if (!row.reply_uri || !row.reply_cid) {
+          throw new Error("reply row missing target uri/cid");
+        }
+        const ref = { uri: row.reply_uri, cid: row.reply_cid };
+        const facets = linkFacets(row.text);
+        record = {
+          $type: "app.bsky.feed.post",
+          text: row.text,
+          createdAt: new Date().toISOString(),
+          reply: { root: ref, parent: ref },
+          ...(facets.length ? { facets } : {}),
+        };
+      } else {
+        // Post with a link card to this story's own /story/<slug> page.
+        const { data: item } = await svc
+          .from("items")
+          .select("title, summary, image_url")
+          .eq("slug", row.story_slug || "")
+          .eq("is_active", true)
+          .maybeSingle<{
+            title: string | null;
+            summary: string | null;
+            image_url: string | null;
+          }>();
+        const external: BskyExternal = {
+          uri: `${SITE_URL}/story/${row.story_slug}`,
+          title: clip(item?.title || "Wortins", 120),
+          description: clip(
+            item?.summary || "The day's most interesting AI news, tuned to you.",
+            200
+          ),
+        };
+        if (item?.image_url) {
+          const thumb = await uploadThumb(item.image_url, accessJwt);
+          if (thumb) external.thumb = thumb;
+        }
+        record = {
+          $type: "app.bsky.feed.post",
+          text: row.text,
+          createdAt: new Date().toISOString(),
+          embed: { $type: "app.bsky.embed.external" as const, external },
+        };
       }
-      const embed = { $type: "app.bsky.embed.external" as const, external };
-
-      const record = {
-        $type: "app.bsky.feed.post",
-        text: row.text,
-        createdAt: new Date().toISOString(),
-        embed,
-      };
       const res = await xrpc<{ uri?: string }>(
         "com.atproto.repo.createRecord",
         { repo: did, collection: "app.bsky.feed.post", record },
