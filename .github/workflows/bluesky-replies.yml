@@ -2,11 +2,11 @@ name: Bluesky replies (spread through the day)
 
 on:
   schedule:
-    # 4 runs across the active day, offset from the post schedule so activity is
-    # spread out: 03:30 / 07:30 / 11:30 / 15:30 UTC = 09:00 / 13:00 / 17:00 /
-    # 21:00 IST. Each run schedules a few replies ~35 min apart; the drip endpoint
-    # posts them when due. Daily total is capped in the script (REPLIES_PER_DAY).
-    - cron: "30 3,7,11,15 * * *"
+    # 7 runs every 2h across the active day (03:00-15:00 UTC = 08:30-20:30 IST),
+    # so replies trickle out steadily all day. Each run schedules up to PER_RUN
+    # replies (derived from the daily cap / 7) a few minutes apart; the daily cap
+    # (dailyCap(): ramps 24 -> 35 -> 50) stops later runs once it's reached.
+    - cron: "0 3,5,7,9,11,13,15 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

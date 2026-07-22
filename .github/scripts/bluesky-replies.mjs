@@ -20,12 +20,20 @@
 import { execFileSync } from "node:child_process";
 import { findReplyTargets } from "./lib/bluesky-search.mjs";
 
+// Daily reply cap ramps over the first weeks: 24 this week, 35 next, 50 after.
+// (Override any time with the REPLIES_PER_DAY env.)
+function dailyCap() {
+  const week = Math.floor((Date.now() - Date.UTC(2026, 6, 21)) / (7 * 24 * 3600 * 1000));
+  return week <= 0 ? 24 : week === 1 ? 35 : 50;
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
-const PER_RUN = Math.max(1, Number(process.env.REPLIES_PER_RUN) || 5);
-const PER_DAY = Math.max(1, Number(process.env.REPLIES_PER_DAY) || 24);
-const SPREAD_MIN = Math.max(5, Number(process.env.SPREAD_MIN) || 35);
+const PER_DAY = Math.max(1, Number(process.env.REPLIES_PER_DAY) || dailyCap());
+const RUNS_PER_DAY = 7; // matches the cron; the daily cap auto-spreads across runs
+const PER_RUN = Math.max(1, Number(process.env.REPLIES_PER_RUN) || Math.ceil(PER_DAY / RUNS_PER_DAY));
+const SPREAD_MIN = Math.max(10, Number(process.env.SPREAD_MIN) || Math.floor(110 / PER_RUN));
 const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 
 const die = (m) => { console.error(`✗ ${m}`); process.exit(1); };
