@@ -1,0 +1,37 @@
+name: Bluesky replies (spread through the day)
+
+on:
+  schedule:
+    # 4 runs across the active day, offset from the post schedule so activity is
+    # spread out: 03:30 / 07:30 / 11:30 / 15:30 UTC = 09:00 / 13:00 / 17:00 /
+    # 21:00 IST. Each run schedules a few replies ~35 min apart; the drip endpoint
+    # posts them when due. Daily total is capped in the script (REPLIES_PER_DAY).
+    - cron: "30 3,7,11,15 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Draft + print, schedule nothing"
+        type: boolean
+        default: false
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code (for drafting)
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Draft + schedule replies
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: node .github/scripts/bluesky-replies.mjs
