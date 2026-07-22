@@ -1,14 +1,13 @@
 import type { NextRequest } from "next/server";
 import { supabaseService } from "@/lib/supabase-service";
 
-// Cron-poked drip poster. Finds approved `bluesky_scheduled` rows that are now
-// due and posts each to Bluesky, linking to that story's own /story/<slug> page.
-// Reuses the exact AT Protocol flow from /api/bluesky/post: createSession with an
-// app password, an app.bsky.embed.external link card (title/description clipped,
-// best-effort uploaded thumb), then createRecord an app.bsky.feed.post.
-// Auth is a bearer token so the GitHub Actions heartbeat (see
-// .github/workflows/bluesky-drip.yml) can poke it: it sends
-// `Authorization: Bearer <BLUESKY_REVIEW_SECRET>`.
+// Cron-poked drip poster. Finds due `bluesky_scheduled` rows and posts each.
+//   POSTS  are text-first (plain text, since Bluesky downranks link-card posts)
+//          followed by a self-reply carrying the /story/<slug> link card.
+//   REPLIES are threaded to the target, and we also follow that author once
+//          (ledger-deduped via bluesky_follows) to build the network.
+// Auth is a bearer token so the GitHub Actions heartbeat (bluesky-drip.yml) can
+// poke it: it sends `Authorization: Bearer <BLUESKY_REVIEW_SECRET>`.
 
 export const dynamic = "force-dynamic";
 
@@ -184,67 +183,113 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   for (const row of due) {
     try {
-      let record: Record<string, unknown>;
       if (row.kind === "reply") {
-        // Reply to the target post, with clickable link facets for any URL.
+        // Reply to the target, threaded, with link facets for any URL.
         if (!row.reply_uri || !row.reply_cid) {
           throw new Error("reply row missing target uri/cid");
         }
         const ref = { uri: row.reply_uri, cid: row.reply_cid };
         const facets = linkFacets(row.text);
-        record = {
-          $type: "app.bsky.feed.post",
-          text: row.text,
-          createdAt: new Date().toISOString(),
-          reply: { root: ref, parent: ref },
-          ...(facets.length ? { facets } : {}),
-        };
-      } else {
-        // Post with a link card to this story's own /story/<slug> page.
-        const { data: item } = await svc
-          .from("items")
-          .select("title, summary, image_url")
-          .eq("slug", row.story_slug || "")
-          .eq("is_active", true)
-          .maybeSingle<{
-            title: string | null;
-            summary: string | null;
-            image_url: string | null;
-          }>();
-        const external: BskyExternal = {
-          uri: `${SITE_URL}/story/${row.story_slug}`,
-          title: clip(item?.title || "Wortins", 120),
-          description: clip(
-            item?.summary || "The day's most interesting AI news, tuned to you.",
-            200
-          ),
-        };
-        if (item?.image_url) {
-          const thumb = await uploadThumb(item.image_url, accessJwt);
-          if (thumb) external.thumb = thumb;
-        }
-        record = {
-          $type: "app.bsky.feed.post",
-          text: row.text,
-          createdAt: new Date().toISOString(),
-          embed: { $type: "app.bsky.embed.external" as const, external },
-        };
-      }
-      const res = await xrpc<{ uri?: string }>(
-        "com.atproto.repo.createRecord",
-        { repo: did, collection: "app.bsky.feed.post", record },
-        accessJwt
-      );
+        const res = await xrpc<{ uri?: string }>(
+          "com.atproto.repo.createRecord",
+          {
+            repo: did,
+            collection: "app.bsky.feed.post",
+            record: {
+              $type: "app.bsky.feed.post",
+              text: row.text,
+              createdAt: new Date().toISOString(),
+              reply: { root: ref, parent: ref },
+              ...(facets.length ? { facets } : {}),
+            },
+          },
+          accessJwt
+        );
+        await svc
+          .from("bluesky_scheduled")
+          .update({ status: "posted", posted_uri: res?.uri || null, posted_at: new Date().toISOString() })
+          .eq("id", row.id);
+        posted += 1;
 
-      await svc
-        .from("bluesky_scheduled")
-        .update({
-          status: "posted",
-          posted_uri: res?.uri || null,
-          posted_at: new Date().toISOString(),
-        })
-        .eq("id", row.id);
-      posted += 1;
+        // Follow the person we replied to (once ever, ledger-deduped).
+        // Best-effort: a follow failure never affects the reply that posted.
+        const subjectDid = row.reply_uri.split("/")[2] || "";
+        if (subjectDid && subjectDid !== did) {
+          try {
+            const { error: dupErr } = await svc.from("bluesky_follows").insert({ did: subjectDid });
+            if (!dupErr) {
+              await xrpc(
+                "com.atproto.repo.createRecord",
+                {
+                  repo: did,
+                  collection: "app.bsky.graph.follow",
+                  record: { $type: "app.bsky.graph.follow", subject: subjectDid, createdAt: new Date().toISOString() },
+                },
+                accessJwt
+              );
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+      } else {
+        // Text-first: post the take as PLAIN TEXT (Bluesky downranks link-card
+        // posts), then a self-reply carrying the story link card so the article
+        // stays one tap away with a nice preview.
+        const res = await xrpc<{ uri?: string; cid?: string }>(
+          "com.atproto.repo.createRecord",
+          {
+            repo: did,
+            collection: "app.bsky.feed.post",
+            record: { $type: "app.bsky.feed.post", text: row.text, createdAt: new Date().toISOString() },
+          },
+          accessJwt
+        );
+        await svc
+          .from("bluesky_scheduled")
+          .update({ status: "posted", posted_uri: res?.uri || null, posted_at: new Date().toISOString() })
+          .eq("id", row.id);
+        posted += 1;
+
+        // Self-reply with the story link card. Best-effort: the post is already out.
+        if (res?.uri && res?.cid && row.story_slug) {
+          try {
+            const { data: item } = await svc
+              .from("items")
+              .select("title, summary, image_url")
+              .eq("slug", row.story_slug)
+              .eq("is_active", true)
+              .maybeSingle<{ title: string | null; summary: string | null; image_url: string | null }>();
+            const external: BskyExternal = {
+              uri: `${SITE_URL}/story/${row.story_slug}`,
+              title: clip(item?.title || "Wortins", 120),
+              description: clip(item?.summary || "The day's most interesting AI news, tuned to you.", 200),
+            };
+            if (item?.image_url) {
+              const thumb = await uploadThumb(item.image_url, accessJwt);
+              if (thumb) external.thumb = thumb;
+            }
+            const self = { uri: res.uri, cid: res.cid };
+            await xrpc(
+              "com.atproto.repo.createRecord",
+              {
+                repo: did,
+                collection: "app.bsky.feed.post",
+                record: {
+                  $type: "app.bsky.feed.post",
+                  text: "Full write-up:",
+                  createdAt: new Date().toISOString(),
+                  reply: { root: self, parent: self },
+                  embed: { $type: "app.bsky.embed.external" as const, external },
+                },
+              },
+              accessJwt
+            );
+          } catch {
+            /* the link-reply is a bonus; the post already went out */
+          }
+        }
+      }
     } catch (e) {
       // One bad row must not block the rest: mark it failed and continue.
       const msg = e instanceof Error ? e.message : "Failed to post.";
