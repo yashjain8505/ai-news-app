@@ -1,0 +1,49 @@
+name: AI visibility tracker
+
+# The "measure" side of the SEO/GEO flywheel. For the head GEO queries + each
+# blog post's target keyword, it checks whether wortins.com is actually cited by
+# AI web search, and logs the result to the `ai_visibility` table. The content
+# robots read that table to see which queries we're losing and target them next.
+# Writes to Supabase only — no code changes, no PR.
+concurrency:
+  group: ai-visibility
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: "0 22 * * 3" # Wednesdays 22:00 UTC (03:30 IST Thu)
+  workflow_dispatch:
+    inputs:
+      max_queries:
+        description: "How many queries to check this run"
+        type: string
+        default: "12"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build query set
+        env:
+          MAX_QUERIES: ${{ github.event.inputs.max_queries || '12' }}
+        run: node .github/scripts/visibility-queries.mjs
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Check AI visibility + log to Supabase
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          claude -p "$(cat .github/scripts/ai-visibility-prompt.md)" \
+            --model sonnet --output-format json --dangerously-skip-permissions --max-turns 90 \
+            | tee /tmp/vis_out.json >/dev/null
+          jq -r '"visibility: input=\(.usage.input_tokens // 0) output=\(.usage.output_tokens // 0) cost=\(.total_cost_usd // 0) turns=\(.num_turns // 0)"' /tmp/vis_out.json 2>/dev/null || true
