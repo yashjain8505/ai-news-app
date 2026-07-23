@@ -6,10 +6,14 @@ STEPS:
 
 1. LIST existing coverage: `ls content/blog` — note every slug so you never propose a duplicate. Per-company funding posts (`*-funding.md`, `*-acquisition.md`, `*-ipo.md`) are OWNED by the funding pipeline — do NOT propose those; you cover the OTHER buy-intent shapes.
 
-2. If a GSC opportunity feed is available, use it. Try:
-   `curl -s -m 20 -H "x-seo-token: $SUPABASE_SERVICE_KEY" "https://www.wortins.com/api/seo/opportunities"` — if it returns a non-empty JSON array of `{query, impressions, position}`, those are queries Wortins ALREADY gets impressions for but ranks poorly (page 2-3) = the highest-ROI targets. Prefer them. If it 404s or returns `[]`, skip this step and seed from step 3.
+2. TOP PRIORITY — queries we're already losing. Read the visibility tracker's findings:
+   `curl -s "$SUPABASE_URL/rest/v1/ai_visibility?select=query,cited,notes,checked_at&cited=eq.false&order=checked_at.desc&limit=40" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
+   These are queries where wortins.com is NOT cited by AI search — we know they matter and we're losing them, so they are the highest-value targets. For any that suit a buy-intent article (not a funding round, and not already covered in `content/blog`), prefer them over freshly-seeded ideas. This is the flywheel: the tracker finds the gap, you fill it.
 
-3. SEED buy-intent queries from what Wortins covers. Read the real AI products/companies in the feed:
+3. If a GSC opportunity feed is available, use it. Try:
+   `curl -s -m 20 -H "x-seo-token: $SUPABASE_SERVICE_KEY" "https://www.wortins.com/api/seo/opportunities"` — if it returns a non-empty JSON array of `{query, impressions, position}`, those are queries Wortins ALREADY gets impressions for but ranks poorly (page 2-3) = the highest-ROI targets. Prefer them. If it 404s or returns `[]`, skip this step and seed from step 4.
+
+4. SEED buy-intent queries from what Wortins covers. Read the real AI products/companies in the feed:
    `curl -s "$SUPABASE_URL/rest/v1/items?select=title,section,tags,summary&is_active=eq.true&section=in.(tools,daily)&order=published_at.desc&limit=120" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
    From the notable, distinctively-named tools/products, form buy-intent queries in these shapes (pick the ones with real search demand and low competition):
    - **Comparison:** "<Tool A> vs <Tool B>" (two genuine competitors in the same category)
@@ -19,13 +23,13 @@ STEPS:
    - **Review / worth-it:** "is <Tool> worth it" / "<Tool> review"
    Favor real, specific, currently-relevant tools with genuine buyer interest. Avoid the megacap assistants (ChatGPT/Gemini/Claude/Copilot) — too competitive.
 
-4. CHOOSE up to `$MAX_POSTS` of the highest-opportunity queries (real demand, winnable, not already covered in `content/blog`).
+5. CHOOSE up to `$MAX_POSTS` of the highest-opportunity queries (real demand, winnable, not already covered in `content/blog`).
 
-5. RESEARCH each chosen query on the web. Gather verifiable facts to write a genuinely useful article: for a comparison — the real feature/pricing/use-case differences between the tools; for alternatives/best-for — 4-7 real tools with what each is best at + pricing tier; for pricing — the actual current plans; for a review — real capabilities, strengths, limits. Collect 2-3 reputable source URLs (the tools' own sites + a credible review/outlet). DO NOT fabricate features, prices, or tools. If you can't verify enough to write honestly, DROP that candidate.
+6. RESEARCH each chosen query on the web. Gather verifiable facts to write a genuinely useful article: for a comparison — the real feature/pricing/use-case differences between the tools; for alternatives/best-for — 4-7 real tools with what each is best at + pricing tier; for pricing — the actual current plans; for a review — real capabilities, strengths, limits. Collect 2-3 reputable source URLs (the tools' own sites + a credible review/outlet). DO NOT fabricate features, prices, or tools. If you can't verify enough to write honestly, DROP that candidate.
 
-6. CHOOSE 2-3 EXISTING `content/blog` slugs (from step 1) to cross-link, if genuinely related.
+7. CHOOSE 2-3 EXISTING `content/blog` slugs (from step 1) to cross-link, if genuinely related.
 
-7. WRITE `/tmp/blog-candidates.json` — a JSON array (max `$MAX_POSTS`):
+8. WRITE `/tmp/blog-candidates.json` — a JSON array (max `$MAX_POSTS`):
 ```json
 {
   "slug": "best-ai-video-generators",
