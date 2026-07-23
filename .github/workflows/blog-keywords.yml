@@ -91,3 +91,14 @@ jobs:
             git pull --rebase --autostash origin main && git push origin HEAD:main && { echo "pushed"; break; }
             echo "push race, retrying ($i)"; sleep 5
           done
+
+      - name: Notify IndexNow
+        if: ${{ steps.verify.outputs.kept != '0' && steps.verify.outputs.kept != '' }}
+        run: |
+          urls=$(git diff-tree --no-commit-id --name-only -r HEAD -- content/blog | grep '\.md$' \
+            | sed 's#^content/blog/#https://www.wortins.com/blog/#; s#\.md$##')
+          list=$(printf '%s\n' $urls https://www.wortins.com/blog | jq -R . | jq -s -c 'unique')
+          echo "submitting: $list"
+          curl -s -X POST "https://api.indexnow.org/indexnow" -H "Content-Type: application/json" \
+            -d "{\"host\":\"www.wortins.com\",\"key\":\"a3d9f17c4b2e84605f1a9c7e2b6d0834\",\"keyLocation\":\"https://www.wortins.com/a3d9f17c4b2e84605f1a9c7e2b6d0834.txt\",\"urlList\":$list}" \
+            -o /tmp/indexnow.txt -w "IndexNow HTTP %{http_code}\n"; cat /tmp/indexnow.txt || true

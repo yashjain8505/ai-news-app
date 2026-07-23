@@ -28,8 +28,8 @@ and writes to the live site + Supabase.
         │                                                         │
         ▼                                                         │
    (4) PUBLISH                                                    │
-   funding → PR (review) ;  keywords → straight to main (verified)│
-   → Vercel deploys ; sitemap + markdown twins expose to crawlers ┘
+   both robots → commit verified posts straight to main          │
+   → Vercel deploys → ping IndexNow → sitemap + markdown twins    ┘
         │
         └──► re-measured next week → the gap list shrinks, repeat
 ```
@@ -39,8 +39,8 @@ and writes to the live site + Supabase.
 | Job | Schedule | Does | Output |
 |---|---|---|---|
 | `ai-visibility.yml` | Wed | Checks if we're cited for target queries | rows in `ai_visibility` |
-| `blog-funding.yml` | Mon, Thu | New AI funding rounds → deep-dives | PR (review) |
-| `blog-keywords.yml` | Tue, Fri | Buy-intent queries → useful articles | commits to `main` |
+| `blog-funding.yml` | Mon, Thu | New AI funding rounds → deep-dives | commits to `main` + IndexNow |
+| `blog-keywords.yml` | Tue, Fri | Buy-intent queries → useful articles | commits to `main` + IndexNow |
 | `daily-edition.yml` | 3×/day | The daily news feed (pre-existing) | Supabase `items` |
 | `/api/seo/opportunities` | on-demand | GSC "winnable" queries, for the gather step | JSON (service-key guarded) |
 | `verify-blog.mjs` | — | HTTP-verifies each post's source; drops dead ones | — |
@@ -57,18 +57,20 @@ GSC opportunities and the funding feed are the other two input streams.
 - **Manual run:** Actions tab → pick a workflow → "Run workflow" (or `gh workflow run <file>`).
 - **Tune volume:** each content workflow has a `max_posts` input (default 4–5).
 
-## Two one-time switches to unlock full power
-1. **GSC feed** — set `GSC_SERVICE_ACCOUNT_B64` in Vercel (already used by `/admin/seo`).
-   Then `/api/seo/opportunities` returns real Search Console gaps and the keyword robot
-   targets what you're *already* getting impressions for. Until then it seeds from the
-   niche + the visibility gaps (still works).
-2. **Auto-PR for funding** — repo → Settings → Actions → General → tick
-   "Allow GitHub Actions to create and approve pull requests". Then `blog-funding.yml`
-   opens its own review PRs instead of needing a manual open.
+## One switch to unlock full power
+- **GSC feed** — set `GSC_SERVICE_ACCOUNT_B64` in Vercel (already used by `/admin/seo`).
+  Then `/api/seo/opportunities` returns real Search Console gaps and the keyword robot
+  targets what you're *already* getting impressions for. Until then it seeds from the
+  niche + the visibility gaps (still works).
+
+Both content robots now commit straight to `main` after source-verification (no PR
+gate needed), so nothing else is required to run hands-off. To add a human review
+gate back, flip a robot's final step to `peter-evans/create-pull-request` and enable
+Settings → Actions → "Allow GitHub Actions to create and approve pull requests".
 
 ## Guardrails
 - Every generated post's source is HTTP-verified; a dead/fabricated citation is dropped
-  before publish.
-- Funding posts (bigger factual claims) go via PR; keyword posts (advice, lower-stakes)
-  publish directly after verification.
+  before publish. Funding facts come from the already-vetted curator feed.
+- Both robots publish directly to main after that verification (see the note above to
+  add a human PR gate back if you want one).
 - No paid link schemes — growth is content + AEO (markdown twins) only.
