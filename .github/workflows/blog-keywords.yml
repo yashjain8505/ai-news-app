@@ -1,0 +1,93 @@
+name: Blog — buy-intent keyword posts
+
+# Sister of blog-funding.yml. Instead of funding rounds, it targets winnable
+# buy-intent queries (comparisons, "best X", alternatives, pricing) in Wortins'
+# niche — the searches people make when they're close to choosing a tool. Each
+# post's source is HTTP-verified, then the survivors are pushed straight to main
+# (auto-deploy). Fully automatic; the verify step is the safety gate.
+concurrency:
+  group: blog-keywords
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: "0 21 * * 2,5" # Tue & Fri 21:00 UTC (02:30 IST) — off the other jobs
+  workflow_dispatch:
+    inputs:
+      max_posts:
+        description: "Max new posts to draft this run"
+        type: string
+        default: "4"
+      write_model:
+        description: "Model for the writing pass"
+        type: string
+        default: "sonnet"
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Gather buy-intent candidates (Haiku)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MAX_POSTS: ${{ github.event.inputs.max_posts || '4' }}
+        run: |
+          claude -p "$(cat .github/scripts/blog-keywords-gather-prompt.md)" \
+            --model haiku --output-format json --dangerously-skip-permissions --max-turns 80 \
+            | tee /tmp/gather_out.json >/dev/null
+          jq -r '"gather: input=\(.usage.input_tokens // 0) output=\(.usage.output_tokens // 0) cost=\(.total_cost_usd // 0)"' /tmp/gather_out.json 2>/dev/null || true
+
+      - name: Count candidates
+        id: count
+        run: |
+          n=$(jq 'length' /tmp/blog-candidates.json 2>/dev/null || echo 0)
+          echo "n=$n" >> "$GITHUB_OUTPUT"; echo "candidates: $n"
+
+      - name: Write posts
+        if: ${{ steps.count.outputs.n != '0' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          claude -p "$(cat .github/scripts/blog-keywords-write-prompt.md)" \
+            --model "${{ github.event.inputs.write_model || 'sonnet' }}" \
+            --output-format json --dangerously-skip-permissions --max-turns 60 \
+            | tee /tmp/write_out.json >/dev/null
+          jq -r '"write: input=\(.usage.input_tokens // 0) output=\(.usage.output_tokens // 0) cost=\(.total_cost_usd // 0)"' /tmp/write_out.json 2>/dev/null || true
+          git status --porcelain content/blog | sed 's/^/  /'
+
+      - name: Verify sources + drop bad posts
+        id: verify
+        if: ${{ steps.count.outputs.n != '0' }}
+        run: |
+          node .github/scripts/verify-blog.mjs
+          kept=$(git ls-files --others --exclude-standard -- content/blog | grep -c '\.md$' || true)
+          echo "kept=$kept" >> "$GITHUB_OUTPUT"
+          echo "posts surviving verification: $kept"
+
+      - name: Commit + deploy (push to main)
+        if: ${{ steps.verify.outputs.kept != '0' && steps.verify.outputs.kept != '' }}
+        run: |
+          git config user.name "wortins-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add content/blog/
+          git commit -m "Blog: auto-published ${{ steps.verify.outputs.kept }} buy-intent article(s) [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && { echo "pushed"; break; }
+            echo "push race, retrying ($i)"; sleep 5
+          done

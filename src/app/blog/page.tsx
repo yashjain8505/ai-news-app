@@ -6,9 +6,9 @@ import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 1800; // 30 min ISR
 
-const BLOG_TITLE = "AI Funding Analysis & Startup Deep-Dives";
+const BLOG_TITLE = "AI Analysis, Tool Guides & Funding Deep-Dives";
 const BLOG_DESC =
-  "Deep-dives on AI startup funding, valuations, and investors — how much each company raised, from whom, and why it matters. Written by the Wortins editorial team.";
+  "Deep-dives on AI startup funding and valuations, plus practical guides — the best AI tools by use case, head-to-head comparisons, and pricing. Written by the Wortins editorial team.";
 
 function prettyDate(d: string): string {
   if (!d) return "";
