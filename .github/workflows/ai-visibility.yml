@@ -32,6 +32,8 @@ jobs:
       - name: Build query set
         env:
           MAX_QUERIES: ${{ github.event.inputs.max_queries || '12' }}
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: node .github/scripts/visibility-queries.mjs
 
       - name: Install Claude Code
