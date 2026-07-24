@@ -1,12 +1,9 @@
 name: Daily Bluesky post
 
 on:
-  schedule:
-    # 14:00 UTC = 19:30 IST = 09:00 ET. By now all the day's edition drops
-    # (01:30 / 07:30 / 12:30 UTC) have landed, so the post carries fresh stories.
-    # Idempotent per edition_date (bluesky_posts ledger), so a re-run never
-    # double-posts. If the secrets aren't set yet, the script skips cleanly.
-    - cron: "0 14 * * *"
+  # Schedule DISABLED: this is the old single-post auto-poster, superseded by the
+  # bluesky-prepare / bluesky-replies / drip system (text-first posts + replies).
+  # Kept manual-only to save Actions minutes and avoid redundant posts.
   workflow_dispatch:
     inputs:
       dry_run:
