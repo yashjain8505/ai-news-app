@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { searchAnalytics, gscConfigured, isoDaysAgo } from "@/lib/gsc";
+import { isBuyerQuery } from "@/lib/searchSegments";
 
 // Buy-intent SEO opportunity feed for the content robots (blog-keywords.yml).
 // Returns queries Wortins ALREADY gets Search Console impressions for but ranks
@@ -41,6 +42,11 @@ export async function GET(req: NextRequest) {
   }
 
   const opps = rows
+    // Drop traffic that was never a person before anything is ranked. Alerting
+    // tools and research agents issue time-scoped and boolean queries that rank
+    // well and never click, so without this the robot commissions posts chasing
+    // readers who do not exist — measured at 23% of the topics it was being fed.
+    .filter((r) => isBuyerQuery(r.keys[0] ?? ""))
     // Impressions but ranking on page 2-3 (position 4-30) = winnable.
     .filter((r) => r.impressions >= 15 && r.position >= 4 && r.position <= 30)
     .map((r) => ({
