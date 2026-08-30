@@ -2,6 +2,7 @@
 title: Hush Security Funding: How Much It Raised & Investors
 description: Hush Security raised $30 million in a Series A round in August 2026, led by Akamai, to build governance infrastructure for autonomous AI agents. Here's the full breakdown of the round, the backer, and what the company will do with the money.
 date: 2026-08-20
+releaseOn: 2026-08-30
 updated: 2026-08-20
 category: funding
 keyword: hush security agent governance

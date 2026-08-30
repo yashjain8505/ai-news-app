@@ -2,6 +2,7 @@
 title: Sapiom Funding: How Much It Raised & Its Investors
 description: Sapiom raised a $35 million Series A in August 2026, led by Dragonfly Capital, to scale its AI inference cost router. Here's the full breakdown of the round, the backers, and what the startup will do with the money.
 date: 2026-08-07
+releaseOn: 2026-09-04
 updated: 2026-08-07
 category: funding
 keyword: sapiom ai router inference costs series a

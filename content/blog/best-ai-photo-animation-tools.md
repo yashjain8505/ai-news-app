@@ -2,6 +2,7 @@
 title: Best AI Photo Animation Tools in 2026 (Still to Video)
 description: Compares Runway Gen-4, HeyGen, MyHeritage Deep Nostalgia, D-ID, and DomoAI on price and use case to help you pick the right tool for turning still photos into video.
 date: 2026-08-14
+releaseOn: 2026-09-09
 updated: 2026-08-14
 category: compare
 keyword: best AI photo animation tool

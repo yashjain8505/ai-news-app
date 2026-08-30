@@ -2,6 +2,7 @@
 title: Best AI Portrait Generators in 2026 (LinkedIn Headshots)
 description: Compares HeadshotPro, Secta, Lensa AI, Remini, and Midjourney on price, turnaround, and usable-photo rate to help you pick the right AI portrait generator for LinkedIn.
 date: 2026-08-14
+releaseOn: 2026-09-09
 updated: 2026-08-14
 category: compare
 keyword: best AI portrait generator

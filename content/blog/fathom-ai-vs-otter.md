@@ -2,6 +2,7 @@
 title: Fathom AI vs Otter.ai: Meeting Notes Compared
 description: Compares Fathom and Otter.ai on pricing, Slack integration, and search to help you pick the right AI meeting transcription and notes tool for your team.
 date: 2026-08-25
+releaseOn: 2026-09-09
 updated: 2026-08-25
 category: compare
 keyword: fathom ai vs otter.ai

@@ -2,6 +2,7 @@
 title: Base Power Funding: How Much It Raised, Its Valuation & Investors
 description: Base Power raised a $1 billion Series D at a $13 billion valuation in August 2026, led by Ribbit Capital, Addition and Valor Equity Partners. Here's the full breakdown of the round, the backers, and what the grid-battery startup will do with the money.
 date: 2026-08-13
+releaseOn: 2026-08-30
 updated: 2026-08-13
 category: funding
 keyword: base power ai grid funding series d

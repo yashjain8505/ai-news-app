@@ -2,6 +2,7 @@
 title: Best AI Headshot Generators in 2026 (Tested)
 description: Compares HeadshotsByAI, Aragon AI, HeadshotPro, BetterPic, and Dreamwave on speed, resolution, and price to help you pick the right AI headshot generator.
 date: 2026-08-07
+releaseOn: 2026-09-09
 updated: 2026-08-07
 category: guide
 keyword: best AI headshot generator

@@ -2,6 +2,7 @@
 title: Instinct Funding: How Much It Raised, Its Valuation & Investors
 description: Instinct, a consumer AI life-management agent, raised $350 million at a $2.5 billion valuation in August 2026, led by Index Ventures and Benchmark. Here's the full breakdown of the round, the backers, and what's next for the private-beta startup.
 date: 2026-08-28
+releaseOn: 2026-08-30
 updated: 2026-08-28
 category: funding
 keyword: instinct ai consumer agent funding

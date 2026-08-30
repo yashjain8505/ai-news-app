@@ -2,6 +2,7 @@
 title: Best AI Image Generators in 2026 (7 Tools Compared)
 description: Compares Midjourney, Ideogram, Leonardo.ai, DALL-E 3, Flux, Stable Diffusion, and Adobe Firefly on price and quality to help you pick the best AI image generator in 2026.
 date: 2026-08-18
+releaseOn: 2026-09-09
 updated: 2026-08-18
 category: compare
 keyword: best AI image generator

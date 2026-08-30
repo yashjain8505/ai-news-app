@@ -2,6 +2,7 @@
 title: Rillet AI Funding: How Much It Raised, Its Valuation & Investors
 description: Rillet AI raised $100M in a Series C at a $1B valuation in August 2026, led by ICONIQ with Sequoia and Andreessen Horowitz. Here's the full breakdown of the round, investors, and what it means for AI in accounting.
 date: 2026-08-24
+releaseOn: 2026-08-30
 updated: 2026-08-24
 category: funding
 keyword: rillet ai funding

@@ -2,6 +2,7 @@
 title: Wispr Flow Funding: How Much It Raised, Its Valuation & Investors
 description: Wispr Flow raised a $280 million Series B at a $2 billion valuation in August 2026, led by Menlo Ventures. Here's the full breakdown of the round, the backers, and what the voice AI platform will do with the money.
 date: 2026-08-20
+releaseOn: 2026-08-30
 updated: 2026-08-20
 category: funding
 keyword: wispr flow series b

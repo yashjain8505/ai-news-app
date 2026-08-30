@@ -2,6 +2,7 @@
 title: Cognition Funding: How Much It Raised, Its Valuation & Investors
 description: Cognition is reportedly in talks to raise new funding at a $40 billion valuation as of August 2026, up from $26 billion just three months earlier. Here's the full breakdown of what's known so far.
 date: 2026-08-13
+releaseOn: 2026-09-04
 updated: 2026-08-13
 category: funding
 keyword: cognition ai devin funding

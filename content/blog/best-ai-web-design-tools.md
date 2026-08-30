@@ -2,6 +2,7 @@
 title: Best AI Web Design Tools in 2026: Framer vs Webflow vs Figma
 description: Compares Framer, Webflow, and Figma's AI design features, pricing, and workflows to help designers, developers, and agencies pick the right tool for building websites faster.
 date: 2026-08-21
+releaseOn: 2026-09-09
 updated: 2026-08-21
 category: compare
 keyword: best ai web design tools

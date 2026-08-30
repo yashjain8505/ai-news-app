@@ -2,6 +2,7 @@
 title: Ideogram vs Leonardo.ai in 2026: Which Should You Use?
 description: Compares Ideogram and Leonardo.ai on pricing, text rendering, resolution, and video generation to help you choose the right AI image generator for your workflow.
 date: 2026-08-18
+releaseOn: 2026-09-09
 updated: 2026-08-18
 category: compare
 keyword: Ideogram vs Leonardo.ai

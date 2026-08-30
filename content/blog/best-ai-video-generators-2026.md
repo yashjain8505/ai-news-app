@@ -2,6 +2,7 @@
 title: Best AI Video Generators in 2026: Runway vs Pika vs Synthesia
 description: A comparison of Runway, Pika, and Synthesia's pricing and features to help you pick the right AI video generator for creative clips, presenter videos, or multilingual content.
 date: 2026-08-04
+releaseOn: 2026-09-09
 updated: 2026-08-04
 category: compare
 keyword: best ai video generator

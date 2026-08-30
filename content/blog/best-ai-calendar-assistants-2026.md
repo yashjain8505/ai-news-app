@@ -2,6 +2,7 @@
 title: Best AI Calendar Assistants in 2026 (Smart Scheduling)
 description: Compares Motion, Reclaim.ai, alfred_, Calendly, Amie, and Morgen on pricing and features to help founders and knowledge workers pick the right AI calendar tool.
 date: 2026-08-11
+releaseOn: 2026-09-09
 updated: 2026-08-11
 category: compare
 keyword: best AI calendar assistants 2026

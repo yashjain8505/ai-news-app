@@ -2,6 +2,7 @@
 title: Function Health Funding: How Much It Raised & Investors
 description: Function Health raised $450 million in a growth round in August 2026, led by General Catalyst, to scale its AI-driven preventive healthcare platform. Here's the full breakdown of the round, the backer, and what the company will do with the money.
 date: 2026-08-20
+releaseOn: 2026-08-30
 updated: 2026-08-20
 category: funding
 keyword: function health preventive care ai

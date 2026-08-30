@@ -2,6 +2,7 @@
 title: Horizon3 Funding: How Much It Raised, Its Valuation & Investors
 description: Horizon3 raised a $250 million Series E at a $2 billion valuation in August 2026, led by NightDragon and NEA. Here's the full breakdown of the round, the backers, and what the autonomous pentesting startup will do with the money.
 date: 2026-08-13
+releaseOn: 2026-09-04
 updated: 2026-08-13
 category: funding
 keyword: horizon3 ai security funding series e

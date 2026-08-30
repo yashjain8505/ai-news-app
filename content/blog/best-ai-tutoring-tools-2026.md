@@ -2,6 +2,7 @@
 title: Best AI Tutoring Tools in 2026 (Personalized Learning)
 description: Compares Khanmigo, Quizlet Q-Chat, MagicSchool AI, Wondering, NotebookLM, and Brisk Teaching on price and learning style to help you pick the right AI tutor.
 date: 2026-08-11
+releaseOn: 2026-09-09
 updated: 2026-08-11
 category: guide
 keyword: best AI tutoring tools personalized learning

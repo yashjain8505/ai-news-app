@@ -2,6 +2,7 @@
 title: June AI Funding: How Much It Raised, Its Valuation & Investors
 description: June AI raised $20 million in a Pre-Seed round in August 2026, led by TIME Ventures. Here's the full breakdown of the round and what the enterprise AI agent startup plans to build.
 date: 2026-08-10
+releaseOn: 2026-09-04
 updated: 2026-08-10
 category: funding
 keyword: june ai funding

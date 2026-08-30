@@ -2,6 +2,7 @@
 title: Luma AI for 3D Video & NeRF Generation: Review 2026
 description: Reviews Luma AI's 3D reconstruction and NeRF video tools, what Genie's text-to-3D generation does, its pricing, and how it compares to Runway and Pika for creative video work.
 date: 2026-08-21
+releaseOn: 2026-09-09
 updated: 2026-08-21
 category: guide
 keyword: luma ai 3d video generator

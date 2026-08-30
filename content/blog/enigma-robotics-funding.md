@@ -2,6 +2,7 @@
 title: Enigma Robotics Funding: How Much It Raised & Its Investors
 description: Enigma Robotics raised a $71 million seed round in July 2026, led by Index Ventures and Ribbit Capital, to build AI foundation models for robotics. Here's the full breakdown of the round, the backers, and what the startup will do with the money.
 date: 2026-08-07
+releaseOn: 2026-09-04
 updated: 2026-08-07
 category: funding
 keyword: enigma robotics ai foundation models seed

@@ -20,6 +20,7 @@ export interface BlogPost {
   description: string;
   date: string; // ISO published date (YYYY-MM-DD or full ISO)
   updated?: string; // ISO last-updated date
+  releaseOn?: string; // YYYY-MM-DD; hide from the site until this date (see isReleased)
   tags: string[];
   keyword?: string; // primary target query, for our own tracking
   category?: string; // e.g. "funding"
@@ -100,6 +101,7 @@ function toPost(slug: string, raw: string): BlogPost | null {
     description,
     date,
     updated: typeof data.updated === "string" ? data.updated : undefined,
+    releaseOn: typeof data.releaseOn === "string" ? data.releaseOn : undefined,
     tags: asStringArray(data.tags),
     keyword: typeof data.keyword === "string" ? data.keyword : undefined,
     category: typeof data.category === "string" ? data.category : undefined,
@@ -111,11 +113,34 @@ function toPost(slug: string, raw: string): BlogPost | null {
   };
 }
 
+// Staged release.
+//
+// `releaseOn` holds a post back until a given date. It exists for ONE job:
+// draining a backlog gradually instead of publishing it in a single deploy.
+// A young domain that doubles its page count overnight is a pattern search
+// engines treat as a quality signal, and not a good one.
+//
+// Posts without `releaseOn` publish immediately — that is the normal path, and
+// what every robot-authored post does. Once a backlog's dates have all passed
+// the field is inert and can be stripped.
+//
+// Note for anyone adding `releaseOn` to newly committed posts: the IndexNow
+// step in the publishing workflows submits every URL in the commit, so it would
+// announce a URL that is not live yet. Gate the backlog, not new work.
+export function isReleased(post: BlogPost, today: string): boolean {
+  return !post.releaseOn || post.releaseOn <= today;
+}
+
+export function todayIso(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
 // Module-level cache (posts are immutable within a process). Keyed by slug.
 let cache: Map<string, BlogPost> | null = null;
 
 function loadAll(): Map<string, BlogPost> {
   if (cache) return cache;
+  const today = todayIso();
   const map = new Map<string, BlogPost>();
   let files: string[] = [];
   try {
@@ -130,7 +155,11 @@ function loadAll(): Map<string, BlogPost> {
     try {
       const raw = fs.readFileSync(path.join(BLOG_DIR, file), "utf8");
       const post = toPost(slug, raw);
-      if (post) map.set(slug, post);
+      // Filter here, not in each caller: the sitemap, the index,
+      // generateStaticParams and related-post resolution all read through
+      // loadAll(), so one gate keeps them from ever disagreeing about what
+      // exists — an unreleased post must not be linked to or listed either.
+      if (post && isReleased(post, today)) map.set(slug, post);
     } catch {
       // skip unreadable file
     }

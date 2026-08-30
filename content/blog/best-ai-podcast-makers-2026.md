@@ -2,6 +2,7 @@
 title: Best AI Podcast Makers in 2026 (Compared)
 description: Compares Wondercraft, NotebookLM, ElevenLabs, Descript, and Monica AI on voice quality, editing, and price to help you pick the right AI podcast maker.
 date: 2026-08-07
+releaseOn: 2026-09-09
 updated: 2026-08-07
 category: guide
 keyword: best AI podcast maker

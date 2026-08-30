@@ -2,6 +2,7 @@
 title: Best AI Voice-to-Text & Whisper Alternatives 2026
 description: Compares AssemblyAI, Deepgram Nova-3, Wispr Flow, Juno, Otter.ai, Google Cloud Speech-to-Text, and Rev on price, latency, and accuracy to find your Whisper replacement.
 date: 2026-08-11
+releaseOn: 2026-09-09
 updated: 2026-08-11
 category: compare
 keyword: best voice to text alternatives 2026

@@ -2,6 +2,7 @@
 title: Best AI Code Editors 2026: Cursor vs Replit vs Copilot
 description: Compares Cursor, Replit Agent, and GitHub Copilot on pricing and agent capabilities to help developers choose the right AI coding tool for local or cloud workflows.
 date: 2026-08-04
+releaseOn: 2026-09-09
 updated: 2026-08-04
 category: compare
 keyword: best ai code editor

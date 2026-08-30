@@ -2,6 +2,7 @@
 title: Cathedral Funding: How Much It Raised, Its Valuation & Investors
 description: Cathedral raised $160 million at a $1.4 billion valuation in July 2026, led by Andreessen Horowitz and Sequoia Capital. Here's the full breakdown of the round, the founding team's Pentagon and SpaceX ties, and what the military AI cyber startup will do with the money.
 date: 2026-08-03
+releaseOn: 2026-09-04
 updated: 2026-08-03
 category: funding
 keyword: Cathedral military AI cyber funding

@@ -2,6 +2,7 @@
 title: Discovery Loop Funding: How Much It Raised, Its Valuation & Investors
 description: Discovery Loop, the new AI research startup founded by Jeff Dean, raised a seed round in August 2026 led by Radical Ventures and Khosla Ventures, with Alphabet also backing. Here's what's known about the round so far.
 date: 2026-08-13
+releaseOn: 2026-09-04
 updated: 2026-08-13
 category: funding
 keyword: discovery loop jeff dean ai research funding
