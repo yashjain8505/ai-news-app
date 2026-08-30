@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wortins",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+  // nodejs_compat gives us node:crypto, which signs the Google service-account
+  // JWTs in lib/gsc.ts and lib/ga.ts. There is deliberately no filesystem use
+  // left to support — blog content is bundled at build time.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Backs the incremental cache: prerendered pages are served from here, and
+  // ISR revalidations are written back. See open-next.config.ts for why R2
+  // rather than KV or the read-only static-assets cache.
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "wortins-next-cache"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
