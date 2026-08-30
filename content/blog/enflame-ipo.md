@@ -2,6 +2,7 @@
 title: Enflame Technology IPO: Valuation, Timing & What to Know
 description: Enflame Technology, one of China's "four GPU dragons" AI chipmakers, raised $892 million in its Shanghai STAR Market IPO in August 2026, with Tencent among its backers. Here's the full breakdown of the listing and why it matters.
 date: 2026-08-28
+releaseOn: 2026-08-30
 updated: 2026-08-28
 category: funding
 keyword: enflame technology ipo shanghai ai chips

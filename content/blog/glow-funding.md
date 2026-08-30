@@ -2,6 +2,7 @@
 title: Glow Funding: How Much It Raised, Its Valuation & Investors
 description: Glow raised $180 million in a Series A round at a $1.2 billion valuation in July 2026, led by Sequoia Capital and Cyberstarts. Here's the full breakdown of the round, the backers, and what the endpoint security startup will do with the money.
 date: 2026-08-03
+releaseOn: 2026-09-04
 updated: 2026-08-03
 category: funding
 keyword: Glow endpoint security AI funding

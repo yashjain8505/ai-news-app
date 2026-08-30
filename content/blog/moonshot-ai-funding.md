@@ -2,6 +2,7 @@
 title: Moonshot AI Funding: How Much It Raised, Its Valuation & Investors
 description: Moonshot AI raised $3.5 billion in a Series D+ round at a $35 billion valuation in July 2026, led by China's National AI Industry Investment Fund. Here's the full breakdown of the round, the backers, and what it means for China's frontier AI race.
 date: 2026-08-03
+releaseOn: 2026-09-04
 updated: 2026-08-03
 category: funding
 keyword: Moonshot AI funding round

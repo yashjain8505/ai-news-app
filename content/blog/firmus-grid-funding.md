@@ -2,6 +2,7 @@
 title: Firmus Funding: How Much It Raised, Its Valuation & Investors
 description: Firmus raised $2 billion in a Series C round at a $10.5 billion valuation in August 2026, led by Coatue and Blackstone. Here's the full breakdown of the raise and the backers.
 date: 2026-08-17
+releaseOn: 2026-08-30
 updated: 2026-08-17
 category: funding
 keyword: firmus ai data center funding

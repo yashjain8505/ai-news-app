@@ -2,6 +2,7 @@
 title: Velaura AI Funding: How Much It Raised, Its Valuation & Investors
 description: Velaura AI raised $110M in a Series A at a $1B+ valuation in August 2026, led by Seligman Ventures with Samsung Catalyst Fund and others. Here's the full breakdown of the round and what it means for AI chip power efficiency.
 date: 2026-08-24
+releaseOn: 2026-08-30
 updated: 2026-08-24
 category: funding
 keyword: velaura ai funding

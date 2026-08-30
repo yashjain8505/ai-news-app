@@ -2,6 +2,7 @@
 title: Atoms Funding: How Much It Raised, Its Valuation & Investors
 description: Atoms, Travis Kalanick's industrial robotics startup, raised $1.7 billion in a Series B round led by Andreessen Horowitz in July 2026, with Uber also participating. Here's the full breakdown of the round and what it means for physical AI.
 date: 2026-08-28
+releaseOn: 2026-08-30
 updated: 2026-08-28
 category: funding
 keyword: atoms robotics funding travis kalanick

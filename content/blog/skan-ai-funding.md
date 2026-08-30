@@ -2,6 +2,7 @@
 title: Skan AI Funding: How Much It Raised, Its Valuation & Investors
 description: Skan AI raised $63 million in a Series C round in August 2026, led by Cathay Innovation and Dell Technologies Capital. Here's the full breakdown of the raise and the backers.
 date: 2026-08-17
+releaseOn: 2026-08-30
 updated: 2026-08-17
 category: funding
 keyword: skan ai workflow monitoring funding

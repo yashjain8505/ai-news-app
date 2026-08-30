@@ -2,6 +2,7 @@
 title: River AI Funding: How Much It Raised, Its Valuation & Investors
 description: River AI raised $1.1 billion in a combined Seed and Series A round at a $5 billion valuation in August 2026, led by General Catalyst and AMP PBC. Here's the full breakdown.
 date: 2026-08-17
+releaseOn: 2026-08-30
 updated: 2026-08-17
 category: funding
 keyword: river ai reinforcement learning funding

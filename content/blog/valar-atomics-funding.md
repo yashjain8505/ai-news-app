@@ -2,6 +2,7 @@
 title: Valar Atomics Funding: How Much It Raised, Its Valuation & Investors
 description: Valar Atomics raised a $1 billion Series B at a $6 billion valuation in August 2026, led by Sequoia Capital, to build nuclear reactors for AI data centers. Here's the full breakdown of the round and what it will do with the money.
 date: 2026-08-07
+releaseOn: 2026-09-04
 updated: 2026-08-07
 category: funding
 keyword: valar atomics sequoia nuclear reactors ai data centers

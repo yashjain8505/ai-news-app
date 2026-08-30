@@ -2,6 +2,7 @@
 title: Leonardo.ai vs Midjourney: Which Should You Use?
 description: Compares Leonardo.ai and Midjourney on pricing, image quality, and workflow to help you pick the right AI image generator for your budget and use case.
 date: 2026-08-25
+releaseOn: 2026-09-09
 updated: 2026-08-25
 category: compare
 keyword: leonardo ai vs midjourney

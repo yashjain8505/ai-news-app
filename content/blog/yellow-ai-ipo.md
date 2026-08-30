@@ -2,6 +2,7 @@
 title: Yellow.ai IPO: Valuation, Timing & What to Know
 description: Yellow.ai is going public via a $550 million SPAC merger with Bluerock Acquisition Corp, announced August 3, 2026. Here's the full breakdown of the deal and what it means for agentic customer-service AI.
 date: 2026-08-10
+releaseOn: 2026-09-04
 updated: 2026-08-10
 category: funding
 keyword: yellow.ai spac ipo

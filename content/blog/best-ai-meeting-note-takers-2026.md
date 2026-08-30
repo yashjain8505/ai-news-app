@@ -2,6 +2,7 @@
 title: Best AI Meeting Note-Takers 2026: Otter vs Fireflies vs Granola
 description: Compares Otter.ai, Fireflies, and Granola on pricing, bot-free capture, and team size to help you pick the right AI meeting transcription and note-taking tool.
 date: 2026-08-04
+releaseOn: 2026-09-09
 updated: 2026-08-04
 category: compare
 keyword: best meeting note-taking app

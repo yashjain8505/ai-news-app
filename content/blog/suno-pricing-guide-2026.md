@@ -2,6 +2,7 @@
 title: Suno Pricing Guide 2026: Free, Pro, and Premier
 description: Breaks down Suno's Free, Pro, and Premier plans, credits, song limits, commercial rights, so you know exactly which tier fits your music-making needs in 2026.
 date: 2026-08-18
+releaseOn: 2026-09-09
 updated: 2026-08-18
 category: pricing
 keyword: Suno pricing

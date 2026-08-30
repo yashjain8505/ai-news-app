@@ -2,6 +2,7 @@
 title: Naïve Funding: How Much It Raised & Investors
 description: Naïve raised $28.5 million in a Series A round in August 2026, led by Nexus Venture Partners, to automate back-office operations with AI agents. Here's the full breakdown of the round, the backers, and what the company will do with the money.
 date: 2026-08-20
+releaseOn: 2026-08-30
 updated: 2026-08-20
 category: funding
 keyword: naive autonomous company infrastructure

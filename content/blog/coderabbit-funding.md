@@ -2,6 +2,7 @@
 title: CodeRabbit Funding: How Much It Raised, Its Valuation & Investors
 description: CodeRabbit raised $143 million in a Series C round at a $1.5 billion valuation in August 2026, led by Atomico and Smash Capital. Here's the full breakdown of the raise and the backers.
 date: 2026-08-17
+releaseOn: 2026-08-30
 updated: 2026-08-17
 category: funding
 keyword: coderabbit ai code review funding

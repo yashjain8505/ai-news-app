@@ -2,6 +2,7 @@
 title: Best AI Email Assistants: Follow-Up and Productivity Tools
 description: Compares NudgeForMe, Typeahead, Superhuman, and Notion AI to help you pick the right AI email tool for follow-ups, writing voice, or inbox management.
 date: 2026-08-04
+releaseOn: 2026-09-09
 updated: 2026-08-04
 category: guide
 keyword: best ai email assistant

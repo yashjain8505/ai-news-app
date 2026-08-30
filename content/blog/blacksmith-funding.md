@@ -2,6 +2,7 @@
 title: Blacksmith Funding: How Much It Raised, Its Valuation & Investors
 description: Blacksmith raised $45 million in a Series B round at a $550 million valuation in August 2026, led by Peak XV Partners. Here's the full breakdown of the round, the backers, and what the AI code validation platform will do with the money.
 date: 2026-08-20
+releaseOn: 2026-08-30
 updated: 2026-08-20
 category: funding
 keyword: blacksmith ci cd ai code validation

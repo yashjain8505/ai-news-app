@@ -2,6 +2,7 @@
 title: Best AI Scheduling Assistants in 2026 (Compared)
 description: Compares Reclaim AI, Motion, Calendly, Trevor AI, and Akiflow on price and features to help you pick the right AI scheduling assistant for your workflow.
 date: 2026-08-07
+releaseOn: 2026-09-09
 updated: 2026-08-07
 category: guide
 keyword: best AI scheduler assistant

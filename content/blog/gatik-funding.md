@@ -2,6 +2,7 @@
 title: Gatik Funding: How Much It Raised, Its Valuation & Investors
 description: Gatik, an autonomous middle-mile trucking startup, raised $200 million in a Series D round in August 2026, led by Qatar Investment Authority and Koch Disruptive Technologies. Here's the full breakdown of the round and why it matters.
 date: 2026-08-28
+releaseOn: 2026-08-30
 updated: 2026-08-28
 category: funding
 keyword: gatik autonomous trucking series d

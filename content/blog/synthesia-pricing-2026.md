@@ -2,6 +2,7 @@
 title: Synthesia Pricing 2026: Plans, Features & Costs Explained
 description: Breaks down Synthesia's Free, Creator, and Enterprise plans, what each tier includes, and how the cost compares to HeyGen and D-ID so you can pick the right AI avatar tool.
 date: 2026-08-21
+releaseOn: 2026-09-09
 updated: 2026-08-21
 category: pricing
 keyword: synthesia pricing

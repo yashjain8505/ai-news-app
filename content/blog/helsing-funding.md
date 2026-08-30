@@ -2,6 +2,7 @@
 title: Helsing Funding: How Much It Raised, Its Valuation & Investors
 description: Helsing raised $1.8 billion in a Series C round at an $18 billion valuation in July 2026, led by JPMorgan Chase, Lightspeed Venture Partners and ICONIQ. Here's the full breakdown of the round and why it matters for defense AI.
 date: 2026-08-28
+releaseOn: 2026-08-30
 updated: 2026-08-28
 category: funding
 keyword: helsing defense ai funding

@@ -2,6 +2,7 @@
 title: Safe Superintelligence Funding: Raise, Valuation & Investors
 description: Safe Superintelligence raised $5 billion from Nvidia at a $32 billion valuation in July 2026, pushing its total funding to roughly $7 billion. Here's the full breakdown of the round and what it signals about the AI capital race.
 date: 2026-08-10
+releaseOn: 2026-09-04
 updated: 2026-08-10
 category: funding
 keyword: safe superintelligence ssi nvidia

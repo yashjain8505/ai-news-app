@@ -2,6 +2,7 @@
 title: Best AI Chatbot Builders for SMBs in 2026 (Compared)
 description: Compares Tidio, Chatbase, ManyChat, Botpress, Intercom, and Boei on pricing, WhatsApp support, and setup time to help SMBs pick the right no-code AI chatbot.
 date: 2026-08-14
+releaseOn: 2026-09-09
 updated: 2026-08-14
 category: compare
 keyword: best AI chatbot builder

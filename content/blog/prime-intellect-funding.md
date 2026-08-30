@@ -2,6 +2,7 @@
 title: Prime Intellect Funding: Raise, Valuation & Investors
 description: Prime Intellect raised $130 million in a Series A round at a $1 billion valuation in July 2026, led by Radical Ventures with Nvidia Ventures, Intel Capital and Dell co-leading. Here's the full breakdown of the round and why enterprise AI agent infrastructure is drawing big checks.
 date: 2026-08-03
+releaseOn: 2026-09-04
 updated: 2026-08-03
 category: funding
 keyword: Prime Intellect enterprise AI agents

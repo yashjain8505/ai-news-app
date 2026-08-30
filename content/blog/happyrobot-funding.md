@@ -2,6 +2,7 @@
 title: HappyRobot Funding: How Much It Raised, Its Valuation & Investors
 description: HappyRobot raised a $150 million Series C at a $1.2 billion valuation in August 2026, led by Prysm Capital and Eurazeo. Here's the full breakdown of the round, the backers, and what the AI agent platform will do with the money.
 date: 2026-08-07
+releaseOn: 2026-09-04
 updated: 2026-08-07
 category: funding
 keyword: happyrobot ai agents series c supply chain

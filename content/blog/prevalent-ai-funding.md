@@ -2,6 +2,7 @@
 title: Prevalent AI Funding: How Much It Raised, Its Valuation & Investors
 description: Prevalent AI raised $22M in a growth round led by Integrity Growth Partners in August 2026 to expand its data governance platform. Here's the full breakdown of the round and what it means for enterprise AI.
 date: 2026-08-24
+releaseOn: 2026-08-30
 updated: 2026-08-24
 category: funding
 keyword: prevalent ai funding

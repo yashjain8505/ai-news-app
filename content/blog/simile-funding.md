@@ -2,6 +2,7 @@
 title: Simile Funding: How Much It Raised, Its Valuation & Investors
 description: Simile raised $200 million in a Series B round at a $2 billion valuation in July 2026, led by Greenoaks just five months after its $100 million Series A. Here's the full breakdown of the round, the backers, and what it means for AI-driven market research.
 date: 2026-08-03
+releaseOn: 2026-09-04
 updated: 2026-08-03
 category: funding
 keyword: Simile synthetic users Series B

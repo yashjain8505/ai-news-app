@@ -2,6 +2,7 @@
 title: QuantHealth Funding: How Much It Raised, Its Valuation & Investors
 description: QuantHealth raised $45 million in a Series B round in August 2026, led by Qumra Capital with participation from Pitango and Sanofi Ventures. Here's the full breakdown of the round and what the AI clinical-trial startup will do with the money.
 date: 2026-08-13
+releaseOn: 2026-09-04
 updated: 2026-08-13
 category: funding
 keyword: quanthealth ai clinical trials funding

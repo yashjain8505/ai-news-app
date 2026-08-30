@@ -2,6 +2,7 @@
 title: Best AI Document Translators in 2026 (Compared)
 description: Compares Delos Trad, DeepL, Microsoft Word, Reverso Documents, and Google Translate on formatting, privacy, and price to find the right document translator.
 date: 2026-08-07
+releaseOn: 2026-09-09
 updated: 2026-08-07
 category: guide
 keyword: best AI document translator

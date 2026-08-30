@@ -2,6 +2,7 @@
 title: Rundoo Funding: How Much It Raised, Its Valuation & Investors
 description: Rundoo raised a $30M Series B in August 2026 to expand its AI-native operating system for independent supply stores. Here's the full breakdown of the round and what it means for small-business AI.
 date: 2026-08-24
+releaseOn: 2026-08-30
 updated: 2026-08-24
 category: funding
 keyword: rundoo funding

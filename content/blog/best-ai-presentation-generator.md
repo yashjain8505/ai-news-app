@@ -2,6 +2,7 @@
 title: Best AI Presentation Generator in 2026: Gamma vs Tome
 description: Compares Gamma, Beautiful.ai, Tome, and Plus AI on pricing and design approach to help you pick the right AI presentation generator for your workflow.
 date: 2026-08-25
+releaseOn: 2026-09-09
 updated: 2026-08-25
 category: guide
 keyword: best ai presentation generator

@@ -2,6 +2,7 @@
 title: Best AI Browser Extensions in 2026 (Compared)
 description: Compares Sider, ChatGPT Web Clipper, Perplexity Extension, and Monica on research, multi-model chat, and translation to find the right AI browser extension.
 date: 2026-08-07
+releaseOn: 2026-09-09
 updated: 2026-08-07
 category: guide
 keyword: best AI browser extension

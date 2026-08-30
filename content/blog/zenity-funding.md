@@ -2,6 +2,7 @@
 title: Zenity Funding: How Much It Raised, Its Valuation & Investors
 description: Zenity raised a $125 million Series C in August 2026, led by Norwest Venture Partners and SoftBank Vision Fund 2. Here's the full breakdown of the round, the backers, and what the AI agent security platform will do with the money.
 date: 2026-08-07
+releaseOn: 2026-09-04
 updated: 2026-08-07
 category: funding
 keyword: zenity ai agent monitoring security funding

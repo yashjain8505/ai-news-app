@@ -2,6 +2,7 @@
 title: Freehand Funding: How Much It Raised, Its Valuation & Investors
 description: Freehand raised $75 million in a Series B round in August 2026, led by Battery Ventures and NewRoad Capital Partners. Here's the round, the backers, and what the AI supply chain startup does next.
 date: 2026-08-10
+releaseOn: 2026-09-04
 updated: 2026-08-10
 category: funding
 keyword: freehand ai supply chain

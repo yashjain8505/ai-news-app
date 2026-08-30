@@ -2,6 +2,7 @@
 title: OLIX Computing Funding: How Much It Raised & Its Valuation
 description: OLIX Computing raised $312 million in a Series B at a $3.3 billion valuation in August 2026, led by the UK Sovereign AI Venture Fund. Here's the full breakdown of the round and its photonic AI chips.
 date: 2026-08-10
+releaseOn: 2026-09-04
 updated: 2026-08-10
 category: funding
 keyword: olix computing photonic ai chips

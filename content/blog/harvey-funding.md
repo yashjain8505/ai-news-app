@@ -2,6 +2,7 @@
 title: Harvey Funding: How Much It Raised, Its Valuation & Investors
 description: Harvey raised $500M+ in a Series E round at a $15.5B valuation in August 2026, led by Lightspeed Venture Partners. Here's the full breakdown of the raise, the backers, and what's next.
 date: 2026-08-17
+releaseOn: 2026-08-30
 updated: 2026-08-17
 category: funding
 keyword: harvey legal ai funding
