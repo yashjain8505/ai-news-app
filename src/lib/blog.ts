@@ -6,8 +6,12 @@
 // Frontmatter values are parsed as: JSON when they start with [ { or " ,
 // otherwise the raw (quote-trimmed) string. Authoring is one file per post.
 
-import fs from "node:fs";
-import path from "node:path";
+// Content is bundled at build time by scripts/build-blog-index.mjs rather than
+// read from disk per request: the sitemap and the .md twin route both need blog
+// data at runtime, and a filesystem is a Node-server luxury that edge and
+// Workers runtimes do not have. The content ships with the deployment and
+// cannot change between builds, so there was never a reason to touch the disk.
+import bundled from "@/generated/blog-content.json";
 
 export interface BlogFaq {
   q: string;
@@ -30,8 +34,6 @@ export interface BlogPost {
   body: string; // markdown body (frontmatter stripped)
   readingTime: number; // minutes
 }
-
-const BLOG_DIR = path.join(process.cwd(), "content", "blog");
 
 // Parse a `key: value` frontmatter block delimited by leading/trailing `---`.
 // Returns the data map + the remaining markdown body.
@@ -142,27 +144,13 @@ function loadAll(): Map<string, BlogPost> {
   if (cache) return cache;
   const today = todayIso();
   const map = new Map<string, BlogPost>();
-  let files: string[] = [];
-  try {
-    files = fs.readdirSync(BLOG_DIR);
-  } catch {
-    cache = map; // no content dir yet — empty blog, not an error
-    return map;
-  }
-  for (const file of files) {
-    if (!file.endsWith(".md")) continue;
-    const slug = file.replace(/\.md$/, "");
-    try {
-      const raw = fs.readFileSync(path.join(BLOG_DIR, file), "utf8");
-      const post = toPost(slug, raw);
-      // Filter here, not in each caller: the sitemap, the index,
-      // generateStaticParams and related-post resolution all read through
-      // loadAll(), so one gate keeps them from ever disagreeing about what
-      // exists — an unreleased post must not be linked to or listed either.
-      if (post && isReleased(post, today)) map.set(slug, post);
-    } catch {
-      // skip unreadable file
-    }
+  for (const { slug, raw } of bundled as Array<{ slug: string; raw: string }>) {
+    const post = toPost(slug, raw);
+    // Filter here, not in each caller: the sitemap, the index,
+    // generateStaticParams and related-post resolution all read through
+    // loadAll(), so one gate keeps them from ever disagreeing about what
+    // exists — an unreleased post must not be linked to or listed either.
+    if (post && isReleased(post, today)) map.set(slug, post);
   }
   cache = map;
   return map;

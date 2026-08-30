@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wortins → Substack composer</title>
+<style>
+  :root{
+    --paper:#f3ecda; --ink:#1b1712; --muted:#6a6052; --line:#d8ccb2; --red:#9c2b1d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:Georgia,'Times New Roman',serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:26px 18px 80px}
+  header{border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .logo{display:inline-block;width:30px;height:30px;background:var(--red);color:var(--paper);
+    font-weight:700;text-align:center;line-height:30px;font-size:20px}
+  h1{font-size:22px;letter-spacing:.08em;margin:0}
+  .sub{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:2px;flex-basis:100%}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 22px}
+  .controls input[type=date]{font:inherit;padding:6px 8px;border:1px solid var(--line);background:#fff8ea;border-radius:6px}
+  button{font:inherit;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);
+    padding:7px 13px;border-radius:6px}
+  button.ghost{background:transparent;color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .status{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted)}
+  .card{border:1px solid var(--line);background:#fbf6e9;border-radius:10px;padding:16px 18px;margin:0 0 18px}
+  .card > .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+  .card .label{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+  .hint{font-size:12.5px;color:var(--muted);font-style:italic;margin:0 0 12px}
+  .titlebox{font-size:20px;font-weight:700;line-height:1.25}
+  pre.note{white-space:pre-wrap;word-wrap:break-word;font-family:ui-monospace,monospace;font-size:13px;
+    line-height:1.55;margin:0;color:var(--ink)}
+  .post h2{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--red);border-bottom:2px solid var(--ink);padding-bottom:5px;margin:22px 0 10px}
+  .post h2:first-child{margin-top:2px}
+  .post p{font-size:15.5px;line-height:1.55;margin:0 0 6px}
+  .post .story{margin:0 0 16px}
+  .post .story .t{font-size:16px;font-weight:700}
+  .post .story .t a{color:var(--ink);text-decoration:none}
+  .post .story .src{font-family:ui-monospace,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .post blockquote{margin:6px 0 0;padding:2px 0 2px 14px;border-left:3px solid var(--red);color:#3a342a;font-style:italic;font-size:14.5px;line-height:1.5}
+  .post hr{border:none;border-top:1px solid var(--line);margin:22px 0 14px}
+  .post a{color:var(--red)}
+  .copied{color:var(--red);font-family:ui-monospace,monospace;font-size:11px;margin-left:8px;opacity:0;transition:opacity .15s}
+  .copied.show{opacity:1}
+  .steps{background:#fff8ea;border:1px dashed var(--line);border-radius:10px;padding:12px 16px;margin:0 0 20px;font-size:13.5px;line-height:1.6}
+  .steps b{color:var(--red)}
+  .err{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="logo">W</span>
+    <h1>WORTINS → SUBSTACK</h1>
+    <div class="sub">Daily composer · copy → paste → publish</div>
+  </header>
+
+  <div class="steps">
+    <b>How to use (≈5 min/day):</b>
+    1) Pick the edition (defaults to the latest). &nbsp;
+    2) In Substack, click <b>New post</b> — paste the <b>Title</b>, then paste the <b>Full post</b> into the body. &nbsp;
+    3) Hit <b>Publish</b>. &nbsp;
+    Want a quick <b>Note</b> instead? Copy the Note block and paste it into the Substack Notes box (the link turns into a preview card automatically).
+  </div>
+
+  <div class="controls">
+    <label class="status">Edition:</label>
+    <input type="date" id="date">
+    <button class="ghost" id="latest">Latest</button>
+    <button class="ghost" id="reload">Reload</button>
+    <span class="status" id="status">Loading…</span>
+  </div>
+
+  <!-- TITLE -->
+  <div class="card">
+    <div class="head">
+      <span class="label">Post title</span>
+      <span><button data-copy="title">Copy title</button><span class="copied" id="c-title">copied ✓</span></span>
+    </div>
+    <div class="titlebox" id="title"></div>
+  </div>
+
+  <!-- FULL POST -->
+  <div class="card">
+    <div class="head">
+      <span class="label">Full post — paste into the Substack post body</span>
+      <span><button data-copy="post">Copy post</button><span class="copied" id="c-post">copied ✓</span></span>
+    </div>
+    <p class="hint">Copies with formatting (headings, bold, links) so it lands ready-to-publish. Each headline links back to wortins.com.</p>
+    <div class="post" id="post"></div>
+  </div>
+
+  <!-- NOTE -->
+  <div class="card">
+    <div class="head">
+      <span class="label">Short Note — paste into Substack Notes</span>
+      <span><button data-copy="note">Copy Note</button><span class="copied" id="c-note">copied ✓</span></span>
+    </div>
+    <p class="hint">Plain text; the wortins link on its own line becomes a preview card on paste.</p>
+    <pre class="note" id="note"></pre>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://zrjbzowohsgjbrhsldfi.supabase.co";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyamJ6b3dvaHNnamJyaHNsZGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NjU3ODgsImV4cCI6MjA5ODE0MTc4OH0.U5715XAzUWMoc6bNU7Sg1c0f8VTFt0YQ3WjR-lakHjA";
+const SITE = "https://www.wortins.com";
+const DAILY_IN_NOTE = 5;
+
+const SECTIONS = [
+  { key: "daily",    title: "Daily AI Updates" },
+  { key: "tools",    title: "New Tools" },
+  { key: "articles", title: "Interesting Articles" },
+  { key: "funding",  title: "Funding" },
+];
+const PER_SECTION = { daily: 8, tools: 5, articles: 5, funding: 5 };
+const WD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MO=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+
+function prettyDate(iso){ const [y,m,d]=iso.split("-").map(Number); const dt=new Date(Date.UTC(y,m-1,d));
+  return `${WD[dt.getUTCDay()]}, ${MO[m-1]} ${d}, ${y}`; }
+function tidy(s){ if(!s) return ""; s=s.trim().replace(/\s+/g," "); return /[.!?…]$/.test(s)?s:s+"."; }
+
+async function sb(path){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers:{ apikey:ANON_KEY, Authorization:`Bearer ${ANON_KEY}` }});
+  if(!r.ok) throw new Error(`Supabase ${r.status}: ${await r.text().catch(()=> "")}`);
+  return r.json();
+}
+
+async function latestDate(){
+  const rows = await sb("items?is_active=eq.true&edition_date=not.is.null&select=edition_date&order=edition_date.desc&limit=1");
+  return rows?.[0]?.edition_date || null;
+}
+
+let current = null; // { dateISO, edition, grouped }
+
+async function load(dateISO){
+  statusEl.textContent = "Loading…"; statusEl.classList.remove("err");
+  try{
+    if(!dateISO) dateISO = await latestDate();
+    if(!dateISO){ statusEl.textContent = "No editions found."; return; }
+    const items = await sb(`items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,rank,title,summary,source,slug,wortins_take&order=rank.asc`);
+    const edRows = await sb(`editions?edition_date=eq.${dateISO}&select=headline,synopsis`);
+    const edition = edRows?.[0] || null;
+    const grouped = {};
+    for(const s of SECTIONS) grouped[s.key] = [];
+    for(const it of (items||[])) if(grouped[it.section]) grouped[it.section].push(it);
+    for(const s of SECTIONS){ grouped[s.key].sort((a,b)=>(a.rank??999)-(b.rank??999)); grouped[s.key]=grouped[s.key].slice(0,PER_SECTION[s.key]); }
+    current = { dateISO, edition, grouped };
+    $("date").value = dateISO;
+    render();
+    const n = (items||[]).length;
+    statusEl.textContent = `${prettyDate(dateISO)} · ${n} stories`;
+  }catch(e){
+    statusEl.textContent = "Error: " + e.message; statusEl.classList.add("err");
+  }
+}
+
+function render(){
+  const { dateISO, edition, grouped } = current;
+  const editionUrl = `${SITE}/edition/${dateISO}`;
+
+  // ---- Title
+  $("title").textContent = edition?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`;
+
+  // ---- Full post (DOM, so copy preserves formatting)
+  const post = $("post"); post.innerHTML = "";
+  if(edition?.synopsis){ const p=document.createElement("p"); p.textContent = edition.synopsis; post.appendChild(p); }
+  for(const s of SECTIONS){
+    const list = grouped[s.key]; if(!list.length) continue;
+    const h=document.createElement("h2"); h.textContent = s.title; post.appendChild(h);
+    for(const it of list){
+      const box=document.createElement("div"); box.className="story";
+      const t=document.createElement("p"); t.className="t";
+      // <strong> so the bold survives paste into Substack (classes get stripped).
+      const strong=document.createElement("strong");
+      const a=document.createElement("a"); a.href=`${SITE}/story/${it.slug}`; a.textContent=it.title;
+      strong.appendChild(a); t.appendChild(strong);
+      if(it.source){ const sp=document.createElement("span"); sp.className="src"; sp.textContent = "  — "+it.source; t.appendChild(sp); }
+      box.appendChild(t);
+      if(it.summary){ const p=document.createElement("p"); p.textContent = tidy(it.summary); box.appendChild(p); }
+      if(it.wortins_take){ const q=document.createElement("blockquote");
+        const em=document.createElement("em"); em.textContent="Our take: "; q.appendChild(em);
+        q.appendChild(document.createTextNode(tidy(it.wortins_take))); box.appendChild(q); }
+      post.appendChild(box);
+    }
+  }
+  const hr=document.createElement("hr"); post.appendChild(hr);
+  const foot=document.createElement("p");
+  const fb=document.createElement("strong"); fb.textContent="Read the full interactive briefing"; foot.appendChild(fb);
+  foot.appendChild(document.createTextNode(", every story with our take, at "));
+  const fa=document.createElement("a"); fa.href=SITE; fa.textContent="wortins.com"; foot.appendChild(fa);
+  foot.appendChild(document.createTextNode(". A fresh AI edition every morning."));
+  post.appendChild(foot);
+
+  // ---- Note (plain text)
+  const daily = (grouped.daily||[]).slice(0,DAILY_IN_NOTE);
+  const lines = [];
+  lines.push(`🗞️ ${edition?.headline || "The Wortins Daily"}`);
+  lines.push("");
+  lines.push("The AI stories that matter today:");
+  for(const it of daily) lines.push(`• ${it.title}${it.source?` (${it.source})`:""}`);
+  lines.push("");
+  lines.push("Full briefing + our take on each:");
+  lines.push(editionUrl);
+  $("note").textContent = lines.join("\n");
+}
+
+// ---- copy helpers
+function flash(which, ok){ const el=$("c-"+which); el.textContent = ok? "copied ✓" : "select + ⌘C to copy";
+  el.classList.add("show"); setTimeout(()=>el.classList.remove("show"), ok?1200:2600); }
+
+// Select the node's rendered contents + execCommand — works on file:// and
+// carries formatting (headings/bold/links) into the Substack editor.
+function selectAndCopy(el){
+  const sel=window.getSelection(); const range=document.createRange();
+  range.selectNodeContents(el); sel.removeAllRanges(); sel.addRange(range);
+  let ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  return ok; // leave the selection so the user can ⌘C manually if it failed
+}
+async function copyPlain(text){
+  try{ if(navigator.clipboard?.writeText){ await navigator.clipboard.writeText(text); return true; } }catch(e){}
+  const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand("copy"); }catch(e){} ta.remove(); return ok;
+}
+async function copyRich(el){
+  // Preferred: write text/html + text/plain so Substack gets real formatting.
+  try{
+    if(window.ClipboardItem && navigator.clipboard?.write){
+      await navigator.clipboard.write([ new ClipboardItem({
+        "text/html": new Blob([el.innerHTML], {type:"text/html"}),
+        "text/plain": new Blob([el.innerText], {type:"text/plain"}),
+      })]);
+      return true;
+    }
+  }catch(e){ /* fall through to selection copy (e.g. file://) */ }
+  return selectAndCopy(el);
+}
+
+document.addEventListener("click", async (e)=>{
+  const btn=e.target.closest("button[data-copy]"); if(!btn) return;
+  const kind=btn.getAttribute("data-copy");
+  let ok=false;
+  if(kind==="title") ok=await copyPlain($("title").textContent);
+  else if(kind==="note") ok=await copyPlain($("note").textContent);
+  else if(kind==="post") ok=await copyRich($("post"));
+  flash(kind, ok);
+});
+$("reload").addEventListener("click",()=>load($("date").value||null));
+$("latest").addEventListener("click",()=>load(null));
+$("date").addEventListener("change",()=>load($("date").value||null));
+
+load(null);
+</script>
+</body>
+</html>
