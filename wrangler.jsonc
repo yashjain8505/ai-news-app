@@ -11,6 +11,16 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Custom domains — attached automatically on deploy once the wortins.com
+  // zone exists in this Cloudflare account (until then, deploys warn and skip).
+  // These replace the Vercel A/CNAME records at cutover; the DNS record that
+  // must survive the zone import untouched is the apex TXT
+  // google-site-verification=CUfu... (Search Console ownership — the SEO
+  // engine's GSC access dies without it).
+  "routes": [
+    { "pattern": "wortins.com", "custom_domain": true },
+    { "pattern": "www.wortins.com", "custom_domain": true }
+  ],
   // Backs the incremental cache: prerendered pages are served from here, and
   // ISR revalidations are written back.
   //
