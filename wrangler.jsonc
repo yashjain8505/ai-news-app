@@ -12,14 +12,18 @@
     "binding": "ASSETS"
   },
   // Backs the incremental cache: prerendered pages are served from here, and
-  // ISR revalidations are written back. KV is a STOPGAP — R2 is the design
-  // choice (see open-next.config.ts) but R2 needs dashboard enablement on this
-  // account. KV free tier allows 1,000 writes/day, which today's traffic stays
-  // inside; swap back to r2_buckets + r2IncrementalCache once R2 is enabled.
-  "kv_namespaces": [
+  // ISR revalidations are written back.
+  //
+  // SPEND GUARDRAIL (the user's hard rule): stay inside the $5/mo Workers Paid
+  // base (10M req + 30M CPU-ms included) and R2's free allowance (10 GB,
+  // 1M class-A writes/mo, 10M class-B reads/mo). Site load is ~3 orders of
+  // magnitude below all of these; anything approaching them is a runaway bug —
+  // stop and investigate, never let it bill. No new billable products (Durable
+  // Objects, Queues, Workers AI, ...) without explicit approval.
+  "r2_buckets": [
     {
-      "binding": "NEXT_INC_CACHE_KV",
-      "id": "0ec7a6caf10443b9a9cfd718bc7dff9a"
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "wortins-next-cache"
     }
   ],
   "observability": {
