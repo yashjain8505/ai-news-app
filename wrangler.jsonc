@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wortins",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+  // nodejs_compat gives us node:crypto, which signs the Google service-account
+  // JWTs in lib/gsc.ts and lib/ga.ts. There is deliberately no filesystem use
+  // left to support — blog content is bundled at build time.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Custom domains — attached automatically on deploy once the wortins.com
+  // zone exists in this Cloudflare account (until then, deploys warn and skip).
+  // These replace the Vercel A/CNAME records at cutover; the DNS record that
+  // must survive the zone import untouched is the apex TXT
+  // google-site-verification=CUfu... (Search Console ownership — the SEO
+  // engine's GSC access dies without it).
+  "routes": [
+    { "pattern": "wortins.com", "custom_domain": true },
+    { "pattern": "www.wortins.com", "custom_domain": true }
+  ],
+  // Backs the incremental cache: prerendered pages are served from here, and
+  // ISR revalidations are written back.
+  //
+  // SPEND GUARDRAIL (the user's hard rule): stay inside the $5/mo Workers Paid
+  // base (10M req + 30M CPU-ms included) and R2's free allowance (10 GB,
+  // 1M class-A writes/mo, 10M class-B reads/mo). Site load is ~3 orders of
+  // magnitude below all of these; anything approaching them is a runaway bug —
+  // stop and investigate, never let it bill. No new billable products (Durable
+  // Objects, Queues, Workers AI, ...) without explicit approval.
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "wortins-next-cache"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
