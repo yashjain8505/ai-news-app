@@ -64,15 +64,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // Canonical host: send the bare apex (wortins.com) to www. www requests
-      // have host "www.wortins.com" and don't match, so there's no loop. HTTP is
-      // already forced to HTTPS by the platform/HSTS.
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "wortins.com" }],
-        destination: "https://www.wortins.com/:path*",
-        permanent: true,
-      },
+      // Canonical host (apex -> www) used to live here as a has:[host] redirect.
+      // On Cloudflare Workers, OpenNext misapplies host-conditioned redirects:
+      // it matched EVERY host, so www 308-looped onto itself, and the empty
+      // path substituted ":path*" literally. The redirect now lives in
+      // src/proxy.ts, which reads the real request host. Do not re-add it here.
       // Old /section/<x> URLs now live at clean, SEO-friendly slugs.
       { source: "/section/daily", destination: "/daily-ai", permanent: true },
       { source: "/section/tools", destination: "/new-tools", permanent: true },

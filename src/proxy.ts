@@ -107,6 +107,19 @@ function twinRewrite(request: NextRequest, path: string, negotiated: boolean) {
 }
 
 export async function proxy(request: NextRequest) {
+  // Canonical host: bare apex -> www. Lives here rather than next.config.ts
+  // because OpenNext on Workers misapplies has:[host] redirects (matched every
+  // host -> www redirect-looped onto itself; empty path left ":path*" literal).
+  // The proxy sees the true Host header on every runtime, so this is exact.
+  {
+    const host = request.headers.get("host");
+    if (host === "wortins.com") {
+      const url = new URL(request.url);
+      url.host = "www.wortins.com";
+      return NextResponse.redirect(url, 308);
+    }
+  }
+
   const { pathname } = request.nextUrl;
 
   // 1. Direct Markdown twin request: /foo.md (and /index.md -> home).
