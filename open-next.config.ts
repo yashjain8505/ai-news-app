@@ -1,5 +1,7 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
-import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
+// KV is a stopgap until R2 is enabled on the account (dashboard action).
+// Design rationale for R2 below still stands; swap the import back then.
+import kvIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/kv-incremental-cache";
 
 // The incremental cache is not optional here, and not only for revalidation:
 // OpenNext serves *prerendered* pages out of it too, so with no cache configured
@@ -17,5 +19,5 @@ import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cac
 // a day, and ~220 revalidating routes under crawler traffic can exceed that
 // easily. R2's free tier allows roughly 33,000 writes a day.
 export default defineCloudflareConfig({
-  incrementalCache: r2IncrementalCache,
+  incrementalCache: kvIncrementalCache,
 });
