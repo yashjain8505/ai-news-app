@@ -213,6 +213,29 @@ export async function getIndexableStorySlugs(
   return (data ?? []) as IndexableStorySlug[];
 }
 
+export type NewsSitemapStory = {
+  slug: string;
+  title: string;
+  published_at: string | null;
+  created_at: string;
+};
+
+// Indexable stories from the last N hours — feeds the Google News sitemap,
+// which only wants genuinely fresh articles (Google reads at most ~48h back).
+export async function getNewsSitemapStories(hours = 48): Promise<NewsSitemapStory[]> {
+  const since = new Date(Date.now() - hours * 3600_000).toISOString();
+  const { data } = await supabase
+    .from("items")
+    .select("slug, title, published_at, created_at")
+    .eq("is_active", true)
+    .not("wortins_take", "is", null)
+    .neq("wortins_take", "")
+    .gte("published_at", since)
+    .order("published_at", { ascending: false })
+    .limit(1000);
+  return (data ?? []) as NewsSitemapStory[];
+}
+
 // Recent stories that carry an original take — title + take + link — so
 // /llms.txt can hand AI models actual readable content, not just links.
 export async function getRecentTakes(limit = 30): Promise<

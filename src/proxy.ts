@@ -107,16 +107,26 @@ function twinRewrite(request: NextRequest, path: string, negotiated: boolean) {
 }
 
 export async function proxy(request: NextRequest) {
-  // Canonical host: bare apex -> www. Lives here rather than next.config.ts
-  // because OpenNext on Workers misapplies has:[host] redirects (matched every
-  // host -> www redirect-looped onto itself; empty path left ":path*" literal).
-  // The proxy sees the true Host header on every runtime, so this is exact.
+  // Canonical origin: bare apex -> www, and plain http -> https (Cloudflare
+  // custom domains accept http and were serving 200s on it, which splits every
+  // page into an insecure duplicate). One 308 straight to the canonical URL.
+  // Lives here rather than next.config.ts because OpenNext on Workers
+  // misapplies has:[host] redirects (matched every host -> www redirect-looped
+  // onto itself; empty path left ":path*" literal). The proxy sees the true
+  // Host header on every runtime, so this is exact. Host-gated on wortins.com
+  // so local dev (http://localhost) is untouched.
   {
     const host = request.headers.get("host");
-    if (host === "wortins.com") {
+    if (host === "wortins.com" || host === "www.wortins.com") {
       const url = new URL(request.url);
-      url.host = "www.wortins.com";
-      return NextResponse.redirect(url, 308);
+      const insecure =
+        url.protocol === "http:" ||
+        request.headers.get("x-forwarded-proto") === "http";
+      if (host === "wortins.com" || insecure) {
+        url.protocol = "https:";
+        url.host = "www.wortins.com";
+        return NextResponse.redirect(url, 308);
+      }
     }
   }
 
