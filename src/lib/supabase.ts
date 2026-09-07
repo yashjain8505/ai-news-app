@@ -8,15 +8,19 @@ const key =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
   "sb_publishable_lYVDODp76VQg7WHKwi8WSA_jj8kyMtw";
 
-// Cache the public (anon) reads for 30 min so the pages that use them can be
-// ISR-rendered and served from the CDN (faster crawling + Core Web Vitals)
-// instead of hitting Supabase — and rendering dynamically — on every request.
-// This client is server-only (the browser uses supabase-browser.ts); writes are
-// POST/PATCH, which Next never caches.
+// Reads go straight to Supabase, NEVER through Next's fetch cache. The old
+// `next: { revalidate: 1800 }` wrapper was the great feed-freeze of Sep 2026:
+// on OpenNext/Workers those fetch-cache entries were served as fresh forever
+// (some seeded from the persisted build cache), so every list query returned
+// a 1-to-26-day-old snapshot while the curator kept publishing — the site
+// looked abandoned. Caching belongs at the PAGE layer (ISR `revalidate` on the
+// public routes, the per-isolate memo in FeedPage), where staleness is visible
+// and bounded; the data read itself must always be live.
+// This client is server-only (the browser uses supabase-browser.ts).
 export const supabase = createClient(url, key, {
   auth: { persistSession: false },
   global: {
     fetch: (input, init) =>
-      fetch(input, { ...init, next: { revalidate: 1800 } }),
+      fetch(input, { ...init, cache: "no-store" }),
   },
 });
