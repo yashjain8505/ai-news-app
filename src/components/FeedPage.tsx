@@ -30,7 +30,18 @@ async function getActiveItems(): Promise<Item[]> {
   if (activeItemsMemo && Date.now() - activeItemsMemo.at < ACTIVE_ITEMS_TTL_MS) {
     return activeItemsMemo.items;
   }
-  const { data, error } = await supabase.from("items").select("*").eq("is_active", true);
+  // ORDER + LIMIT are load-bearing: Supabase REST silently caps any response
+  // at 1000 rows, and once the table crossed 1000 active items the unbounded
+  // version of this query returned an ARBITRARY thousand — the newest drops
+  // fell outside it and the whole feed froze days stale while the DB was
+  // fresh. Newest-first + an explicit cap keeps the feed correct forever
+  // (600 recent items is far more than every section page needs).
+  const { data, error } = await supabase
+    .from("items")
+    .select("*")
+    .eq("is_active", true)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(600);
   const items = (data ?? []) as Item[];
   // Temporary freeze-hunt telemetry: what does this query ACTUALLY return at
   // runtime? (visible in `wrangler tail`; remove once the feed staleness is

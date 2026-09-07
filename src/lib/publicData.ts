@@ -43,12 +43,16 @@ export async function getSectionItems(
 }
 
 export async function getAllEditionDates(): Promise<string[]> {
+  // Read from `editions` (one row per date), NOT from `items`: the items scan
+  // was unbounded, and Supabase REST caps every response at 1000 rows, so once
+  // the table outgrew that the dedup only saw the dates inside an arbitrary
+  // first-1000 — silently truncating the archive.
   const { data } = await supabase
-    .from("items")
+    .from("editions")
     .select("edition_date")
-    .eq("is_active", true)
     .not("edition_date", "is", null)
-    .order("edition_date", { ascending: false });
+    .order("edition_date", { ascending: false })
+    .limit(730);
   const seen = new Set<string>();
   for (const row of (data ?? []) as { edition_date: string | null }[]) {
     if (row.edition_date) seen.add(row.edition_date);
@@ -201,16 +205,26 @@ export type IndexableStorySlug = {
 export async function getIndexableStorySlugs(
   limit = 5000
 ): Promise<IndexableStorySlug[]> {
-  const { data } = await supabase
-    .from("items")
-    .select("slug, section, published_at, created_at")
-    .eq("is_active", true)
-    .not("wortins_take", "is", null)
-    .neq("wortins_take", "")
-    .order("published_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as IndexableStorySlug[];
+  // Paged: Supabase REST caps each response at 1000 rows no matter what
+  // .limit() asks for, so a single request would silently truncate the
+  // sitemap once the story count crossed 1000 (it has).
+  const PAGE = 1000;
+  const out: IndexableStorySlug[] = [];
+  for (let from = 0; from < limit; from += PAGE) {
+    const { data } = await supabase
+      .from("items")
+      .select("slug, section, published_at, created_at")
+      .eq("is_active", true)
+      .not("wortins_take", "is", null)
+      .neq("wortins_take", "")
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .range(from, Math.min(from + PAGE, limit) - 1);
+    const rows = (data ?? []) as IndexableStorySlug[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
 }
 
 export type NewsSitemapStory = {
