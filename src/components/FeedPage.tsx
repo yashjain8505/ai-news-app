@@ -43,14 +43,7 @@ async function getActiveItems(): Promise<Item[]> {
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(600);
   const items = (data ?? []) as Item[];
-  // Temporary freeze-hunt telemetry: what does this query ACTUALLY return at
-  // runtime? (visible in `wrangler tail`; remove once the feed staleness is
-  // confirmed fixed in prod)
-  const newest = items.reduce<string | null>(
-    (m, it) => (it.published_at && (!m || it.published_at > m) ? it.published_at : m),
-    null
-  );
-  console.log(`feed-debug rows=${items.length} newest=${newest} err=${error?.message ?? "none"}`);
+  if (error) console.log(`feed items query error: ${error.message}`);
   // Don't memoize a failed/empty read — better to retry next request than to
   // pin an empty feed for a minute.
   if (items.length > 0) activeItemsMemo = { at: Date.now(), items };
