@@ -36,6 +36,15 @@
       "bucket_name": "wortins-next-cache"
     }
   ],
+  "vars": {
+    // Cache-namespace rotation (2026-09-07): the pre-rotation entries were
+    // written without working revalidation and served as fresh forever (the
+    // feed froze at 1-26 day old data). Rotating the prefix orphans them all —
+    // the worker starts from a clean namespace and regenerates on demand. The
+    // orphans just sit in R2 (storage is pennies-free at this size); bump the
+    // suffix again if the cache ever needs another hard purge.
+    "NEXT_INC_CACHE_R2_PREFIX": "inc-cache-20260907"
+  },
   "observability": {
     "enabled": true
   }

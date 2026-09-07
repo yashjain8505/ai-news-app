@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { unstable_cache } from "next/cache";
 import { getSessionUser } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { Item, Section } from "@/lib/types";
@@ -18,19 +17,26 @@ const MONTHS = [
 const FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// The active-items list is identical for every visitor, so cache it in Next's
-// Data Cache and refresh at most once a minute. This is the scalability lever:
-// a traffic spike hits Postgres ~once per minute instead of once per request,
-// so the DB (the real bottleneck) never saturates. Personalization stays live
-// because the per-user taste row is fetched separately, uncached.
-const getActiveItems = unstable_cache(
-  async (): Promise<Item[]> => {
-    const { data } = await supabase.from("items").select("*").eq("is_active", true);
-    return (data ?? []) as Item[];
-  },
-  ["feed-active-items"],
-  { revalidate: 60, tags: ["items"] }
-);
+// The active-items list is identical for every visitor, so memoize it for a
+// minute PER ISOLATE (a Workers isolate serves many requests, so a traffic
+// spike still hits Postgres ~once a minute per isolate, not once a request).
+// Deliberately NOT Next's unstable_cache: on OpenNext/Workers its R2-backed
+// entries were treated as fresh forever, which froze the whole news feed at
+// days-old data while the curator kept publishing. A plain in-memory memo
+// cannot go stale for longer than its TTL.
+let activeItemsMemo: { at: number; items: Item[] } | null = null;
+const ACTIVE_ITEMS_TTL_MS = 60_000;
+async function getActiveItems(): Promise<Item[]> {
+  if (activeItemsMemo && Date.now() - activeItemsMemo.at < ACTIVE_ITEMS_TTL_MS) {
+    return activeItemsMemo.items;
+  }
+  const { data } = await supabase.from("items").select("*").eq("is_active", true);
+  const items = (data ?? []) as Item[];
+  // Don't memoize a failed/empty read — better to retry next request than to
+  // pin an empty feed for a minute.
+  if (items.length > 0) activeItemsMemo = { at: Date.now(), items };
+  return items;
+}
 
 // Per-section page metadata, shared by every section route so canonical/title agree.
 export function sectionMetadata(section: Section): Metadata {
