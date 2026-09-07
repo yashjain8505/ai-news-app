@@ -146,11 +146,21 @@ jobs:
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         env:
           EDITION_DATE: ${{ github.event.inputs.target_date }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           DAY="${EDITION_DATE:-$(date -u +%F)}"
-          HOST="wortins.com"
+          HOST="www.wortins.com"
           KEY="a3d9f17c4b2e84605f1a9c7e2b6d0834"
+          # The fresh STORY pages are the URLs worth instant-indexing (IndexNow
+          # feeds Bing/Copilot directly); add the live feed surfaces on top.
+          STORIES=$(curl -s "$SUPABASE_URL/rest/v1/items?select=slug&edition_date=eq.$DAY&is_active=eq.true&order=published_at.desc&limit=40" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            | jq -r '.[].slug' | sed "s|^|https://$HOST/story/|" )
+          printf '%s\n' "https://$HOST/" "https://$HOST/daily-ai" "https://$HOST/new-tools" "https://$HOST/articles" "https://$HOST/funding" "https://$HOST/edition/$DAY" "https://$HOST/news-sitemap.xml" $STORIES \
+            | jq -R . | jq -s "{host:\"$HOST\",key:\"$KEY\",keyLocation:\"https://$HOST/$KEY.txt\",urlList:.}" > /tmp/indexnow-body.json
           curl -s -X POST "https://api.indexnow.org/indexnow" \
             -H "Content-Type: application/json" \
-            -d "{\"host\":\"$HOST\",\"key\":\"$KEY\",\"keyLocation\":\"https://$HOST/$KEY.txt\",\"urlList\":[\"https://$HOST/\",\"https://$HOST/edition/$DAY\",\"https://$HOST/section/daily\",\"https://$HOST/section/funding\",\"https://$HOST/section/tools\",\"https://$HOST/section/articles\"]}" \
-            -o /tmp/indexnow.txt -w "IndexNow HTTP %{http_code}\n"; cat /tmp/indexnow.txt || true
+            --data-binary @/tmp/indexnow-body.json \
+            -o /tmp/indexnow.txt -w "IndexNow HTTP %{http_code} ($(jq '.urlList | length' /tmp/indexnow-body.json) urls)\n"; cat /tmp/indexnow.txt || true
