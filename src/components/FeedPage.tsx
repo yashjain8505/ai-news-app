@@ -30,8 +30,16 @@ async function getActiveItems(): Promise<Item[]> {
   if (activeItemsMemo && Date.now() - activeItemsMemo.at < ACTIVE_ITEMS_TTL_MS) {
     return activeItemsMemo.items;
   }
-  const { data } = await supabase.from("items").select("*").eq("is_active", true);
+  const { data, error } = await supabase.from("items").select("*").eq("is_active", true);
   const items = (data ?? []) as Item[];
+  // Temporary freeze-hunt telemetry: what does this query ACTUALLY return at
+  // runtime? (visible in `wrangler tail`; remove once the feed staleness is
+  // confirmed fixed in prod)
+  const newest = items.reduce<string | null>(
+    (m, it) => (it.published_at && (!m || it.published_at > m) ? it.published_at : m),
+    null
+  );
+  console.log(`feed-debug rows=${items.length} newest=${newest} err=${error?.message ?? "none"}`);
   // Don't memoize a failed/empty read — better to retry next request than to
   // pin an empty feed for a minute.
   if (items.length > 0) activeItemsMemo = { at: Date.now(), items };
