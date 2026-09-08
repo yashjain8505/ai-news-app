@@ -43,3 +43,25 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           FORCE: ${{ github.event.inputs.force }}
         run: node .github/scripts/send-newsletter.mjs
+
+      # Pipeline heartbeat: this job runs every morning right after the 7:00 IST
+      # curate slot, so if the newest item is >12h old the curator is dead
+      # (broken workflow, dead cron-job.org trigger, expired PAT, ...). Failing
+      # HERE makes GitHub email the owner the same morning — the Sep 2026
+      # outage ran 39 hours purely because nothing was watching. Runs after the
+      # send step so a stale feed never blocks the newsletter itself.
+      - name: Freshness watchdog (fail loudly if the curator is stale)
+        if: ${{ always() && github.event_name == 'schedule' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          newest=$(curl -s "$SUPABASE_URL/rest/v1/items?select=published_at&is_active=eq.true&order=published_at.desc&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].published_at // empty')
+          [ -z "$newest" ] && { echo "::error::No active items at all"; exit 1; }
+          age_h=$(( ( $(date -u +%s) - $(date -u -d "$newest" +%s) ) / 3600 ))
+          echo "newest item: $newest (${age_h}h old)"
+          if [ "$age_h" -gt 12 ]; then
+            echo "::error::CURATOR STALE: newest item is ${age_h}h old (>12h). Check daily-edition.yml dispatches + the cron-job.org trigger."
+            exit 1
+          fi

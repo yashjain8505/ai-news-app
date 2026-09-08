@@ -131,6 +131,15 @@ jobs:
 
       # Guard: HTTP-check every image + source link on the fresh drop and drop
       # anything dead (fabricated/404). No LLM, ~free. Runs regardless of model.
+      # Deterministic taste enforcement — outlet caps + banned infra beat.
+      # The prompt states these rules but the model drifts; this cannot.
+      - name: Taste gate (outlet caps + banned beat)
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node .github/scripts/taste-gate.mjs
+
       - name: Verify images + links
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         env:
