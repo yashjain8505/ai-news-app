@@ -38,12 +38,12 @@ const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 // rank) — the stories anyone would find worth reading.
 const SECTION_LIMITS = { daily: 5, tools: 3, articles: 3, funding: 3 };
 const SECTION_TITLES = {
-  daily: "Daily AI Updates",
+  daily: "Top Stories",
   tools: "New Tools",
   articles: "Interesting Articles",
   funding: "Funding",
 };
-const SECTION_SHORT = { daily: "Daily AI", tools: "New Tools", articles: "Articles", funding: "Funding" };
+const SECTION_SHORT = { daily: "Top Stories", tools: "New Tools", articles: "Articles", funding: "Funding" };
 const SECTION_PATHS = { daily: "/", tools: "/new-tools", articles: "/articles", funding: "/funding" };
 const SECTION_ORDER = ["daily", "tools", "articles", "funding"];
 
@@ -82,21 +82,32 @@ function esc(s) {
   );
 }
 
+// Strip em/en dashes (house style: no dashes). Em dash -> comma; a numeric
+// en-dash range (2020–21) -> hyphen; any other en dash -> comma.
+function deDash(s) {
+  return String(s ?? "")
+    .replace(/\s*—\s*/g, ", ")
+    .replace(/(\d)\s*–\s*(\d)/g, "$1-$2")
+    .replace(/\s*–\s*/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Give a summary a clean ending so it never reads as cut off mid-thought.
 function tidy(s) {
   if (!s) return "";
-  s = s.trim().replace(/\s+/g, " ");
+  s = deDash(s);
   return /[.!?…]$/.test(s) ? s : s + ".";
 }
 
-// Keep the intro to ~2-4 lines: cut on a word boundary and add an ellipsis.
-function trimSynopsis(s, max = 200) {
+// Keep the intro to ~3 lines: cut on a word boundary and add an ellipsis.
+function trimSynopsis(s, max = 155) {
   if (!s) return "";
-  s = s.trim().replace(/\s+/g, " ");
+  s = deDash(s);
   if (s.length <= max) return s;
   const cut = s.slice(0, max);
   const at = cut.lastIndexOf(" ");
-  return cut.slice(0, at > 60 ? at : max).replace(/[,;:.\s]+$/, "") + "…";
+  return cut.slice(0, at > 80 ? at : max).replace(/[,;:.\s]+$/, "") + "…";
 }
 
 function prettyDate(iso) {
@@ -116,29 +127,35 @@ function groupBySection(items) {
 }
 
 // ---- HTML rendering ---------------------------------------------------------
-function renderStory(it) {
+// One story: a quiet source kicker, a bold headline (the scan layer), and a
+// light summary line. `last` drops the divider on a section's final story so
+// it doesn't sit right above the "Explore all" link.
+function renderStory(it, last) {
   const href = `${SITE_URL}/story/${encodeURIComponent(it.slug)}`;
   const src = it.source
-    ? `<div style="color:#6a6052;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;font-family:monospace">${esc(it.source)}</div>`
+    ? `<div style="font-size:12px;color:#a2967d;margin:0 0 3px">${esc(it.source)}</div>`
     : "";
   const summary = it.summary
-    ? `<p style="margin:5px 0 0;font-size:14px;line-height:1.5;color:#4a4338">${esc(tidy(it.summary))}</p>`
+    ? `<div style="margin:4px 0 0;font-size:14px;line-height:1.55;color:#5c5346">${esc(tidy(it.summary))}</div>`
     : "";
-  return `<tr><td style="padding:14px 0;border-bottom:1px solid #d8ccb2">
+  const border = last ? "" : "border-bottom:1px solid #e6ddc8";
+  return `<tr><td style="padding:16px 0;${border}">
     ${src}
-    <a href="${href}" style="display:block;margin:4px 0 0;font-size:15px;line-height:1.3;font-weight:700;color:#1b1712;text-decoration:none">${esc(it.title)}</a>
+    <a href="${href}" style="display:block;font-size:17px;line-height:1.32;font-weight:700;color:#1b1712;text-decoration:none">${esc(deDash(it.title))}</a>
     ${summary}
   </td></tr>`;
 }
 
 function renderSection(key, stories) {
   if (!stories.length) return "";
-  const rows = stories.map(renderStory).join("");
+  const rows = stories
+    .map((s, i) => renderStory(s, i === stories.length - 1))
+    .join("");
   const moreHref = `${SITE_URL}${SECTION_PATHS[key]}`;
-  return `<tr><td style="padding:24px 0 0">
-    <div style="font-family:monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:2px solid #1b1712;padding-bottom:6px">${SECTION_TITLES[key]}</div>
+  return `<tr><td style="padding:30px 0 0">
+    <div style="font-family:monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:1px solid #d8ccb2;padding-bottom:8px">${SECTION_TITLES[key]}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${rows}</table>
-    <div style="padding:11px 0 0">
+    <div style="padding:14px 0 0">
       <a href="${moreHref}" style="font-size:13px;font-style:italic;color:#9c2b1d;text-decoration:none">Explore all ${SECTION_SHORT[key]} &rarr;</a>
     </div>
   </td></tr>`;
@@ -147,7 +164,7 @@ function renderSection(key, stories) {
 function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
   const sections = SECTION_ORDER.map((k) => renderSection(k, grouped[k])).join("");
   const synopsis = edition?.synopsis
-    ? `<tr><td style="padding:16px 0 2px"><p style="margin:0;font-size:15px;line-height:1.55;color:#3a342a">${esc(trimSynopsis(edition.synopsis))}</p></td></tr>`
+    ? `<tr><td style="padding:20px 0 2px"><div style="font-style:italic;font-size:15px;line-height:1.6;color:#3a342a">${esc(trimSynopsis(edition.synopsis))}</div></td></tr>`
     : "";
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -158,7 +175,7 @@ function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
 </style></head>
 <body style="margin:0;background:#f3ecda;color:#1b1712;font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ecda"><tr><td align="center" class="wrap" style="padding:24px 16px">
-<table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
   <tr><td style="border-bottom:3px solid #1b1712;padding-bottom:12px">
     <img src="${SITE_URL}/wortins-mark.png" width="30" height="30" alt="Wortins" style="display:inline-block;width:30px;height:30px;vertical-align:middle;border:0">
     <span class="mast" style="font-size:24px;letter-spacing:0.1em;font-weight:700;vertical-align:middle;margin-left:9px">WORTINS</span>
@@ -178,20 +195,20 @@ function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
 </body></html>`;
 
   const lines = [];
-  lines.push(`WORTINS — The Daily AI Briefing`);
+  lines.push(`WORTINS · The Daily AI Briefing`);
   lines.push(prettyDate(dateISO));
   if (edition?.synopsis) lines.push(`\n${trimSynopsis(edition.synopsis)}`);
   for (const k of SECTION_ORDER) {
     if (!grouped[k].length) continue;
     lines.push(`\n${SECTION_TITLES[k].toUpperCase()}`);
     for (const it of grouped[k]) {
-      lines.push(`\n• ${it.title}${it.source ? ` (${it.source})` : ""}`);
+      lines.push(`\n• ${deDash(it.title)}${it.source ? ` (${it.source})` : ""}`);
       if (it.summary) lines.push(`  ${tidy(it.summary)}`);
       lines.push(`  ${SITE_URL}/story/${it.slug}`);
     }
     lines.push(`  Explore all ${SECTION_SHORT[k]}: ${SITE_URL}${SECTION_PATHS[k]}`);
   }
-  lines.push(`\n—\nThe full editions live at ${SITE_URL}`);
+  lines.push(`\n---\nThe full editions live at ${SITE_URL}`);
   lines.push(`Unsubscribe: ${unsubUrl}`);
   return { html, text: lines.join("\n") };
 }
@@ -287,7 +304,7 @@ async function main() {
   const edition = editionRows?.[0] || null;
   // Subject = the day's headline itself (the "from" name already says Wortins
   // Daily), so it reads as a compelling line in the inbox rather than boilerplate.
-  const subject = edition?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`;
+  const subject = deDash(edition?.headline) || `The Wortins Daily · ${prettyDate(dateISO)}`;
 
   // 4. Recipients.
   const subscribers = await sb(
