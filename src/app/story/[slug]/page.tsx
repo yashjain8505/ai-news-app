@@ -5,6 +5,7 @@ import { getStoryBySlug, getRelatedStories, getIndexableStorySlugs } from "@/lib
 import { timeAgo } from "@/lib/time";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
+import BackLink from "@/components/BackLink";
 import SocialShare from "@/components/SocialShare";
 
 export const revalidate = 1800; // 30 min ISR
@@ -140,6 +141,7 @@ export default async function StoryPage({
     <>
       <JsonLd data={[newsArticle, breadcrumb]} />
       <PublicChrome subtitle={sectionLabel}>
+        <BackLink />
         {/* Kicker: source · time-ago (mirrors PublicEdition's Meta) */}
         <div
           className="mono"
@@ -164,8 +166,8 @@ export default async function StoryPage({
         {/* Our original multi-paragraph summary — read this first, then decide
             whether to click through to the source. */}
         {indexable ? (
-          <div style={{ borderLeft: "3px solid var(--accent)", padding: "4px 0 4px 20px", margin: "8px 0 30px" }}>
-            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>
+          <div style={{ margin: "10px 0 34px" }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid var(--rule)", maxWidth: "62ch" }}>
               The story
             </div>
             {take
@@ -173,7 +175,7 @@ export default async function StoryPage({
               .map((p) => p.trim())
               .filter(Boolean)
               .map((para, i) => (
-                <p key={i} className="serif" style={{ fontSize: 19, lineHeight: 1.65, color: "var(--ink)", margin: i === 0 ? 0 : "16px 0 0", maxWidth: "64ch", whiteSpace: "pre-line" }}>
+                <p key={i} className="serif" style={{ fontSize: 20, lineHeight: 1.8, color: "var(--ink)", margin: i === 0 ? 0 : "22px 0 0", maxWidth: "62ch", whiteSpace: "pre-line" }}>
                   {para}
                 </p>
               ))}
@@ -234,41 +236,31 @@ export default async function StoryPage({
             <h2 className="display" style={{ fontSize: 22, color: "var(--ink)", margin: "0 0 16px" }}>
               Related coverage
             </h2>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {related.map((r, i) => {
+            <div className="bs-squares">
+              {related.map((r) => {
                 const rAgo = timeAgo(r.published_at, now);
-                const notLast = i !== related.length - 1;
                 return (
-                  <li key={r.id} style={{ padding: "14px 0", borderBottom: notLast ? "1px solid var(--rule)" : "none" }}>
-                    <div className="mono" style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--dim)" }}>
-                      {r.source}
-                      {r.published_at && rAgo && (
-                        <>
-                          {" · "}
-                          <time dateTime={r.published_at}>{rAgo}</time>
-                        </>
+                  <div key={r.id} className="bs-square bs-tap">
+                    <div className="bs-square__top mono">
+                      <span className="bs-square__kicker">{r.source ?? "Wortins"}</span>
+                      {rAgo && <span className="bs-square__meta mono">{rAgo}</span>}
+                    </div>
+                    <a href={`/story/${r.slug}`} className="bs-hl bs-square__link">
+                      <h3 className="display bs-square__title">{r.title}</h3>
+                    </a>
+                    <div className="bs-square__foot">
+                      {r.url ? (
+                        <a href={r.url} target="_blank" rel="noopener noreferrer" className="mono bs-ilink" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}>
+                          Read at {r.source ?? "source"} &#8599;
+                        </a>
+                      ) : (
+                        <span />
                       )}
                     </div>
-                    <h3 className="display" style={{ fontSize: 18, lineHeight: 1.2, margin: "5px 0 0", color: "var(--ink)" }}>
-                      <a href={`/story/${r.slug}`} className="bs-hl" style={{ color: "inherit", textDecoration: "none" }}>
-                        {r.title}
-                      </a>
-                    </h3>
-                    {r.url && (
-                      <a
-                        href={r.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mono bs-ilink"
-                        style={{ display: "inline-block", marginTop: 6, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}
-                      >
-                        Read at {r.source ?? "source"} &#8599;
-                      </a>
-                    )}
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           </section>
         )}
       </PublicChrome>

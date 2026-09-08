@@ -94,8 +94,6 @@ function CardPhoto({
     <a
       href={storyHref(it)}
       onClick={() => onOpen(it, rank)}
-      target="_blank"
-      rel="noopener noreferrer"
       className={className}
       style={{ display: "block", ...style }}
     >
@@ -146,7 +144,7 @@ function SquareCard({
         <span className="bs-square__kicker">{kicker}</span>
         {badge && <span className="bs-square__badge">{badge}</span>}
       </div>
-      <a href={storyHref(it)} onClick={() => onOpen(it, rank)} target="_blank" rel="noopener noreferrer" className="bs-hl bs-square__link">
+      <a href={storyHref(it)} onClick={() => onOpen(it, rank)} className="bs-hl bs-square__link">
         <h3 className="display bs-square__title">{it.title.replace(/\s*\(Claude skill\)$/, "")}</h3>
       </a>
       {it.summary && <p className="serif bs-square__sum">{it.summary}</p>}
@@ -487,7 +485,7 @@ export default function Feed({
                   <article>
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
                     <div style={{ marginTop: 16 }}>{meta(lead, "·", 11, true)}</div>
-                    <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" className="bs-hl">
+                    <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} className="bs-hl">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
                       </h2>
@@ -514,7 +512,7 @@ export default function Feed({
                       style={{ paddingBottom: 22, marginBottom: i === rail.length - 1 ? 0 : 22, borderBottom: i === rail.length - 1 ? "none" : "1px solid var(--rule)" }}
                     >
                       {meta(it, "·", 10, true)}
-                      <a href={storyHref(it)} onClick={() => onOpen(it, i + 1)} target="_blank" rel="noopener noreferrer" className="bs-hl">
+                      <a href={storyHref(it)} onClick={() => onOpen(it, i + 1)} className="bs-hl">
                         <h3 className="display" style={{ fontSize: 23, lineHeight: 1.14, margin: "8px 0 0", color: "var(--ink)" }}>
                           {withHighlight(it.title, it.highlight, 3)}
                         </h3>
@@ -549,7 +547,7 @@ export default function Feed({
                       <article className="bs-story" key={it.id}>
                         <div className="bs-story__body">
                           <div>{meta(it, "·", 10, false)}</div>
-                          <a href={storyHref(it)} onClick={() => onOpen(it, i + 3)} target="_blank" rel="noopener noreferrer" className="bs-hl">
+                          <a href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
                             <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
                               {it.title}
                             </h4>
