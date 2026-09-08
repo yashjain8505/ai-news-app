@@ -118,6 +118,47 @@ function CardPhoto({
   );
 }
 
+// Small square widget used by the New Tools / Articles / Funding sections —
+// a uniform tile grid (owner asked for "small square widgets" over the old
+// long lists). The tile is a div, not one big anchor: the headline carries the
+// link + click-tracking, so the share button/footer stay valid interactive
+// children.
+function SquareCard({
+  it,
+  rank,
+  onOpen,
+  kicker,
+  badge,
+  footer,
+  prompt,
+}: {
+  it: Item;
+  rank: number;
+  onOpen: (it: Item, rank: number) => void;
+  kicker: string;
+  badge?: string | null;
+  footer?: string | null;
+  prompt?: React.ReactNode;
+}) {
+  return (
+    <div className="bs-square bs-tap">
+      <div className="bs-square__top mono">
+        <span className="bs-square__kicker">{kicker}</span>
+        {badge && <span className="bs-square__badge">{badge}</span>}
+      </div>
+      <a href={storyHref(it)} onClick={() => onOpen(it, rank)} target="_blank" rel="noopener noreferrer" className="bs-hl bs-square__link">
+        <h3 className="display bs-square__title">{it.title.replace(/\s*\(Claude skill\)$/, "")}</h3>
+      </a>
+      {it.summary && <p className="serif bs-square__sum">{it.summary}</p>}
+      <div className="bs-square__foot">
+        {footer ? <span className="mono bs-square__meta">{footer}</span> : <span />}
+        <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+      </div>
+      {prompt}
+    </div>
+  );
+}
+
 export default function Feed({
   items,
   days,
@@ -540,87 +581,42 @@ export default function Feed({
 
           {active === "tools" && (
             <section>
-              {list.map((it, i) => {
-                const skill = it.title.toLowerCase().includes("skill");
-                return (
-                  <div
-                    key={it.id}
-                    style={{ paddingBottom: 22, marginBottom: i === list.length - 1 ? 0 : 22, borderBottom: i === list.length - 1 ? "none" : "1px solid var(--rule)" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 22 }}>
-                      <span className="display" style={{ fontSize: 34, lineHeight: 1, color: "var(--rank)", minWidth: 42 }}>
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 11 }}>
-                          <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" className="bs-hl">
-                            <h3 className="display" style={{ fontSize: 21, margin: 0, color: "var(--ink)" }}>
-                              {it.title.replace(/\s*\(Claude skill\)$/, "")}
-                            </h3>
-                          </a>
-                          <span className="mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 8px", border: skill ? "1px solid var(--accent)" : "1px solid var(--sep)", color: skill ? "var(--accent)" : "var(--dim)" }}>
-                            {skill ? "Claude skill" : "Tool"}
-                          </span>
-                          {it.traction && (
-                            <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
-                              {it.traction}
-                            </span>
-                          )}
-                        </div>
-                        {it.summary && (
-                          <p className="serif" style={{ fontSize: 15, lineHeight: 1.5, color: "var(--dim)", margin: "6px 0 0" }}>
-                            {it.summary}
-                          </p>
-                        )}
-                        <div style={{ marginTop: 8 }}>
-                          <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
-                        </div>
-                        {cardPrompt(it)}
-                      </div>
-                      <a href={it.url ?? "#"} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, fontStyle: "italic", fontSize: 13, color: "var(--ink)", textDecoration: "none", border: "1px solid var(--sep)", padding: "7px 15px" }}>
-                        Open &#8599;
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="bs-squares">
+                {list.map((it, i) => {
+                  const skill = it.title.toLowerCase().includes("skill");
+                  return (
+                    <SquareCard
+                      key={it.id}
+                      it={it}
+                      rank={i}
+                      onOpen={onOpen}
+                      kicker={skill ? "Claude skill" : "New tool"}
+                      badge={String(i + 1).padStart(2, "0")}
+                      footer={it.traction ?? null}
+                      prompt={cardPrompt(it)}
+                    />
+                  );
+                })}
+              </div>
               {exploreBtn}
             </section>
           )}
 
           {(active === "articles" || active === "funding") && (
-            <section style={{ maxWidth: 800 }}>
-              {list.map((it, i) => (
-                <article
-                  key={it.id}
-                  style={{ paddingBottom: 26, marginBottom: i === list.length - 1 ? 0 : 26, borderBottom: i === list.length - 1 ? "none" : "1px solid var(--rule)" }}
-                >
-                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16 }}>
-                    <span style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--strong)", fontWeight: 700 }}>
-                      {it.source}
-                    </span>
-                    {it.read_time && (
-                      <span className="mono" style={{ fontSize: 11, color: "var(--faint)", whiteSpace: "nowrap" }}>
-                        {it.read_time} min read
-                      </span>
-                    )}
-                  </div>
-                  <a href={storyHref(it)} onClick={() => onOpen(it, i)} target="_blank" rel="noopener noreferrer" className="bs-hl">
-                    <h2 className="display" style={{ fontSize: 30, lineHeight: 1.16, margin: "10px 0 0", color: "var(--ink)" }}>
-                      {withHighlight(it.title, it.highlight, 3)}
-                    </h2>
-                  </a>
-                  {it.summary && (
-                    <p className="serif" style={{ fontSize: 18, lineHeight: 1.6, color: "var(--muted)", margin: "12px 0 0" }}>
-                      {it.summary}
-                    </p>
-                  )}
-                  <div style={{ marginTop: 12 }}>
-                    <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
-                  </div>
-                  {cardPrompt(it)}
-                </article>
-              ))}
+            <section>
+              <div className="bs-squares">
+                {list.map((it, i) => (
+                  <SquareCard
+                    key={it.id}
+                    it={it}
+                    rank={i}
+                    onOpen={onOpen}
+                    kicker={it.source ?? (active === "funding" ? "Funding" : "Article")}
+                    footer={it.read_time ? `${it.read_time} min read` : null}
+                    prompt={cardPrompt(it)}
+                  />
+                ))}
+              </div>
               {exploreBtn}
             </section>
           )}

@@ -132,3 +132,169 @@ export function renderOgImage({ title, subtitle, highlight }: OgFields): ImageRe
     { ...OG_SIZE }
   );
 }
+
+// ---------------------------------------------------------------------------
+// Shareable "ticket" card — a downloadable IMAGE the reader posts natively on
+// LinkedIn/X instead of a link redirect (image posts far out-reach link posts;
+// the owner wants collectible-artifact energy, YC-ticket style). Portrait 4:5
+// (1080x1350), LinkedIn's optimal image ratio. Fixed brand hexes (bitmap).
+// ---------------------------------------------------------------------------
+export const TICKET_SIZE = { width: 1080, height: 1350 };
+
+const T = {
+  frame: "#17130e", // near-black mat around the ticket
+  paper: "#f3ecda", // cream ticket stock
+  ink: "#1b1712",
+  dim: "#6a6052",
+  rust: "#9c2b1d",
+  rustHi: "#b8392a",
+  onRust: "#f3ecda",
+};
+
+export type TicketFields = {
+  title: string;
+  quote?: string | null; // one pull-line (summary), rendered as the quote block
+  highlight?: string | null;
+  source?: string | null;
+  dateLabel: string; // e.g. "08 SEP 2026"
+  serial: string; // e.g. "No 0421"
+};
+
+export function renderShareTicket({ title, quote, highlight, source, dateLabel, serial }: TicketFields): ImageResponse {
+  const cleanTitle = clamp(title, 110);
+  const fs = cleanTitle.length > 70 ? 62 : cleanTitle.length > 44 ? 72 : 84;
+  const chips = titleChips(cleanTitle, highlight);
+  const gap = Math.round(fs * 0.24);
+  const q = quote ? clamp(quote, 170) : null;
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          backgroundColor: T.frame,
+          padding: 44,
+        }}
+      >
+        {/* the ticket */}
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            borderRadius: 28,
+            overflow: "hidden",
+            backgroundColor: T.paper,
+            backgroundImage: "linear-gradient(160deg, #f7f1e2 0%, #f3ecda 46%, #eadfc5 100%)",
+          }}
+        >
+          {/* main body */}
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "58px 54px 48px 62px" }}>
+            {/* kicker row */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 54,
+                    height: 54,
+                    backgroundColor: T.rust,
+                    color: T.onRust,
+                    fontSize: 38,
+                    fontWeight: 800,
+                  }}
+                >
+                  W
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: 6, color: T.ink }}>WORTINS</div>
+                  <div style={{ fontSize: 15, letterSpacing: 4, color: T.dim }}>THE DAILY AI BRIEFING</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", fontSize: 17, letterSpacing: 3, color: T.dim }}>{serial}</div>
+            </div>
+
+            {/* rule */}
+            <div style={{ display: "flex", height: 3, backgroundColor: T.ink, marginTop: 34, opacity: 0.9 }} />
+            <div style={{ display: "flex", height: 1, backgroundColor: T.ink, marginTop: 4, opacity: 0.5 }} />
+
+            {/* headline with marker highlight */}
+            <div style={{ display: "flex", flexWrap: "wrap", marginTop: 52, rowGap: Math.round(gap * 0.7) }}>
+              {chips.map((c, i) => (
+                <span
+                  key={i}
+                  style={{
+                    fontSize: fs,
+                    lineHeight: 1.06,
+                    fontWeight: 800,
+                    color: c.hl ? T.onRust : T.ink,
+                    backgroundColor: c.hl ? T.rust : "transparent",
+                    padding: c.hl ? `2px ${Math.round(fs * 0.16)}px 6px` : "2px 0 6px",
+                    marginRight: gap,
+                  }}
+                >
+                  {c.text}
+                </span>
+              ))}
+            </div>
+
+            {/* quote */}
+            {q ? (
+              <div style={{ display: "flex", marginTop: 46 }}>
+                <div style={{ display: "flex", width: 7, backgroundColor: T.rust, marginRight: 26 }} />
+                <div style={{ display: "flex", fontSize: 31, lineHeight: 1.42, color: T.dim, flex: 1 }}>{q}</div>
+              </div>
+            ) : null}
+
+            {/* footer */}
+            <div style={{ display: "flex", marginTop: "auto", justifyContent: "space-between", alignItems: "flex-end" }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {source ? (
+                  <div style={{ display: "flex", fontSize: 16, letterSpacing: 3, color: T.dim }}>
+                    {`SOURCE · ${source.toUpperCase().slice(0, 28)}`}
+                  </div>
+                ) : null}
+                <div style={{ display: "flex", fontSize: 20, letterSpacing: 3, color: T.dim, marginTop: 8 }}>
+                  {`CLIPPED · ${dateLabel}`}
+                </div>
+              </div>
+              <div style={{ display: "flex", fontSize: 26, fontWeight: 800, letterSpacing: 3, color: T.rust }}>
+                wortins.com
+              </div>
+            </div>
+          </div>
+
+          {/* perforation + stub */}
+          <div style={{ display: "flex", width: 0, borderLeft: `5px dashed rgba(23,19,14,0.35)` }} />
+          <div
+            style={{
+              display: "flex",
+              width: 130,
+              backgroundColor: T.rust,
+              backgroundImage: `linear-gradient(180deg, ${T.rustHi} 0%, ${T.rust} 55%, #7d2013 100%)`,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                transform: "rotate(90deg)",
+                fontSize: 42,
+                fontWeight: 800,
+                letterSpacing: 16,
+                color: T.onRust,
+                whiteSpace: "nowrap",
+              }}
+            >
+              READ ME FIRST
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+    TICKET_SIZE
+  );
+}

@@ -29,8 +29,8 @@ export default function SocialShare({
 
   // Quick tactile press-pop so the intent links visibly respond on click, even
   // though the real action (opening a new tab) happens elsewhere.
-  const [pressed, setPressed] = useState<"twitter" | "linkedin" | null>(null);
-  function pop(which: "twitter" | "linkedin") {
+  const [pressed, setPressed] = useState<"twitter" | "linkedin" | "card" | null>(null);
+  function pop(which: "twitter" | "linkedin" | "card") {
     setPressed(which);
     setTimeout(() => setPressed(null), 120);
   }
@@ -44,10 +44,16 @@ export default function SocialShare({
   // Do NOT add a text/summary param here.
   const liHref = `https://www.linkedin.com/sharing/share-offsite/?url=${enc(abs)}`;
 
-  function track(method: "twitter" | "linkedin") {
+  function track(method: "twitter" | "linkedin" | "card") {
     const g = (globalThis as unknown as { gtag?: (...a: unknown[]) => void }).gtag;
     g?.("event", "share", { method, item_id: itemId, transport_type: "beacon" });
   }
+
+  // The share-ticket image (same-origin, served with Content-Disposition:
+  // attachment) — a plain click downloads the card; the reader posts it as a
+  // native image on LinkedIn/X with their own take. Image posts out-reach link
+  // posts on LinkedIn, which is exactly the owner's play.
+  const cardHref = `${url.startsWith("http") ? new URL(url).pathname : url}/card.png`;
 
   const linkStyle: React.CSSProperties = {
     display: "inline-block",
@@ -88,6 +94,23 @@ export default function SocialShare({
         style={{ ...linkStyle, transform: pressed === "linkedin" ? "scale(0.94)" : "scale(1)" }}
       >
         Share on LinkedIn &#8599;
+      </a>
+      <a
+        href={cardHref}
+        download
+        onClick={() => {
+          pop("card");
+          track("card");
+        }}
+        className="mono bs-tap"
+        style={{
+          ...linkStyle,
+          borderColor: "var(--accent)",
+          color: "var(--accent)",
+          transform: pressed === "card" ? "scale(0.94)" : "scale(1)",
+        }}
+      >
+        Save share card &#8595;
       </a>
       {showGeneric && <ShareButton url={url} title={title} />}
     </>
