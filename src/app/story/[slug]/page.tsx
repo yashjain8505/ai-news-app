@@ -6,6 +6,7 @@ import { timeAgo } from "@/lib/time";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
 import BackLink from "@/components/BackLink";
+import ReadGate from "@/components/ReadGate";
 import SocialShare from "@/components/SocialShare";
 
 export const revalidate = 1800; // 30 min ISR
@@ -166,6 +167,7 @@ export default async function StoryPage({
         {/* Our original multi-paragraph summary — read this first, then decide
             whether to click through to the source. */}
         {indexable ? (
+          <ReadGate>
           <div style={{ margin: "10px 0 34px" }}>
             <div className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid var(--rule)", maxWidth: "62ch" }}>
               The story
@@ -180,6 +182,7 @@ export default async function StoryPage({
                 </p>
               ))}
           </div>
+          </ReadGate>
         ) : (
           item.summary && (
             <p className="serif" style={{ fontSize: 19, lineHeight: 1.55, color: "var(--muted)", margin: "0 0 28px", maxWidth: "64ch" }}>
