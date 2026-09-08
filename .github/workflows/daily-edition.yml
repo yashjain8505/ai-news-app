@@ -146,7 +146,6 @@ jobs:
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         env:
           EDITION_DATE: ${{ github.event.inputs.target_date }}
-        env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
