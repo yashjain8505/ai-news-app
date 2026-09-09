@@ -103,6 +103,10 @@ jobs:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TYPEFULLY_API_KEY: ${{ secrets.TYPEFULLY_API_KEY }}
+          # The note is drafted in the house voice via the claude CLI, which the
+          # Simplify step above already installed globally on this runner. If
+          # drafting is unavailable the script falls back to a headline template.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SITE_URL: https://www.wortins.com
           NOTES_MODE: draft
           EDITION_DATE: ${{ github.event.inputs.edition_date }}
