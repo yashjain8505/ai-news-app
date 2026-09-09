@@ -17,16 +17,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Mirrors the newsletter's running order (Funding, Top Stories, Interesting
-// Articles) so the Substack post and the email tell the same story. Tools are
-// deliberately left out of both; they still live on the site.
-const SECTION_META: { key: Section; title: string }[] = [
-  { key: "funding", title: "Funding News" },
-  { key: "daily", title: "Top Stories" },
-  { key: "articles", title: "Interesting Articles" },
-];
-// Same counts as the email — tight and skimmable, not a firehose.
-const PER_SECTION: Record<Section, number> = { daily: 5, tools: 3, articles: 3, funding: 3 };
+// Mirrors the newsletter's phone-first tiers: one hero story that gets room to
+// breathe, then scannable one-liners. Top stories lead; funding is condensed
+// into "The money" because funding news is naturally list-shaped. Tools are
+// deliberately left out of both channels; they still live on the site.
+const TIERS = { also: 4, money: 3, reads: 3 };
 const DAILY_IN_NOTE = 5;
 
 const WD = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -86,25 +81,43 @@ export default async function ComposePage({
   const grouped: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) grouped[it.section]?.push(it);
 
-  const sections = SECTION_META.map((s) => ({
-    title: s.title,
-    stories: grouped[s.key].slice(0, PER_SECTION[s.key]).map((it) => ({
-      title: deDash(it.title),
-      desc: clean(it.summary),
-      href: `${SITE.url}/story/${it.slug}`,
-    })),
-  })).filter((s) => s.stories.length > 0);
+  // Plain-English rewrite when the simplify pass produced one, else the
+  // curator's text. A funding one-liner has to name the company itself, and
+  // curator summaries often don't, so that one falls back to the title.
+  const headlineOf = (it: Item) => deDash(it.plain_title || it.title);
+  const lineOf = (it: Item) => clean(it.plain_line || it.summary);
+  const moneyLineOf = (it: Item) =>
+    it.plain_line ? clean(it.plain_line) : deDash(it.title);
+  const href = (it: Item) => `${SITE.url}/story/${it.slug}`;
+
+  const hero = grouped.daily[0] ?? null;
+  const also = grouped.daily.slice(1, 1 + TIERS.also);
+  const money = grouped.funding.slice(0, TIERS.money);
+  const reads = grouped.articles.slice(0, TIERS.reads);
+
+  const asStory = (it: Item) => ({ title: headlineOf(it), desc: lineOf(it), href: href(it) });
+
+  const sections = [
+    { title: "Today's big story", stories: hero ? [asStory(hero)] : [] },
+    { title: "Also today", stories: also.map(asStory) },
+    {
+      title: "The money",
+      flat: true,
+      stories: money.map((it) => ({ title: moneyLineOf(it), desc: "", href: href(it) })),
+    },
+    { title: "Worth reading", stories: reads.map(asStory) },
+  ].filter((s) => s.stories.length > 0);
 
   const editionUrl = `${SITE.url}/edition/${dateISO}`;
   const title = deDash(meta?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`);
   const hook = clean(meta?.synopsis ?? null, 240);
 
-  const daily = grouped.daily.slice(0, DAILY_IN_NOTE);
+  const noteHeads = [hero, ...also].filter(Boolean).slice(0, DAILY_IN_NOTE) as Item[];
   const noteText = [
     `🗞️ ${deDash(meta?.headline || "The Wortins Daily")}`,
     "",
     "The AI stories that matter today:",
-    ...daily.map((it) => `• ${deDash(it.title)}`),
+    ...noteHeads.map((it) => `• ${headlineOf(it)}`),
     "",
     "Full briefing + our take on each:",
     editionUrl,

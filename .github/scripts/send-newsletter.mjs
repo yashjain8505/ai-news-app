@@ -34,20 +34,11 @@ const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "hello@wortins.com";
 const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 
-// Keep the email short + skimmable: only the top of each section (by curator
-// rank) — the stories anyone would find worth reading.
-const SECTION_LIMITS = { daily: 5, tools: 3, articles: 3, funding: 3 };
-const SECTION_TITLES = {
-  daily: "Top Stories",
-  tools: "New Tools",
-  articles: "Interesting Articles",
-  funding: "Funding",
-};
-const SECTION_SHORT = { daily: "Top Stories", tools: "New Tools", articles: "Articles", funding: "Funding" };
-const SECTION_PATHS = { daily: "/", tools: "/new-tools", articles: "/articles", funding: "/funding" };
-// Email running order. Funding leads, then the day's top stories, then articles.
-// "tools" is intentionally omitted from the email (still on the site).
-const SECTION_ORDER = ["funding", "daily", "articles"];
+// Phone-first tiers. A reader on a phone can absorb ONE story properly, then
+// scan the rest, so the day gets a single hero plus one-line items. Top stories
+// lead (hero + "Also today"), funding is condensed into "The money" one-liners
+// because funding news is naturally list-shaped, and essays close it out.
+const TIERS = { also: 4, money: 3, reads: 3 };
 
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -122,12 +113,12 @@ function prettyDate(iso) {
 // fragment never dangles on "for"/"to"/"of".
 const SUBJECT_FILLER = new Set(["for","of","the","to","a","an","and","with","at","in","on","by","from","as","its","&"]);
 
-// Compress a headline into a short subject-line fragment, e.g.
-// "OpenAI Launches Astra: Computer Use AI for Tasks and Code" -> "OpenAI Launches Astra".
+// Compress a curator headline into a short subject-line fragment. Only needed
+// as a fallback: a plain_title is already short and human.
 function shortHeadline(title, max = 34) {
   let t = deDash(title);
   const colon = t.indexOf(":");
-  if (colon >= 10 && colon <= 40) t = t.slice(0, colon); // prefer the clean pre-colon lead
+  if (colon >= 10 && colon <= 40) t = t.slice(0, colon);
   if (t.length > max) {
     const cut = t.slice(0, max);
     const at = cut.lastIndexOf(" ");
@@ -139,121 +130,149 @@ function shortHeadline(title, max = 34) {
   return words.join(" ").trim();
 }
 
-// Subject = a few specific top-story headlines separated by " | ", then the
-// day's story count, e.g.
-// "OpenAI Launches Astra | Nvidia Acquires Hugging Face | Pentagon Grants 3M | 22 AI stories today".
-// Leads with real news (higher open rate) instead of a boilerplate masthead.
-function buildSubject({ grouped, totalCount, dateISO }) {
-  const heads = (grouped.daily || [])
-    .slice(0, 3)
-    .map((it) => shortHeadline(it.title))
+// The plain-English headline when the simplify pass produced one, else the
+// curator's. Everything downstream reads stories through these two accessors,
+// so a missing rewrite degrades to the old text instead of breaking.
+function headlineOf(it) {
+  return it.plain_title ? deDash(it.plain_title) : deDash(it.title);
+}
+function lineOf(it) {
+  return it.plain_line ? tidy(it.plain_line) : tidy(it.summary);
+}
+// A funding one-liner has to name the company and the number on its own. The
+// curator summary often omits the company ("275 million dollar Series C..."),
+// so fall back to the title rather than the summary.
+function moneyLineOf(it) {
+  return it.plain_line ? tidy(it.plain_line) : deDash(it.title);
+}
+
+// Subject = a few specific top headlines joined by " | " plus the day's story
+// count. Plain titles make far better inbox fragments than curator titles.
+function buildSubject({ tiers, totalCount, dateISO }) {
+  const top = [tiers.hero, ...tiers.also].filter(Boolean).slice(0, 3);
+  const all = top
+    .map((it) => (it.plain_title ? deDash(it.plain_title) : shortHeadline(it.title)))
     .filter(Boolean);
+  // Budget the line: plain titles are full sentences, so three of them overflow
+  // every inbox. Take headlines while they fit, always keeping at least one.
+  const heads = [];
+  for (const h of all) {
+    const next = heads.length ? `${heads.join(" | ")} | ${h}` : h;
+    if (heads.length && next.length > 110) break;
+    heads.push(h);
+  }
   if (!heads.length) return `The Wortins Daily · ${prettyDate(dateISO)}`;
   const tail = totalCount > heads.length ? ` | ${totalCount} AI stories today` : "";
   return heads.join(" | ") + tail;
 }
 
-function groupBySection(items) {
+// Split the edition into the phone-first tiers. Top stories lead: the
+// highest-ranked daily story becomes the hero, the next few become one-liners.
+function buildTiers(items) {
   const g = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) if (g[it.section]) g[it.section].push(it);
-  for (const k of Object.keys(g)) {
-    g[k].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
-    g[k] = g[k].slice(0, SECTION_LIMITS[k]);
-  }
-  return g;
+  for (const k of Object.keys(g)) g[k].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+  return {
+    hero: g.daily[0] || null,
+    also: g.daily.slice(1, 1 + TIERS.also),
+    money: g.funding.slice(0, TIERS.money),
+    reads: g.articles.slice(0, TIERS.reads),
+  };
 }
 
 // ---- HTML rendering ---------------------------------------------------------
-// One story: a quiet source kicker, a bold headline (the scan layer), and a
-// light summary line. `last` drops the divider on a section's final story so
-// it doesn't sit right above the "Explore all" link.
-function renderStory(it, last) {
-  const href = `${SITE_URL}/story/${encodeURIComponent(it.slug)}`;
-  const src = it.source
-    ? `<div style="font-size:12px;color:#a2967d;margin:0 0 3px">${esc(it.source)}</div>`
-    : "";
-  const summary = it.summary
-    ? `<div style="margin:4px 0 0;font-size:14px;line-height:1.55;color:#5c5346">${esc(tidy(it.summary))}</div>`
-    : "";
-  const border = last ? "" : "border-bottom:1px solid #e6ddc8";
-  return `<tr><td style="padding:16px 0;${border}">
-    ${src}
-    <a href="${href}" style="display:block;font-size:17px;line-height:1.32;font-weight:700;color:#1b1712;text-decoration:none">${esc(deDash(it.title))}</a>
-    ${summary}
+const INK = "#1b1712", BODY = "#4a4338", MUT = "#8a7f6a", RED = "#9c2b1d",
+      BG = "#f3ecda", RULE = "#ded3ba";
+
+function storyUrl(it) {
+  return `${SITE_URL}/story/${encodeURIComponent(it.slug)}`;
+}
+
+function sectionLabel(text) {
+  return `<div style="font-family:monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:${RED};padding:0 0 10px">${esc(text)}</div>`;
+}
+
+// A scannable item: plain headline you can understand at a glance, then one
+// supporting line. Sizes are deliberately large for thumb-distance reading.
+function renderItem(it) {
+  const line = lineOf(it);
+  return `<div style="padding:0 0 24px">
+    <a href="${storyUrl(it)}" style="display:block;font-size:19px;line-height:1.35;font-weight:700;color:${INK};text-decoration:none">${esc(headlineOf(it))}</a>
+    ${line ? `<div style="font-size:16px;line-height:1.6;color:${BODY};padding:6px 0 0">${esc(line)}</div>` : ""}
+  </div>`;
+}
+
+function renderMoney(it) {
+  return `<div style="padding:0 0 18px">
+    <a href="${storyUrl(it)}" style="font-size:16px;line-height:1.6;color:${BODY};text-decoration:none">${esc(moneyLineOf(it))}</a>
+  </div>`;
+}
+
+function renderBlock(label, inner) {
+  if (!inner) return "";
+  return `<tr><td style="padding:10px 0 0;border-top:1px solid ${RULE}">
+    <div style="padding:22px 0 0">${sectionLabel(label)}${inner}</div>
   </td></tr>`;
 }
 
-function renderSection(key, stories) {
-  if (!stories.length) return "";
-  const rows = stories
-    .map((s, i) => renderStory(s, i === stories.length - 1))
-    .join("");
-  const moreHref = `${SITE_URL}${SECTION_PATHS[key]}`;
-  return `<tr><td style="padding:30px 0 0">
-    <div style="font-family:monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:1px solid #d8ccb2;padding-bottom:8px">${SECTION_TITLES[key]}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${rows}</table>
-    <div style="padding:14px 0 0">
-      <a href="${moreHref}" style="font-size:13px;font-style:italic;color:#9c2b1d;text-decoration:none">Explore all ${SECTION_SHORT[key]} &rarr;</a>
-    </div>
-  </td></tr>`;
-}
-
-function renderEmail({ edition, grouped, unsubUrl, dateISO }) {
-  const sections = SECTION_ORDER.map((k) => renderSection(k, grouped[k])).join("");
-  const synopsis = edition?.synopsis
-    ? `<tr><td style="padding:20px 0 2px"><div style="font-style:italic;font-size:15px;line-height:1.6;color:#3a342a">${esc(trimSynopsis(edition.synopsis))}</div></td></tr>`
+function renderEmail({ tiers, unsubUrl, dateISO }) {
+  const hero = tiers.hero;
+  const heroLine = hero ? lineOf(hero) : "";
+  const heroBlock = hero
+    ? `<tr><td style="padding:22px 0 0;border-top:2px solid ${INK}">
+        ${sectionLabel("Today's big story")}
+        <a href="${storyUrl(hero)}" style="display:block;font-size:26px;line-height:1.25;font-weight:700;color:${INK};text-decoration:none">${esc(headlineOf(hero))}</a>
+        ${heroLine ? `<div style="font-size:17px;line-height:1.6;color:${BODY};padding:10px 0 0">${esc(heroLine)}</div>` : ""}
+        <div style="padding:12px 0 0"><a href="${storyUrl(hero)}" style="font-size:15px;color:${RED};text-decoration:none">Read the full story &rarr;</a></div>
+      </td></tr>`
     : "";
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-  @media (max-width:480px){
-    .wrap{padding:16px 14px !important}
-    .mast{font-size:22px !important}
-  }
-</style></head>
-<body style="margin:0;background:#f3ecda;color:#1b1712;font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ecda"><tr><td align="center" class="wrap" style="padding:24px 16px">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-  <tr><td style="border-bottom:3px solid #1b1712;padding-bottom:12px">
-    <img src="${SITE_URL}/wortins-mark.png" width="30" height="30" alt="Wortins" style="display:inline-block;width:30px;height:30px;vertical-align:middle;border:0">
-    <span class="mast" style="font-size:24px;letter-spacing:0.1em;font-weight:700;vertical-align:middle;margin-left:9px">WORTINS</span>
-    <div style="font-family:monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#6a6052;margin-top:9px">The Daily AI Briefing &middot; ${prettyDate(dateISO)}</div>
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:${BG};color:${INK};font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG}"><tr><td align="center" style="padding:24px 20px 40px">
+<table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="padding:0 0 6px">
+    <span style="font-size:21px;letter-spacing:.11em;font-weight:700">WORTINS</span>
+    <div style="font-family:monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:${MUT};padding:8px 0 0">${prettyDate(dateISO)}</div>
   </td></tr>
-  ${synopsis}
-  ${sections}
-  <tr><td style="padding:28px 0 0;border-top:1px solid #c9bda4">
-    <p style="margin:14px 0 0;font-size:14px;color:#4a4338">The full editions live at <a href="${SITE_URL}" style="color:#9c2b1d;text-decoration:none">wortins.com</a>.</p>
-    <p style="margin:9px 0 0;font-family:monospace;font-size:11px;line-height:1.5;color:#938a76">
-      You're getting this because you subscribed at wortins.com.
-      <a href="${unsubUrl}" style="color:#938a76">Unsubscribe</a>.
-    </p>
+  ${heroBlock}
+  ${renderBlock("Also today", tiers.also.map(renderItem).join(""))}
+  ${renderBlock("The money", tiers.money.map(renderMoney).join(""))}
+  ${renderBlock("Worth reading", tiers.reads.map(renderItem).join(""))}
+  <tr><td style="padding:14px 0 0;border-top:1px solid ${RULE}">
+    <div style="font-size:15px;line-height:1.6;color:${BODY};padding:18px 0 0">Everything else from today is at <a href="${SITE_URL}" style="color:${RED};text-decoration:none">wortins.com</a>.</div>
+    <div style="font-family:monospace;font-size:11px;line-height:1.6;color:${MUT};padding:12px 0 0">You're getting this because you subscribed at wortins.com. <a href="${unsubUrl}" style="color:${MUT}">Unsubscribe</a>.</div>
   </td></tr>
 </table>
 </td></tr></table>
 </body></html>`;
 
-  const lines = [];
-  lines.push(`WORTINS · The Daily AI Briefing`);
-  lines.push(prettyDate(dateISO));
-  if (edition?.synopsis) lines.push(`\n${trimSynopsis(edition.synopsis)}`);
-  for (const k of SECTION_ORDER) {
-    if (!grouped[k].length) continue;
-    lines.push(`\n${SECTION_TITLES[k].toUpperCase()}`);
-    for (const it of grouped[k]) {
-      lines.push(`\n• ${deDash(it.title)}${it.source ? ` (${it.source})` : ""}`);
-      if (it.summary) lines.push(`  ${tidy(it.summary)}`);
-      lines.push(`  ${SITE_URL}/story/${it.slug}`);
-    }
-    lines.push(`  Explore all ${SECTION_SHORT[k]}: ${SITE_URL}${SECTION_PATHS[k]}`);
+  const lines = [`WORTINS · ${prettyDate(dateISO)}`];
+  if (hero) {
+    lines.push(`\nTODAY'S BIG STORY\n`, headlineOf(hero));
+    if (heroLine) lines.push(heroLine);
+    lines.push(storyUrl(hero));
   }
-  lines.push(`\n---\nThe full editions live at ${SITE_URL}`);
+  const textBlock = (label, arr, fn) => {
+    if (!arr.length) return;
+    lines.push(`\n${label}\n`);
+    for (const it of arr) {
+      lines.push(fn(it));
+      lines.push(`  ${storyUrl(it)}`);
+    }
+  };
+  textBlock("ALSO TODAY", tiers.also, (it) => `• ${headlineOf(it)}\n  ${lineOf(it)}`);
+  textBlock("THE MONEY", tiers.money, (it) => `• ${moneyLineOf(it)}`);
+  textBlock("WORTH READING", tiers.reads, (it) => `• ${headlineOf(it)}\n  ${lineOf(it)}`);
+  lines.push(`\n---\nEverything else from today is at ${SITE_URL}`);
   lines.push(`Unsubscribe: ${unsubUrl}`);
   return { html, text: lines.join("\n") };
 }
 
 // ---- Resend send ------------------------------------------------------------
-async function sendOne({ email, token, subject, dateISO, edition, grouped }) {
+async function sendOne({ email, token, subject, dateISO, tiers }) {
   const unsubUrl = `${SITE_URL}/api/unsubscribe?token=${token}`;
-  const { html, text } = renderEmail({ edition, grouped, unsubUrl, dateISO });
+  const { html, text } = renderEmail({ tiers, unsubUrl, dateISO });
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -331,10 +350,10 @@ async function main() {
 
   // 3. Content.
   const items = await sb(
-    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,source,rank`
+    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,source,rank,plain_title,plain_line`
   );
   if (!items?.length) die(`No active items for ${dateISO}`);
-  const grouped = groupBySection(items);
+  const tiers = buildTiers(items);
   const editionRows = await sb(
     `editions?edition_date=eq.${dateISO}&select=headline,synopsis`
   );
@@ -342,7 +361,7 @@ async function main() {
   // Subject = a few specific top headlines joined by " | " plus the day's story
   // count (see buildSubject), so the inbox shows real news rather than a
   // boilerplate masthead. `items` is every active story for the edition.
-  const subject = buildSubject({ grouped, totalCount: items.length, dateISO });
+  const subject = buildSubject({ tiers, totalCount: items.length, dateISO });
 
   // 4. Recipients.
   const subscribers = await sb(
@@ -354,8 +373,7 @@ async function main() {
 
   if (DRY_RUN) {
     const { html } = renderEmail({
-      edition,
-      grouped,
+      tiers,
       unsubUrl: `${SITE_URL}/api/unsubscribe?token=PREVIEW`,
       dateISO,
     });
@@ -373,8 +391,7 @@ async function main() {
   const { ok, failures } = await sendAll(subscribers, {
     subject,
     dateISO,
-    edition,
-    grouped,
+    tiers,
   });
   console.log(`→ Sent ${ok}/${subscribers.length}. Failures: ${failures.length}`);
   if (failures.length) console.log(JSON.stringify(failures.slice(0, 10), null, 2));
@@ -398,7 +415,8 @@ async function main() {
 
 // Export the renderer for local preview; only run the sender when executed
 // directly (`node send-newsletter.mjs`), not when imported.
-export { renderEmail, groupBySection, trimSynopsis, tidy, deDash, shortHeadline, buildSubject };
+export { renderEmail, buildTiers, trimSynopsis, tidy, deDash, shortHeadline, buildSubject,
+         headlineOf, lineOf, moneyLineOf };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => die(e.message));
