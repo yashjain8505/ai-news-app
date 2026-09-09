@@ -25,10 +25,12 @@ function authorized(request: NextRequest): { ok: true } | { ok: false; why: stri
   if (!token) return { ok: false, why: "request-sent-no-bearer-token" };
   const a = Buffer.from(token, "utf8");
   const b = Buffer.from(serviceKey, "utf8");
-  // Lengths are not secret; logging only the lengths distinguishes "the two
-  // secrets are different values" from "the env is missing" without ever
-  // revealing either one. This endpoint has failed silently since Aug 28 and
-  // there was no way to tell those two causes apart from the outside.
+  // Lengths distinguish "the two secrets are different values" from "the env is
+  // missing" without revealing either one. This is logged, never returned: the
+  // endpoint is public, and a caller who can read the expected length learns
+  // something about the key. (That distinction is what proved, on 2026-09-09,
+  // that the Worker's SUPABASE_SERVICE_ROLE_KEY was an 11-char placeholder
+  // rather than a real key — the cause of every 401 since Aug 28.)
   if (a.length !== b.length) {
     return { ok: false, why: `token-length-mismatch(sent=${a.length},expected=${b.length})` };
   }
@@ -38,8 +40,9 @@ function authorized(request: NextRequest): { ok: true } | { ok: false; why: stri
 export async function GET(request: NextRequest) {
   const auth = authorized(request);
   if (!auth.ok) {
+    // Detail goes to the Worker log (`wrangler tail`), never to the caller.
     console.log(`brief-input 401: ${auth.why}`);
-    return new Response(`Unauthorized: ${auth.why}\n`, { status: 401 });
+    return new Response("Unauthorized\n", { status: 401 });
   }
   const range = normalizeRange(
     request.nextUrl.searchParams.get("range") ?? undefined
