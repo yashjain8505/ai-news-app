@@ -40,6 +40,9 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SITE_URL = (process.env.SITE_URL || "https://www.wortins.com").replace(/\/$/, "");
 const MAIL_FROM = process.env.MAIL_FROM || "Wortins <daily@wortins.com>";
 const MAIL_TO = process.env.SUBSTACK_DRAFT_TO || "earanyash@gmail.com";
+// The publication's own editor, so the link skips Substack's publication
+// picker and lands directly on a blank post.
+const SUBSTACK_URL = (process.env.SUBSTACK_URL || "https://wortins.substack.com").replace(/\/$/, "");
 const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 
@@ -207,6 +210,7 @@ function buildEmail({ post, dateISO, storyCount }) {
 
   <tr><td style="padding:22px 0 0">
     <a href="${composer}" style="display:inline-block;background:#9c2b1d;color:#f3ecda;text-decoration:none;font-size:16px;font-weight:700;padding:13px 22px;border-radius:8px">Open the composer → one-click copy</a>
+    <a href="${SUBSTACK_URL}/publish/post?type=newsletter" style="display:inline-block;margin-left:10px;border:1px solid #9c2b1d;color:#9c2b1d;text-decoration:none;font-size:15px;padding:12px 18px;border-radius:8px">New Substack post ↗</a>
     <div style="font-size:13px;color:#6a6052;margin-top:9px">Copy title → copy post → paste into Substack → Publish. About 30 seconds.</div>
   </td></tr>
 
