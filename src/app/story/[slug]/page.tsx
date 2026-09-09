@@ -10,7 +10,11 @@ import BackLink from "@/components/BackLink";
 import ReadGate from "@/components/ReadGate";
 import SocialShare from "@/components/SocialShare";
 
-export const revalidate = 1800; // 30 min ISR
+// 30 min ISR. Kept as a literal because Next must statically analyse this
+// export, but it MUST equal STORY_REVALIDATE in lib/supabase.ts — the
+// story-page reads use a client whose fetch cache is set to that value, and
+// if the two drift the page quietly stops being prerendered again.
+export const revalidate = 1800;
 
 // A story older than this is retired from the index (page stays live: Bluesky
 // posts and other sites link to it). Dated briefs earn nothing in search after

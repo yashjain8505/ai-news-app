@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabase, supabaseStatic } from "./supabase";
 import { Item, Section } from "./types";
 
 // Non-personalized, server-side reads for the PUBLIC (crawlable) pages.
@@ -88,7 +88,7 @@ export async function getEditionHeadlines(): Promise<Map<string, string>> {
 
 // One active story by its stable slug (unique). Null if missing/inactive.
 export async function getStoryBySlug(slug: string): Promise<Item | null> {
-  const { data } = await supabase
+  const { data } = await supabaseStatic
     .from("items")
     .select("*")
     .eq("is_active", true)
@@ -116,7 +116,7 @@ export async function getRelatedStories(
       orClauses.push(`tags.cs.["${esc}"]`);
     }
   }
-  const { data } = await supabase
+  const { data } = await supabaseStatic
     .from("items")
     .select("*")
     .eq("is_active", true)
@@ -217,7 +217,7 @@ export async function getIndexableStorySlugs(
   const PAGE = 1000;
   const out: IndexableStorySlug[] = [];
   for (let from = 0; from < limit; from += PAGE) {
-    let q = supabase
+    let q = supabaseStatic
       .from("items")
       .select("slug, section, published_at, created_at")
       .eq("is_active", true)
