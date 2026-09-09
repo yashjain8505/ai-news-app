@@ -81,29 +81,56 @@ function isRerunOf(bg, prevBg) {
 
 // Curated to the beat the owner rejects; deliberately specific to avoid
 // nuking legitimate stories that merely mention a chip.
-const BANNED = new RegExp(
-  [
-    "gigawatt",
-    "megawatt",
-    "capex",
-    "data ?cent(er|re)s? (build|expansion|deployment|capacity)",
-    "(inference|custom|in-house) (ai )?(chip|silicon|accelerator)",
-    "\\bai chips?\\b",
-    "chip (production|manufacturing|fabrication)",
-    "accelerator deployment",
-    "compute capacity",
-    "data ?cent(er|re)s? (compute|power|buildout)",
-    "gpu (cluster|deployment|capacity)",
-    "foundry",
-    "hbm[0-9]?",
-    "memory chip",
-    "wafer",
-    "chip (fab|plant|supply)",
-    "supply chain.*(chip|semiconductor)",
-    "(chip|semiconductor).*supply chain",
-  ].join("|"),
-  "i"
-);
+// INFRASTRUCTURE BEAT — two different rules, because one keyword list cannot
+// judge whether a story is interesting.
+//
+// HARD terms are the trade press's own procurement vocabulary. A story carrying
+// one of these is about buying and building capacity; a reader who wanted it
+// would be reading DigiTimes. These are still an outright ban.
+const HARD_BEAT = [
+  /gigawatts?/i,
+  /megawatts?/i,
+  /\bcapex\b/i,
+  /\bhbm[0-9]?\b/i,
+  /\bwafers?\b/i,
+  /\bfoundry\b/i,
+  /memory chips?/i,
+  /chip (fab|plant|supply)/i,
+  /supply chain.*(chip|semiconductor)/i,
+  /(chip|semiconductor).*supply chain/i,
+  /chip (production|manufacturing|fabrication)/i,
+];
+
+// SOFT terms only say a story involves compute or silicon, which plenty of good
+// stories do. Banning on these was the bug: `\bai chips?\b` binned a startup
+// fitting a language model into a hearing aid, and "China commits $532B to
+// quadruple AI computing capacity" - arguably the biggest AI story of its day -
+// was thrown out as supply-chain news.
+//
+// So SOFT is a CAP, not a ban, exactly like the outlet cap below: at most
+// MAX_INFRA_PER_EDITION compute-flavoured stories per edition, newest kept.
+// One is a story; six is the beat taking over the feed.
+const SOFT_BEAT = [
+  /\bai chips?\b/i,
+  /(inference|custom|in-house) (ai )?(chips?|silicon|accelerators?)/i,
+  /accelerator deployment/i,
+  /comput(e|ing) capacity/i,
+  /data ?cent(er|re)s? (build|expansion|deployment|capacity|compute|power|buildout)/i,
+  /gpu (cluster|deployment|capacity)/i,
+  /exaflops?/i,
+];
+const MAX_INFRA_PER_EDITION = 1;
+
+const hay = (it) => `${it.title ?? ""} ${it.summary ?? ""}`;
+// Outright ban: returns the matching pattern, or null.
+function hardBeat(it) {
+  const re = HARD_BEAT.find((r) => r.test(hay(it)));
+  return re ? re.source.slice(0, 30) : null;
+}
+// Compute-flavoured: true if any soft term appears at all.
+function isInfraFlavoured(it) {
+  return SOFT_BEAT.some((r) => r.test(hay(it)));
+}
 
 function die(m) {
   console.error("✗ " + m);
@@ -150,20 +177,45 @@ async function main() {
     return;
   }
 
-  // 1. Banned beat.
-  const banned = items.filter(
-    (it) => BANNED.test(it.title ?? "") || BANNED.test(it.summary ?? "")
-  );
+  // 1. Banned beat - procurement vocabulary only (see HARD_BEAT).
+  const banned = items.filter((it) => hardBeat(it));
   if (banned.length) {
     await deactivate(
       banned.map((b) => b.id),
       "banned-beat"
     );
-    banned.forEach((b) => console.log(`    beat: ${String(b.title).slice(0, 70)}`));
+    banned.forEach((b) =>
+      console.log(`    beat[${hardBeat(b)}]: ${String(b.title).slice(0, 60)}`)
+    );
+  }
+
+  // 1b. Infrastructure CAP. Compute-flavoured stories are allowed - one of them
+  //     can genuinely be the day's biggest story - but only
+  //     MAX_INFRA_PER_EDITION of them per edition, newest first, so the beat
+  //     can never take over the feed the way it used to.
+  const gatedIds = new Set(banned.map((b) => b.id));
+  const perEditionInfra = new Map();
+  const overInfra = [];
+  for (const it of items) {
+    if (gatedIds.has(it.id) || it.section !== "daily") continue;
+    if (!isInfraFlavoured(it)) continue;
+    const key = it.edition_date;
+    const n = (perEditionInfra.get(key) || 0) + 1;
+    perEditionInfra.set(key, n);
+    if (n > MAX_INFRA_PER_EDITION) overInfra.push(it);
+  }
+  if (overInfra.length) {
+    await deactivate(
+      overInfra.map((o) => o.id),
+      "infra-cap"
+    );
+    overInfra.forEach((o) =>
+      console.log(`    infra: ${String(o.title).slice(0, 66)}`)
+    );
+    overInfra.forEach((o) => gatedIds.add(o.id));
   }
 
   // 2. Outlet caps (daily only; newest kept). Items already gated above are out.
-  const gatedIds = new Set(banned.map((b) => b.id));
   const daily = items.filter(
     (it) =>
       it.section === "daily" &&

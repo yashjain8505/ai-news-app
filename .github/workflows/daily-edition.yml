@@ -84,6 +84,50 @@ jobs:
             fi
           fi
 
+      # WHAT WINDOW TO SCRAPE. Every run used to gather "roughly the last 24
+      # hours", so the midday and evening runs re-trawled ground the morning run
+      # had already taken: the same stories kept resurfacing and the feed read as
+      # yesterday's news. Each run should only cover what happened SINCE THE LAST
+      # DROP.
+      #
+      # Derived from the data, not from the clock, so it is self-healing: the
+      # window is measured back from the newest item actually published. If a run
+      # is missed, the next one automatically covers the gap; if a run fires
+      # early, it just gets a short window.
+      #
+      # OVERLAP_H re-covers the boundary so a story published moments before the
+      # last drop, or indexed late by a search engine, is not lost between runs.
+      # The owner's tolerance for this is "+/- 2-3 hours".
+      # MAX_H caps the lookback so recovering from a long outage doesn't ask for
+      # a fortnight of news in one run.
+      - name: Compute the gather window
+        id: window
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          OVERLAP_H=2
+          MAX_H=24
+          now_s=$(date -u +%s)
+          floor_s=$(( now_s - MAX_H * 3600 ))
+          last=$(curl -s "$SUPABASE_URL/rest/v1/items?select=published_at&is_active=eq.true&section=eq.daily&order=published_at.desc&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].published_at // empty')
+          if [ -z "$last" ]; then
+            since_s=$floor_s
+            echo "no previous daily item -> falling back to a ${MAX_H}h window"
+          else
+            last_s=$(date -u -d "$last" +%s)
+            since_s=$(( last_s - OVERLAP_H * 3600 ))
+            if [ "$since_s" -lt "$floor_s" ]; then
+              since_s=$floor_s
+              echo "last drop was long ago ($last) -> clamping to ${MAX_H}h"
+            fi
+          fi
+          since=$(date -u -d "@$since_s" +%Y-%m-%dT%H:%M:%SZ)
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+          echo "gather window: $since -> now (last daily item was ${last:-none})"
+
       - name: Install Claude Code
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
@@ -98,8 +142,12 @@ jobs:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           EDITION_DATE: ${{ github.event.inputs.target_date }}
-          # cron-job.org's 1 PM job sets skip_articles=true so that run skips Articles.
+          # cron-job.org's midday job sets skip_articles=true so that run skips Articles.
           SKIP_ARTICLES: ${{ github.event.inputs.skip_articles }}
+          # Only gather `daily` stories published after this instant. Tools and
+          # funding keep their own longer windows - a funding round is still news
+          # three days after the press release, a daily story is not.
+          GATHER_SINCE: ${{ steps.window.outputs.since }}
         run: |
           claude -p "$(cat .github/scripts/gather-prompt.md)" \
             --model haiku \
