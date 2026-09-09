@@ -35,3 +35,42 @@ jobs:
           BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: node .github/scripts/bluesky-replies.mjs
+
+      # Bluesky channel heartbeat. The Aug 27 - Sep 9 2026 outage ran 12.5 days
+      # in total silence: the runtime's Supabase key was a placeholder, so
+      # /api/bluesky/drip 500'd, cron-job.org disabled the job after repeated
+      # failures, and NOTHING watched. Meanwhile bluesky-prepare kept queueing
+      # from Actions, so the queue filled while nothing drained it.
+      #
+      # The alarm needs BOTH halves to fire:
+      #   1. work is waiting  - a pending row overdue by >2h, and
+      #   2. nothing is going out - no successful post in the last 3h.
+      # Half 1 alone is NOT a fault: the drip takes 10 rows per poke, so while it
+      # drains a backlog there are always legitimately-overdue rows behind the
+      # current batch. (Checked against live data on 2026-09-09: 1 row was >2h
+      # overdue five minutes after a perfectly healthy post batch.) Requiring
+      # half 2 as well distinguishes "draining" from "stuck". Half 2 alone would
+      # false-alarm on a genuinely quiet queue.
+      #
+      # Runs last and `always()`, so a drafting failure above can't skip it, and
+      # only on the schedule (every 2h, 08:30-20:30 IST) so manual runs stay quiet.
+      - name: Bluesky watchdog (fail loudly if the drip is stuck)
+        if: ${{ always() && github.event_name == 'schedule' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cutoff=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          overdue=$(curl -s "$SUPABASE_URL/rest/v1/bluesky_scheduled?select=id&status=eq.pending&scheduled_for=lt.$cutoff&limit=50" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq 'length')
+          last=$(curl -s "$SUPABASE_URL/rest/v1/bluesky_scheduled?select=posted_at&status=eq.posted&order=posted_at.desc&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].posted_at // empty')
+          if [ -z "$last" ]; then quiet_h=999; else
+            quiet_h=$(( ( $(date -u +%s) - $(date -u -d "$last" +%s) ) / 3600 ))
+          fi
+          echo "overdue pending rows: ${overdue:-0} | last successful post: ${last:-never} (${quiet_h}h ago)"
+          if [ "${overdue:-0}" -gt 0 ] && [ "$quiet_h" -ge 3 ]; then
+            echo "::error::BLUESKY DRIP STUCK: ${overdue} row(s) overdue >2h and nothing has posted for ${quiet_h}h. Check (1) the cron-job.org job for https://www.wortins.com/api/bluesky/drip is ENABLED, (2) POST it with the BLUESKY_REVIEW_SECRET bearer token - 401 means that secret drifted, 502 means Bluesky rejected BLUESKY_IDENTIFIER/BLUESKY_APP_PASSWORD."
+            exit 1
+          fi
+          echo "Bluesky drip is healthy."
