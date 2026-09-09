@@ -17,6 +17,16 @@ const SITE_URL = (process.env.SITE_URL || "https://www.wortins.com").replace(
   ""
 );
 const BATCH = 10; // due rows handled per poke; the cron ticks often enough
+// A queued item that never went out is news, and news expires. If the drip is
+// down, `bluesky-prepare.mjs` keeps queueing from GitHub Actions (whose secret
+// is separate and kept working), so the queue fills while nothing drains it.
+// When the drip came back it would then flush that whole backlog in
+// BATCH-sized bites and post month-old headlines as if they were today's.
+// That is exactly what was sitting here on 2026-09-09: the runtime's
+// SUPABASE_SERVICE_ROLE_KEY had been a placeholder since ~Aug 27, so every
+// poke failed, and 127 rows going back to Aug 5 were queued and due. Anything
+// older than this window is cancelled instead of posted.
+const MAX_AGE_HOURS = 12;
 
 type BskySession = {
   accessJwt?: string;
@@ -142,12 +152,29 @@ export async function POST(req: NextRequest): Promise<Response> {
   const svc = supabaseService();
   if (!svc) return json({ ok: false, error: "Database is not configured." }, 500);
 
-  // Due = pending and scheduled_for at or before now, oldest first.
+  const nowIso = new Date().toISOString();
+  const staleBefore = new Date(Date.now() - MAX_AGE_HOURS * 3_600_000).toISOString();
+
+  // Retire anything that went stale while the drip was down, so it can never be
+  // mistaken for due work. Best-effort and unbounded on purpose: it is a single
+  // indexed UPDATE, and leaving stale rows `pending` would refill the backlog
+  // on the next poke. `canceled` is one of the four values the status CHECK
+  // constraint allows (pending | posted | failed | canceled).
+  const { error: expErr } = await svc
+    .from("bluesky_scheduled")
+    .update({ status: "canceled" })
+    .eq("status", "pending")
+    .lt("scheduled_for", staleBefore);
+  if (expErr) console.log(`bluesky drip: could not expire stale rows: ${expErr.message}`);
+
+  // Due = pending, scheduled_for at or before now, and not older than the
+  // staleness window. Oldest first.
   const { data: due, error: dueErr } = await svc
     .from("bluesky_scheduled")
     .select("id, kind, story_slug, reply_uri, reply_cid, text")
     .eq("status", "pending")
-    .lte("scheduled_for", new Date().toISOString())
+    .lte("scheduled_for", nowIso)
+    .gte("scheduled_for", staleBefore)
     .order("scheduled_for", { ascending: true })
     .limit(BATCH)
     .returns<ScheduledRow[]>();
