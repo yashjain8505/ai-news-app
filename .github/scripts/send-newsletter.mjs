@@ -45,7 +45,9 @@ const SECTION_TITLES = {
 };
 const SECTION_SHORT = { daily: "Top Stories", tools: "New Tools", articles: "Articles", funding: "Funding" };
 const SECTION_PATHS = { daily: "/", tools: "/new-tools", articles: "/articles", funding: "/funding" };
-const SECTION_ORDER = ["daily", "tools", "articles", "funding"];
+// Email running order. Funding leads, then the day's top stories, then articles.
+// "tools" is intentionally omitted from the email (still on the site).
+const SECTION_ORDER = ["funding", "daily", "articles"];
 
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -114,6 +116,41 @@ function prettyDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
   return `${WEEKDAYS[dt.getUTCDay()]}, ${MONTHS[m - 1]} ${d}, ${y}`;
+}
+
+// Filler words trimmed off the end of a shortened headline so a subject
+// fragment never dangles on "for"/"to"/"of".
+const SUBJECT_FILLER = new Set(["for","of","the","to","a","an","and","with","at","in","on","by","from","as","its","&"]);
+
+// Compress a headline into a short subject-line fragment, e.g.
+// "OpenAI Launches Astra: Computer Use AI for Tasks and Code" -> "OpenAI Launches Astra".
+function shortHeadline(title, max = 34) {
+  let t = deDash(title);
+  const colon = t.indexOf(":");
+  if (colon >= 10 && colon <= 40) t = t.slice(0, colon); // prefer the clean pre-colon lead
+  if (t.length > max) {
+    const cut = t.slice(0, max);
+    const at = cut.lastIndexOf(" ");
+    t = cut.slice(0, at > 12 ? at : max);
+  }
+  t = t.replace(/[\s,;:.]+$/, "");
+  const words = t.split(" ");
+  if (words.length > 2 && SUBJECT_FILLER.has(words[words.length - 1].toLowerCase())) words.pop();
+  return words.join(" ").trim();
+}
+
+// Subject = a few specific top-story headlines separated by " | ", then the
+// day's story count, e.g.
+// "OpenAI Launches Astra | Nvidia Acquires Hugging Face | Pentagon Grants 3M | 22 AI stories today".
+// Leads with real news (higher open rate) instead of a boilerplate masthead.
+function buildSubject({ grouped, totalCount, dateISO }) {
+  const heads = (grouped.daily || [])
+    .slice(0, 3)
+    .map((it) => shortHeadline(it.title))
+    .filter(Boolean);
+  if (!heads.length) return `The Wortins Daily · ${prettyDate(dateISO)}`;
+  const tail = totalCount > heads.length ? ` | ${totalCount} AI stories today` : "";
+  return heads.join(" | ") + tail;
 }
 
 function groupBySection(items) {
@@ -302,9 +339,10 @@ async function main() {
     `editions?edition_date=eq.${dateISO}&select=headline,synopsis`
   );
   const edition = editionRows?.[0] || null;
-  // Subject = the day's headline itself (the "from" name already says Wortins
-  // Daily), so it reads as a compelling line in the inbox rather than boilerplate.
-  const subject = deDash(edition?.headline) || `The Wortins Daily · ${prettyDate(dateISO)}`;
+  // Subject = a few specific top headlines joined by " | " plus the day's story
+  // count (see buildSubject), so the inbox shows real news rather than a
+  // boilerplate masthead. `items` is every active story for the edition.
+  const subject = buildSubject({ grouped, totalCount: items.length, dateISO });
 
   // 4. Recipients.
   const subscribers = await sb(
@@ -360,7 +398,7 @@ async function main() {
 
 // Export the renderer for local preview; only run the sender when executed
 // directly (`node send-newsletter.mjs`), not when imported.
-export { renderEmail, groupBySection, trimSynopsis, tidy };
+export { renderEmail, groupBySection, trimSynopsis, tidy, deDash, shortHeadline, buildSubject };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => die(e.message));
