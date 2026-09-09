@@ -6,7 +6,7 @@ import {
   Space_Mono,
 } from "next/font/google";
 import "./globals.css";
-import { SITE, SAME_AS } from "@/lib/seo";
+import { SITE, SAME_AS, FOUNDER, FOUNDING_DATE } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
 
@@ -105,6 +105,14 @@ export default function RootLayout({
                 logo: `${SITE.url}/icon.svg`,
                 description: SITE.description,
                 email: SITE.email,
+                foundingDate: FOUNDING_DATE,
+                founder: {
+                  "@type": "Person",
+                  "@id": FOUNDER.id,
+                  name: FOUNDER.name,
+                  url: FOUNDER.url,
+                  sameAs: FOUNDER.sameAs,
+                },
                 sameAs: SAME_AS,
                 contactPoint: {
                   "@type": "ContactPoint",
@@ -123,9 +131,9 @@ export default function RootLayout({
         />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-2FVE41J49X"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
-        <Script id="ga4" strategy="afterInteractive">
+        <Script id="ga4" strategy="lazyOnload">
           {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());

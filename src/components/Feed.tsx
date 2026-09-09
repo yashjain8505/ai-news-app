@@ -109,7 +109,7 @@ function CardPhoto({
           </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={optImg(it.image_url, imgWidth)} alt="" onError={() => setFailed(true)} />
+          <img src={optImg(it.image_url, imgWidth)} alt={it.title} onError={() => setFailed(true)} />
         )}
         <div className="news-photo__screen" />
       </div>
@@ -497,7 +497,7 @@ export default function Feed({
                       </p>
                     )}
                     <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 18 }}>
-                      <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ fontStyle: "italic", fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>
+                      <a href={lead.url ?? "#"} onClick={() => onOpen(lead, 0)} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "5px 0", fontStyle: "italic", fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>
                         Read the full story &rarr;
                       </a>
                       <ShareButton compact url={`/story/${lead.slug}`} title={lead.title} />
