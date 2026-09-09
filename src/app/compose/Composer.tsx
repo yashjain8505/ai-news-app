@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Story = { title: string; desc: string; href: string };
-type Sec = { title: string; stories: Story[] };
+type Sec = { title: string; stories: Story[]; flat?: boolean };
 
 const WD = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -175,8 +175,15 @@ export default function Composer(props: Props) {
                 <h3>{sec.title}</h3>
                 {sec.stories.map((st, i) => (
                   <div className="story" key={i}>
-                    <p className="hl"><strong><a href={st.href}>{st.title}</a></strong></p>
-                    {st.desc && <p className="dk">{st.desc}</p>}
+                    {sec.flat ? (
+                      // One-liners (funding): a plain sentence, not a headline.
+                      <p className="dk"><a href={st.href}>{st.title}</a></p>
+                    ) : (
+                      <>
+                        <p className="hl"><strong><a href={st.href}>{st.title}</a></strong></p>
+                        {st.desc && <p className="dk">{st.desc}</p>}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

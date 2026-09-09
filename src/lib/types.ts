@@ -6,6 +6,11 @@ export interface Item {
   slug: string;
   title: string;
   summary: string | null;
+  // Plain-English rewrites for the phone-first newsletter / Substack post.
+  // Null until the simplify pass runs; every consumer falls back to
+  // title/summary, so a missing rewrite degrades rather than breaks.
+  plain_title: string | null;
+  plain_line: string | null;
   wortins_take: string | null;
   url: string | null;
   source: string | null;

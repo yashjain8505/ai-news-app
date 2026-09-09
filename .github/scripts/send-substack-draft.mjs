@@ -43,13 +43,9 @@ const MAIL_TO = process.env.SUBSTACK_DRAFT_TO || "earanyash@gmail.com";
 const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 
-// Mirrors the newsletter's running order. Tools are deliberately left out.
-const SECTIONS = [
-  { key: "funding", title: "Funding News" },
-  { key: "daily", title: "Top Stories" },
-  { key: "articles", title: "Interesting Articles" },
-];
-const LIMITS = { funding: 3, daily: 5, articles: 3 };
+// Mirrors the newsletter's phone-first tiers: one hero story, then scannable
+// one-liners. Tools are deliberately left out.
+const TIERS = { also: 4, money: 3, reads: 3 };
 const DAILY_IN_NOTE = 5;
 
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -117,56 +113,72 @@ function prettyDate(iso) {
   return `${WEEKDAYS[dt.getUTCDay()]}, ${MONTHS[m - 1]} ${d}, ${y}`;
 }
 
-function groupBySection(items) {
+function buildTiers(items) {
   const g = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) if (g[it.section]) g[it.section].push(it);
-  for (const k of Object.keys(g)) {
-    g[k].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
-    if (LIMITS[k]) g[k] = g[k].slice(0, LIMITS[k]);
-  }
-  return g;
+  for (const k of Object.keys(g)) g[k].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+  return {
+    hero: g.daily[0] || null,
+    also: g.daily.slice(1, 1 + TIERS.also),
+    money: g.funding.slice(0, TIERS.money),
+    reads: g.articles.slice(0, TIERS.reads),
+  };
 }
+
+// Plain-English rewrite when the simplify pass produced one, else the curator's
+// text, so a missing rewrite degrades instead of breaking.
+function headlineOf(it) { return it.plain_title ? deDash(it.plain_title) : deDash(it.title); }
+function lineOf(it) { return it.plain_line ? clean(it.plain_line) : clean(it.summary); }
+// A funding one-liner must name the company itself; curator summaries often
+// don't ("275 million dollar Series C..."), so fall back to the title.
+function moneyLineOf(it) { return it.plain_line ? clean(it.plain_line) : deDash(it.title); }
 
 // ---- the pasteable post -----------------------------------------------------
 // Deliberately plain, semantic HTML (no inline styles): Substack's editor maps
 // h3/strong/a/p onto its own blocks cleanly, and styles would just be stripped.
-function buildPost({ edition, grouped, dateISO }) {
+function buildPost({ edition, tiers, dateISO }) {
   const title = deDash(edition?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`);
   const dek = clean(edition?.synopsis, 240);
 
   const parts = [];
   const lines = [];
-  if (dek) {
-    parts.push(`<p><em>${esc(dek)}</em></p>`);
-    lines.push(dek, "");
-  }
+  if (dek) { parts.push(`<p><em>${esc(dek)}</em></p>`); lines.push(dek, ""); }
 
-  for (const sec of SECTIONS) {
-    const stories = grouped[sec.key] || [];
-    if (!stories.length) continue;
-    parts.push(`<h3>${esc(sec.title)}</h3>`);
-    lines.push(sec.title.toUpperCase(), "");
-    for (const it of stories) {
-      const href = `${SITE_URL}/story/${encodeURIComponent(it.slug)}`;
-      const t = deDash(it.title);
-      const d = clean(it.summary);
-      parts.push(`<p><strong><a href="${href}">${esc(t)}</a></strong></p>`);
-      if (d) parts.push(`<p>${esc(d)}</p>`);
-      lines.push(t, ...(d ? [d] : []), href, "");
+  const url = (it) => `${SITE_URL}/story/${encodeURIComponent(it.slug)}`;
+  const heading = (t) => { parts.push(`<h3>${esc(t)}</h3>`); lines.push(t.toUpperCase(), ""); };
+  const item = (it) => {
+    const h = headlineOf(it), l = lineOf(it);
+    parts.push(`<p><strong><a href="${url(it)}">${esc(h)}</a></strong></p>`);
+    if (l) parts.push(`<p>${esc(l)}</p>`);
+    lines.push(h, ...(l ? [l] : []), url(it), "");
+  };
+
+  if (tiers.hero) {
+    heading("Today's big story");
+    item(tiers.hero);
+  }
+  if (tiers.also.length) { heading("Also today"); tiers.also.forEach(item); }
+  if (tiers.money.length) {
+    heading("The money");
+    for (const it of tiers.money) {
+      const l = moneyLineOf(it);
+      parts.push(`<p><a href="${url(it)}">${esc(l)}</a></p>`);
+      lines.push(l, url(it), "");
     }
   }
+  if (tiers.reads.length) { heading("Worth reading"); tiers.reads.forEach(item); }
 
   parts.push(
     `<p>The full briefing, with our take on every story, is at <a href="${SITE_URL}">wortins.com</a>. A fresh AI edition every morning.</p>`
   );
   lines.push(`The full briefing, with our take on every story, is at ${SITE_URL}`);
 
-  const daily = (grouped.daily || []).slice(0, DAILY_IN_NOTE);
+  const noteHeads = [tiers.hero, ...tiers.also].filter(Boolean).slice(0, DAILY_IN_NOTE);
   const noteText = [
     `🗞️ ${title}`,
     "",
     "The AI stories that matter today:",
-    ...daily.map((it) => `• ${deDash(it.title)}`),
+    ...noteHeads.map((it) => `• ${headlineOf(it)}`),
     "",
     "Full briefing + our take on each:",
     `${SITE_URL}/edition/${dateISO}`,
@@ -262,15 +274,15 @@ async function main() {
   }
 
   const items = await sb(
-    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,source,rank`
+    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,source,rank,plain_title,plain_line`
   );
   if (!items?.length) die(`No active items for ${dateISO}`);
-  const grouped = groupBySection(items);
+  const tiers = buildTiers(items);
   const editionRows = await sb(`editions?edition_date=eq.${dateISO}&select=headline,synopsis`);
   const edition = editionRows?.[0] || null;
 
-  const post = buildPost({ edition, grouped, dateISO });
-  const storyCount = SECTIONS.reduce((n, s) => n + (grouped[s.key]?.length || 0), 0);
+  const post = buildPost({ edition, tiers, dateISO });
+  const storyCount = [tiers.hero, ...tiers.also, ...tiers.money, ...tiers.reads].filter(Boolean).length;
   const html = buildEmail({ post, dateISO, storyCount });
   const subject = `Substack ready: ${post.title}`;
 
@@ -297,7 +309,7 @@ async function main() {
   console.log(`✓ Recorded hand-off for ${dateISO}.`);
 }
 
-export { buildPost, buildEmail, groupBySection, deDash, clean };
+export { buildPost, buildEmail, buildTiers, deDash, clean };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => die(e.message));
