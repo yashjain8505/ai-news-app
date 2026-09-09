@@ -26,10 +26,20 @@ export async function GET(
   const d = new Date(item.published_at ?? item.created_at);
   const dateLabel = `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 
+  // Prefer the plain-English rewrite. This card is what goes out on X and
+  // LinkedIn in place of a link, so it has to be readable at a glance: the
+  // curator title ("...Industrial-Scale Model Distillation") is exactly the
+  // press-release phrasing the plain rewrite exists to replace. `highlight` is
+  // an exact substring of the ORIGINAL title, so only keep it when it still
+  // appears in whichever title we actually render.
+  const cardTitle = item.plain_title || item.title;
+  const cardQuote = item.plain_line || item.summary;
+  const highlight = item.highlight && cardTitle.includes(item.highlight) ? item.highlight : null;
+
   const img = renderShareTicket({
-    title: item.title,
-    quote: item.summary,
-    highlight: item.highlight,
+    title: cardTitle,
+    quote: cardQuote,
+    highlight,
     source: item.source,
     dateLabel,
     serial: serialFor(slug),
