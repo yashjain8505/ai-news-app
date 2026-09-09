@@ -43,6 +43,17 @@
     // the worker starts from a clean namespace and regenerates on demand. The
     // orphans just sit in R2 (storage is pennies-free at this size); bump the
     // suffix again if the cache ever needs another hard purge.
+    // Cache keys embed the buildId, so EVERY deploy orphans a whole generation
+    // of objects and nothing reclaims them — the bucket grew to 2.68 GB in nine
+    // days (~380 MB/day) against R2's 10 GB free tier. Two lifecycle rules on
+    // `wortins-next-cache` now bound it (set via `wrangler r2 bucket lifecycle`,
+    // they live in Cloudflare, not here):
+    //   expire-orphaned-pre-rotation  prefix `incremental-cache/`  1 day
+    //   expire-stale-cache-10d        prefix `inc-cache-`         10 days
+    // KEEP ANY FUTURE PREFIX STARTING WITH `inc-cache-` or the 10-day rule
+    // stops matching and growth goes unbounded again. 10 days is comfortably
+    // longer than the deploy cadence, so live pages are always re-seeded before
+    // they expire; an expired object just re-renders on the next request.
     "NEXT_INC_CACHE_R2_PREFIX": "inc-cache-20260907"
   },
   "observability": {
