@@ -29,6 +29,7 @@
 // This is a growth extra running alongside the newsletter, so every failure
 // path logs and exits 0 rather than reddening the send job.
 
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.supabase.co";
@@ -42,6 +43,8 @@ const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 
 const TF = "https://api.typefully.com";
 const ALSO_COUNT = 3;
+const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
+const POOL = 6; // top daily stories Claude picks the note from
 
 const warn = (m) => console.warn(`⚠ ${m}`);
 const skip = (m) => { console.log(`→ ${m}`); process.exitCode = 0; };
@@ -91,9 +94,76 @@ function deDash(s) {
 const headlineOf = (it) => deDash(it.plain_title || it.title);
 const lineOf = (it) => deDash(it.plain_line || it.summary || "");
 
-// A note is a hook, not a digest: the day's biggest story in plain English,
-// then a few headlines, then the link (Typefully attaches a preview card to the
-// last URL, so it goes last and stands alone).
+// Draft the note in the house voice: news stated plainly, then an honest
+// reaction. This is the same voice already tuned for Bluesky (news first, no
+// fake-deep closers, plain language), widened for Notes, where there is room
+// for a real thought instead of a 290-character compression.
+function draftPrompt(items) {
+  const list = items
+    .map((it, i) => `${i + 1}. slug: ${it.slug}\nHEADLINE: ${deDash(it.plain_title || it.title)}\nEDITORIAL TAKE (the real, specific point, mine on this story): ${deDash(it.wortins_take || it.plain_line || it.summary || "")}`)
+    .join("\n\n");
+
+  return `You ghost-write a single Substack Note for the person behind Wortins, an independent AI-news brief. You are ONE real person telling people what happened in AI today and what you honestly make of it. Not a brand, not a thought-leader. You do not perform cleverness or chase engagement.
+
+Pick the ONE story below that is most worth a note: the most surprising or consequential, not simply the first.
+
+STRUCTURE:
+1. Say what happened, clearly, in plain full sentences. Name the company and what they did, with the key numbers or dates, so someone who knows nothing understands it from your opening sentences. Clarity beats brevity.
+2. Point at the genuinely notable part in plain words. Then, IF you close at all, close with ONE of: a real specific observation (who this actually helps or hurts, a concrete knock-on effect), OR a simple honest reaction. Ending on the clear facts with no closer is also fine.
+
+VOICE MODEL (news stated plainly, then a simple honest reaction):
+"Bluelearn is shutting down their operations and will no longer be functional. I kind of felt this coming....."
+
+NEVER write the fake-deep tacked-on closer. These are real rejected drafts; avoid anything like them:
+- "...distinction without a difference if you're laid off..."
+- "...kind of grim reminder these tools aren't fully ours to keep..."
+- "...kind of the real story this week..."
+They sound profound and say nothing. Test: if your last line could be pasted onto almost any story, cut it.
+
+RULES:
+- No em dashes. No hashtags, no emoji, no engagement bait, no "thread below".
+- Plain, clear, simple language. Full sentences. Contractions fine.
+- 400 to 700 characters, two or three short paragraphs. This is Substack Notes, not Twitter, so there is room for a real thought, but do not pad to fill it.
+- Do NOT include any URL or link. One is appended afterwards.
+- Any reaction must be specific and true to THIS story, never a generic significance claim.
+
+TODAY'S STORIES:
+${list}
+
+Return ONLY a JSON object, no prose around it:
+{"slug":"<the slug you chose>","note":"<the note>"}`;
+}
+
+function claudeNote(items) {
+  try {
+    const args = ["-p", draftPrompt(items), "--output-format", "text"];
+    if (DRAFT_MODEL) args.splice(2, 0, "--model", DRAFT_MODEL);
+    const out = execFileSync("claude", args, {
+      encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 180000, env: process.env,
+    });
+    const m = out.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("no JSON in claude output");
+    const parsed = JSON.parse(m[0]);
+    const note = deDash(String(parsed.note || "")).trim();
+    if (note.length < 80) throw new Error(`note too short (${note.length} chars)`);
+    return note;
+  } catch (e) {
+    // stderr carries the real reason. e.message is "Command failed: claude -p
+    // <the entire prompt>", so never log it raw: it buries CI output in the
+    // prompt text.
+    const raw = (e.stderr && String(e.stderr).trim()) || "";
+    const detail = raw
+      ? raw.slice(0, 200)
+      : String(e.message).replace(/Command failed: claude[\s\S]*/, `claude exited non-zero${e.status ? ` (${e.status})` : ""}`).slice(0, 200);
+    warn(`claude drafting unavailable: ${detail}`);
+    warn("  Falling back to the plain headline template.");
+    return null;
+  }
+}
+
+// Fallback shape when Claude is unavailable: the day's biggest story in plain
+// English, then a few headlines. Serviceable, but it reads like a digest promo,
+// which is why the drafted version above is preferred.
 function buildNote({ items, dateISO }) {
   const daily = items.filter((i) => i.section === "daily").sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
   const hero = daily[0];
@@ -106,7 +176,6 @@ function buildNote({ items, dateISO }) {
     parts.push("", "Also in today's briefing:");
     for (const it of also) parts.push(`• ${headlineOf(it)}`);
   }
-  parts.push("", `${SITE_URL}/edition/${dateISO}`);
   return parts.join("\n");
 }
 
@@ -134,8 +203,17 @@ async function main() {
   );
   if (!items?.length) return skip(`No active items for ${dateISO}.`);
 
-  const text = buildNote({ items, dateISO });
-  if (!text) return skip("No daily story to build a note from.");
+  const daily = items
+    .filter((i) => i.section === "daily")
+    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
+    .slice(0, POOL);
+  if (!daily.length) return skip("No daily story to build a note from.");
+
+  // The link is appended here, never by the model: Typefully attaches the
+  // preview card to the LAST url, so it has to stand alone at the end.
+  const body = claudeNote(daily) || buildNote({ items, dateISO });
+  if (!body) return skip("No daily story to build a note from.");
+  const text = `${body}\n\nToday's full AI briefing: ${SITE_URL}/edition/${dateISO}`;
   console.log(`\n--- note ---\n${text}\n------------\n`);
 
   // Which social set, and is Substack actually connected to it? Typefully
@@ -199,7 +277,7 @@ async function main() {
   }).catch((e) => warn(`ledger write failed: ${e.message}`));
 }
 
-export { buildNote, deDash };
+export { buildNote, draftPrompt, deDash };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => {
