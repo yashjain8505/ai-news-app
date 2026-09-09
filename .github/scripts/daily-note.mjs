@@ -127,13 +127,21 @@ RULES:
 - Do NOT include any URL or link. One is appended afterwards.
 - Any reaction must be specific and true to THIS story, never a generic significance claim.
 
-Also write "tweet": the SAME story compressed for X. Same voice and same rules, but 200 characters or fewer, since a link is appended after it. One or two sentences. It must stand on its own, not tease the note.
+Then write the same story for two more places. Same voice, same facts, same rules every time. These are three native posts, not one post reformatted, and NONE of them may contain a URL.
+
+"tweet" - for X. 240 characters or fewer, hard limit. One or two sentences. It must land on its own with no link and no image caption energy. Say the most surprising concrete thing first. Do not tease ("a thread below", "more here"), do not ask a question to farm replies.
+
+"linkedin" - for LinkedIn. 500 to 900 characters. Formatting matters here and it is not the same as prose:
+- The FIRST line is the only thing most people see before "see more". Make it a complete, specific, interesting sentence. Never a label, never a question, never "Here's what happened".
+- Then a blank line, then the detail in SHORT paragraphs of one or two sentences each, blank line between them. No paragraph longer than two sentences.
+- Write it the way a person types a post, not the way a brand writes a caption. No bullet lists, no emoji, no hashtags, no "Thoughts?", no "The takeaway is". Do not open with the company name as a headline fragment.
+- End when you are done. No sign-off, no call to action.
 
 TODAY'S STORIES:
 ${list}
 
 Return ONLY a JSON object, no prose around it:
-{"slug":"<the slug you chose>","note":"<the note>","tweet":"<the X version, 200 chars max>"}`;
+{"slug":"<the slug you chose>","note":"<the Substack note>","tweet":"<the X post, 240 chars max, no url>","linkedin":"<the LinkedIn post, 500-900 chars, short paragraphs, no url>"}`;
 }
 
 function claudeNote(items) {
@@ -150,9 +158,17 @@ function claudeNote(items) {
     if (note.length < 80) throw new Error(`note too short (${note.length} chars)`);
     // The tweet is optional: a missing or overlong one just means no X draft,
     // never a failed note.
-    let tweet = deDash(String(parsed.tweet || "")).trim();
-    if (tweet.length > 240) tweet = "";
-    return { note, tweet };
+    // Both extras are optional: a missing or malformed one costs that channel's
+    // draft, never the note. Strip any url the model slipped in anyway, since
+    // X and LinkedIn are deliberately link-free.
+    const stripUrls = (t) => t.replace(/https?:\/\/\S+/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    let tweet = stripUrls(deDash(String(parsed.tweet || "")).trim());
+    if (tweet.length > 260) tweet = "";
+    // deDash collapses newlines, which would destroy LinkedIn's paragraphing,
+    // so clean this one without it.
+    let linkedin = stripUrls(String(parsed.linkedin || "").replace(/\s*[–—]\s*/g, ", ").trim());
+    if (linkedin.length < 150 || linkedin.length > 1600) linkedin = "";
+    return { note, tweet, linkedin };
   } catch (e) {
     // stderr carries the real reason. e.message is "Command failed: claude -p
     // <the entire prompt>", so never log it raw: it buries CI output in the
@@ -272,18 +288,22 @@ async function main() {
   if (xSet && drafted?.tweet) {
     jobs.push({ set: xSet, label: "X post",
       payload: { draft_title: `Wortins Daily ${dateISO} (X)`, ...timing,
-                 platforms: { x: { enabled: true, posts: [{ text: `${drafted.tweet}\n\n${editionUrl}` }] } } } });
-    console.log(`\n--- X ---\n${drafted.tweet}\n${editionUrl}\n---------\n`);
+                 platforms: { x: { enabled: true, posts: [{ text: drafted.tweet }] } } } });
+    console.log(`\n--- X ---\n${drafted.tweet}\n---------\n`);
   } else if (xSet) {
     console.log("→ X connected but no short version was drafted; skipping the X draft.");
   }
-  // LinkedIn reuses the note body verbatim. It allows long posts, and the note
-  // is already 400-700 plain-spoken characters in short paragraphs, which is
-  // the shape that reads well there. No separate draft to get wrong.
-  if (linkedinSet) {
+  // LinkedIn gets its OWN draft, not the note reused. Its first line is all
+  // most people see before "see more", and it needs real paragraph breaks, so
+  // reusing prose written for Substack read like a repost. Link-free by
+  // design: the card image carries the brand instead.
+  if (linkedinSet && drafted?.linkedin) {
     jobs.push({ set: linkedinSet, label: "LinkedIn post",
       payload: { draft_title: `Wortins Daily ${dateISO} (LinkedIn)`, ...timing,
-                 platforms: { linkedin: { enabled: true, posts: [{ text }] } } } });
+                 platforms: { linkedin: { enabled: true, posts: [{ text: drafted.linkedin }] } } } });
+    console.log(`\n--- LinkedIn ---\n${drafted.linkedin}\n----------------\n`);
+  } else if (linkedinSet) {
+    console.log("→ LinkedIn connected but no LinkedIn version was drafted; skipping.");
   }
 
   if (DRY_RUN) {
