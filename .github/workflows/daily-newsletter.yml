@@ -91,6 +91,24 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
         run: node .github/scripts/send-substack-draft.mjs
 
+      # Substack Notes, the one part of Substack CI can actually reach. Typefully
+      # is an official Substack integration, so it sidesteps the Cloudflare wall
+      # that blocks the internal API from datacenter IPs. Defaults to creating a
+      # DRAFT (NOTES_MODE=draft): nothing goes public unreviewed and it costs
+      # none of the monthly publishing quota. No-ops cleanly until the
+      # TYPEFULLY_API_KEY secret exists and Substack is connected in Typefully.
+      - name: Draft a Substack Note (via Typefully)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TYPEFULLY_API_KEY: ${{ secrets.TYPEFULLY_API_KEY }}
+          SITE_URL: https://www.wortins.com
+          NOTES_MODE: draft
+          EDITION_DATE: ${{ github.event.inputs.edition_date }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: node .github/scripts/substack-note.mjs
+
       # A missed day must be impossible to ignore. By the catch-up pass there is
       # no excuse for today's edition to be unsent, so fail and let GitHub mail
       # the owner. (The freshness watchdog below only proves items EXIST; it
