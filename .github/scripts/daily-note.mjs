@@ -239,6 +239,7 @@ async function main() {
     ? details.find((d) => String(d.id) === String(TF_SET))
     : details.find((d) => d?.platforms?.substack);
   const xSet = details.find((d) => d?.platforms?.x);
+  const linkedinSet = details.find((d) => d?.platforms?.linkedin);
 
   if (!substackSet) {
     return skip(
@@ -248,6 +249,7 @@ async function main() {
   }
   console.log(`→ Substack: set ${substackSet.id}, @${substackSet.platforms.substack.username || "?"}`);
   if (xSet) console.log(`→ X: set ${xSet.id}, @${xSet.platforms.x.username || "?"}`);
+  if (linkedinSet) console.log(`→ LinkedIn: set ${linkedinSet.id}, @${linkedinSet.platforms.linkedin.username || "?"}`);
   const quota = substackSet.publishing_quota;
   if (quota) console.log(`→ publishing quota: ${quota.remaining} left, resets ${quota.resets_at}`);
   if (MODE !== "draft" && quota && quota.remaining <= 0) {
@@ -274,6 +276,14 @@ async function main() {
     console.log(`\n--- X ---\n${drafted.tweet}\n${editionUrl}\n---------\n`);
   } else if (xSet) {
     console.log("→ X connected but no short version was drafted; skipping the X draft.");
+  }
+  // LinkedIn reuses the note body verbatim. It allows long posts, and the note
+  // is already 400-700 plain-spoken characters in short paragraphs, which is
+  // the shape that reads well there. No separate draft to get wrong.
+  if (linkedinSet) {
+    jobs.push({ set: linkedinSet, label: "LinkedIn post",
+      payload: { draft_title: `Wortins Daily ${dateISO} (LinkedIn)`, ...timing,
+                 platforms: { linkedin: { enabled: true, posts: [{ text }] } } } });
   }
 
   if (DRY_RUN) {
