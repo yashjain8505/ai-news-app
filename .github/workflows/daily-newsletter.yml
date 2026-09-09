@@ -38,6 +38,27 @@ jobs:
         with:
           node-version: "20"
 
+      # Rewrites the edition's curator headlines into plain English
+      # (items.plain_title / plain_line) so the mail reads like a person wrote
+      # it rather than a press release. Runs BEFORE the send so today's mail
+      # carries the plain version. Both continue-on-error and the script's own
+      # exit-0 guarantee are deliberate: a missing CLI, a Claude hiccup or bad
+      # JSON must never hold up the newsletter, and every surface already falls
+      # back to the original title/summary when a plain field is null.
+      - name: Simplify the edition into plain English
+        continue-on-error: true
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          EDITION_DATE: ${{ github.event.inputs.edition_date }}
+          # Honour a dry-run dispatch: rewriting is a DB write, so a "send
+          # nothing" run should not quietly mutate the edition either.
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          npm install -g @anthropic-ai/claude-code || echo "claude CLI unavailable; the pass will skip and titles stay as they are"
+          node .github/scripts/simplify-edition.mjs
+
       - name: Send the Wortins Daily
         env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
