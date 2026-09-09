@@ -127,11 +127,13 @@ RULES:
 - Do NOT include any URL or link. One is appended afterwards.
 - Any reaction must be specific and true to THIS story, never a generic significance claim.
 
+Also write "tweet": the SAME story compressed for X. Same voice and same rules, but 200 characters or fewer, since a link is appended after it. One or two sentences. It must stand on its own, not tease the note.
+
 TODAY'S STORIES:
 ${list}
 
 Return ONLY a JSON object, no prose around it:
-{"slug":"<the slug you chose>","note":"<the note>"}`;
+{"slug":"<the slug you chose>","note":"<the note>","tweet":"<the X version, 200 chars max>"}`;
 }
 
 function claudeNote(items) {
@@ -146,7 +148,11 @@ function claudeNote(items) {
     const parsed = JSON.parse(m[0]);
     const note = deDash(String(parsed.note || "")).trim();
     if (note.length < 80) throw new Error(`note too short (${note.length} chars)`);
-    return note;
+    // The tweet is optional: a missing or overlong one just means no X draft,
+    // never a failed note.
+    let tweet = deDash(String(parsed.tweet || "")).trim();
+    if (tweet.length > 240) tweet = "";
+    return { note, tweet };
   } catch (e) {
     // stderr carries the real reason. e.message is "Command failed: claude -p
     // <the entire prompt>", so never log it raw: it buries CI output in the
@@ -211,59 +217,87 @@ async function main() {
 
   // The link is appended here, never by the model: Typefully attaches the
   // preview card to the LAST url, so it has to stand alone at the end.
-  const body = claudeNote(daily) || buildNote({ items, dateISO });
+  const drafted = claudeNote(daily);
+  const body = (drafted && drafted.note) || buildNote({ items, dateISO });
   if (!body) return skip("No daily story to build a note from.");
-  const text = `${body}\n\nToday's full AI briefing: ${SITE_URL}/edition/${dateISO}`;
+  const editionUrl = `${SITE_URL}/edition/${dateISO}`;
+  const text = `${body}\n\nToday's full AI briefing: ${editionUrl}`;
   console.log(`\n--- note ---\n${text}\n------------\n`);
 
-  // Which social set, and is Substack actually connected to it? Typefully
-  // rejects a substack-targeted draft otherwise, so check first and say the
-  // useful thing instead of surfacing a raw 400.
-  let setId = TF_SET;
-  let sets = null;
-  if (!setId) {
-    sets = await tf("/v2/social-sets");
-    if (!sets?.results?.length) return skip("No Typefully social sets on this account.");
-    if (sets.results.length > 1) {
-      console.log(`→ ${sets.results.length} social sets; using the first. Pin one with TYPEFULLY_SOCIAL_SET_ID.`);
-    }
-    setId = sets.results[0].id;
+  // Pick sets BY CAPABILITY, never by list order. The account now has one set
+  // per channel (Substack on one, X on another), and results[0] is not
+  // guaranteed to be the Substack one, so indexing would post to the wrong
+  // place the moment the ordering changed.
+  const sets = await tf("/v2/social-sets");
+  if (!sets?.results?.length) return skip("No Typefully social sets on this account.");
+  const details = [];
+  for (const r of sets.results) {
+    try { details.push(await tf(`/v2/social-sets/${r.id}/`)); }
+    catch (e) { warn(`could not read social set ${r.id}: ${e.message}`); }
   }
-  const detail = await tf(`/v2/social-sets/${setId}/`);
-  if (!detail?.platforms?.substack) {
+  const substackSet = TF_SET
+    ? details.find((d) => String(d.id) === String(TF_SET))
+    : details.find((d) => d?.platforms?.substack);
+  const xSet = details.find((d) => d?.platforms?.x);
+
+  if (!substackSet) {
     return skip(
-      `Substack is not connected to Typefully social set ${setId} (platforms.substack is null). ` +
-      `Connect it in Typefully > Settings > Integrations, then this starts posting on its own.`
+      "Substack is not connected to any Typefully social set. " +
+      "Connect it in Typefully > Settings > Integrations, then this starts posting on its own."
     );
   }
-  console.log(`→ Typefully set ${setId}, Substack connected as @${detail.platforms.substack.username || "?"}`);
-  const quota = detail.publishing_quota;
+  console.log(`→ Substack: set ${substackSet.id}, @${substackSet.platforms.substack.username || "?"}`);
+  if (xSet) console.log(`→ X: set ${xSet.id}, @${xSet.platforms.x.username || "?"}`);
+  const quota = substackSet.publishing_quota;
   if (quota) console.log(`→ publishing quota: ${quota.remaining} left, resets ${quota.resets_at}`);
-
-  const payload = {
-    draft_title: `Wortins Daily ${dateISO}`,
-    platforms: { substack: { enabled: true, posts: [{ text }] } },
-  };
-  // Omitting publish_at is what makes this a draft. Only add it when the
-  // operator has explicitly asked for real publishing.
-  if (MODE === "queue") payload.publish_at = "next-free-slot";
-  else if (MODE === "now") payload.publish_at = "now";
-
   if (MODE !== "draft" && quota && quota.remaining <= 0) {
-    return skip(`Publishing quota is exhausted (resets ${quota.resets_at}); not publishing. Saving nothing.`);
+    return skip(`Publishing quota is exhausted (resets ${quota.resets_at}); not publishing.`);
+  }
+
+  // Omitting publish_at is what makes a draft. Only add it when the operator
+  // has explicitly asked for real publishing.
+  const timing = MODE === "queue" ? { publish_at: "next-free-slot" }
+               : MODE === "now"   ? { publish_at: "now" }
+               : {};
+
+  const jobs = [
+    { set: substackSet, label: "Substack Note",
+      payload: { draft_title: `Wortins Daily ${dateISO}`, ...timing,
+                 platforms: { substack: { enabled: true, posts: [{ text }] } } } },
+  ];
+  // X only when a tweet was drafted: the 400-700 char note would not fit, and a
+  // truncated one reads worse than no post at all.
+  if (xSet && drafted?.tweet) {
+    jobs.push({ set: xSet, label: "X post",
+      payload: { draft_title: `Wortins Daily ${dateISO} (X)`, ...timing,
+                 platforms: { x: { enabled: true, posts: [{ text: `${drafted.tweet}\n\n${editionUrl}` }] } } } });
+    console.log(`\n--- X ---\n${drafted.tweet}\n${editionUrl}\n---------\n`);
+  } else if (xSet) {
+    console.log("→ X connected but no short version was drafted; skipping the X draft.");
   }
 
   if (DRY_RUN) {
-    console.log(`[DRY RUN] would POST /v2/social-sets/${setId}/drafts`);
-    console.log(JSON.stringify(payload, null, 2).slice(0, 900));
+    for (const j of jobs) {
+      console.log(`[DRY RUN] would POST /v2/social-sets/${j.set.id}/drafts (${j.label})`);
+      console.log(JSON.stringify(j.payload, null, 2).slice(0, 700));
+    }
     return;
   }
 
-  const draft = await tf(`/v2/social-sets/${setId}/drafts`, { method: "POST", body: JSON.stringify(payload) });
-  const id = draft?.id ?? draft?.draft?.id ?? null;
-  const url = draft?.share_url || (id ? `https://typefully.com/?d=${id}` : null);
-  console.log(`✓ ${MODE === "draft" ? "Draft created" : "Scheduled"} in Typefully${id ? ` (id ${id})` : ""}${url ? ` ${url}` : ""}`);
-  if (MODE === "draft") console.log("  Open Typefully and hit publish; it goes out as a Substack Note.");
+  let id = null, url = null;
+  for (const j of jobs) {
+    // One channel failing must not take the other down with it.
+    try {
+      const draft = await tf(`/v2/social-sets/${j.set.id}/drafts`, { method: "POST", body: JSON.stringify(j.payload) });
+      const did = draft?.id ?? draft?.draft?.id ?? null;
+      const durl = draft?.share_url || (did ? `https://typefully.com/?d=${did}` : null);
+      console.log(`✓ ${j.label}: ${MODE === "draft" ? "draft created" : "scheduled"}${did ? ` (id ${did})` : ""}${durl ? ` ${durl}` : ""}`);
+      if (j.label.startsWith("Substack")) { id = did; url = durl; }
+    } catch (e) {
+      warn(`${j.label} failed: ${e.message}`);
+    }
+  }
+  if (MODE === "draft") console.log("  Open Typefully and hit publish.");
 
   await sb("substack_notes", {
     method: "POST",
