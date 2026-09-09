@@ -1,0 +1,10 @@
+# Content-hashed build assets never change under a given filename, so they must
+# not be revalidated. They were shipping `max-age=0, must-revalidate`, which
+# cost 11 conditional 304 requests (~390ms) on EVERY navigation, including Back.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Share cards are deterministic per story; let the edge hold them so Satori
+# doesn't rasterize a 1080x1350 PNG on every request (measured 3.5-6.6s).
+/story/*/card.png
+  Cache-Control: public, max-age=3600, s-maxage=86400

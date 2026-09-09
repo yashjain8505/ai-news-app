@@ -24,6 +24,9 @@ const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // entries were treated as fresh forever, which froze the whole news feed at
 // days-old data while the curator kept publishing. A plain in-memory memo
 // cannot go stale for longer than its TTL.
+// How many recent stories to hold in memory for the feed. Only ~15 render up
+// front; the rest is the pool "Explore more" reveals. 600 was pure payload.
+const FEED_POOL = 200;
 let activeItemsMemo: { at: number; items: Item[] } | null = null;
 const ACTIVE_ITEMS_TTL_MS = 60_000;
 async function getActiveItems(): Promise<Item[]> {
@@ -36,12 +39,18 @@ async function getActiveItems(): Promise<Item[]> {
   // fell outside it and the whole feed froze days stale while the DB was
   // fresh. Newest-first + an explicit cap keeps the feed correct forever
   // (600 recent items is far more than every section page needs).
+  // Select ONLY the columns the feed renders. `select("*")` pulled
+  // `wortins_take` — 2-3 paragraphs per row, 220 KB on the homepage alone —
+  // into the client payload even though Feed never reads it; the full-column
+  // 600-row payload was 1.18 MB, 96% of the document, to display 15 stories.
   const { data, error } = await supabase
     .from("items")
-    .select("*")
+    .select(
+      "id,section,title,url,slug,source,summary,image_url,highlight,tags,tech_level,read_time,traction,published_at,edition_date,rank"
+    )
     .eq("is_active", true)
     .order("published_at", { ascending: false, nullsFirst: false })
-    .limit(600);
+    .limit(FEED_POOL);
   const items = (data ?? []) as Item[];
   if (error) console.log(`feed items query error: ${error.message}`);
   // Don't memoize a failed/empty read — better to retry next request than to

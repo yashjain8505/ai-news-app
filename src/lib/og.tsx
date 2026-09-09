@@ -161,77 +161,68 @@ export type TicketFields = {
 };
 
 export function renderShareTicket({ title, quote, highlight, source, dateLabel, serial }: TicketFields): ImageResponse {
-  const cleanTitle = clamp(title, 110);
-  const fs = cleanTitle.length > 70 ? 62 : cleanTitle.length > 44 ? 72 : 84;
+  const cleanTitle = clamp(title, 108);
+  const fs = cleanTitle.length > 74 ? 60 : cleanTitle.length > 46 ? 70 : 82;
   const chips = titleChips(cleanTitle, highlight);
   const gap = Math.round(fs * 0.24);
-  const q = quote ? clamp(quote, 170) : null;
+  const q = quote ? clamp(quote, 150) : null;
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          backgroundColor: T.frame,
-          padding: 44,
-        }}
-      >
-        {/* the ticket */}
+      <div style={{ width: "100%", height: "100%", display: "flex", backgroundColor: "#17130e", padding: 40 }}>
         <div
           style={{
             display: "flex",
             flex: 1,
-            borderRadius: 28,
+            borderRadius: 30,
             overflow: "hidden",
-            backgroundColor: T.paper,
-            backgroundImage: "linear-gradient(160deg, #f7f1e2 0%, #f3ecda 46%, #eadfc5 100%)",
+            // Saturated warm gradient with a light bloom, the "collectible
+            // ticket" look: bold enough to stop a scroll, still brand rust.
+            backgroundColor: T.rust,
+            backgroundImage:
+              "radial-gradient(circle at 26% 22%, rgba(255,225,190,0.62) 0%, rgba(255,205,150,0.16) 34%, rgba(255,190,130,0) 60%), linear-gradient(135deg, #d4623a 0%, #b8392a 42%, #8d2317 100%)",
           }}
         >
           {/* main body */}
-          <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "58px 54px 48px 62px" }}>
-            {/* kicker row */}
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "54px 46px 44px 58px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    width: 54,
-                    height: 54,
-                    backgroundColor: T.rust,
-                    color: T.onRust,
-                    fontSize: 38,
+                    width: 52,
+                    height: 52,
+                    backgroundColor: "#17130e",
+                    color: "#f7ecd7",
+                    fontSize: 36,
                     fontWeight: 800,
                   }}
                 >
                   W
                 </div>
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: 6, color: T.ink }}>WORTINS</div>
-                  <div style={{ fontSize: 15, letterSpacing: 4, color: T.dim }}>THE DAILY AI BRIEFING</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: 7, color: "#231007" }}>WORTINS</div>
+                  <div style={{ fontSize: 14, letterSpacing: 4, color: "rgba(35,16,7,0.62)" }}>THE DAILY AI BRIEFING</div>
                 </div>
               </div>
-              <div style={{ display: "flex", fontSize: 17, letterSpacing: 3, color: T.dim }}>{serial}</div>
+              <div style={{ display: "flex", fontSize: 16, letterSpacing: 3, color: "rgba(35,16,7,0.62)" }}>{serial}</div>
             </div>
 
-            {/* rule */}
-            <div style={{ display: "flex", height: 3, backgroundColor: T.ink, marginTop: 34, opacity: 0.9 }} />
-            <div style={{ display: "flex", height: 1, backgroundColor: T.ink, marginTop: 4, opacity: 0.5 }} />
+            <div style={{ display: "flex", height: 2, backgroundColor: "rgba(35,16,7,0.28)", marginTop: 30 }} />
 
-            {/* headline with marker highlight */}
-            <div style={{ display: "flex", flexWrap: "wrap", marginTop: 52, rowGap: Math.round(gap * 0.7) }}>
+            {/* headline — the focal point */}
+            <div style={{ display: "flex", flexWrap: "wrap", marginTop: 48, rowGap: Math.round(gap * 0.72) }}>
               {chips.map((c, i) => (
                 <span
                   key={i}
                   style={{
                     fontSize: fs,
-                    lineHeight: 1.06,
+                    lineHeight: 1.04,
                     fontWeight: 800,
-                    color: c.hl ? T.onRust : T.ink,
-                    backgroundColor: c.hl ? T.rust : "transparent",
-                    padding: c.hl ? `2px ${Math.round(fs * 0.16)}px 6px` : "2px 0 6px",
+                    color: c.hl ? "#f7ecd7" : "#231007",
+                    backgroundColor: c.hl ? "#17130e" : "transparent",
+                    padding: c.hl ? `1px ${Math.round(fs * 0.15)}px 7px` : "1px 0 7px",
                     marginRight: gap,
                   }}
                 >
@@ -240,40 +231,37 @@ export function renderShareTicket({ title, quote, highlight, source, dateLabel, 
               ))}
             </div>
 
-            {/* quote */}
             {q ? (
-              <div style={{ display: "flex", marginTop: 46 }}>
-                <div style={{ display: "flex", width: 7, backgroundColor: T.rust, marginRight: 26 }} />
-                <div style={{ display: "flex", fontSize: 31, lineHeight: 1.42, color: T.dim, flex: 1 }}>{q}</div>
+              <div style={{ display: "flex", marginTop: 40 }}>
+                <div style={{ display: "flex", width: 6, backgroundColor: "rgba(35,16,7,0.42)", marginRight: 22 }} />
+                <div style={{ display: "flex", fontSize: 29, lineHeight: 1.4, color: "rgba(35,16,7,0.82)", flex: 1 }}>{q}</div>
               </div>
             ) : null}
 
-            {/* footer */}
             <div style={{ display: "flex", marginTop: "auto", justifyContent: "space-between", alignItems: "flex-end" }}>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {source ? (
-                  <div style={{ display: "flex", fontSize: 16, letterSpacing: 3, color: T.dim }}>
-                    {`SOURCE · ${source.toUpperCase().slice(0, 28)}`}
+                  <div style={{ display: "flex", fontSize: 15, letterSpacing: 3, color: "rgba(35,16,7,0.6)" }}>
+                    {`SOURCE · ${source.toUpperCase().slice(0, 26)}`}
                   </div>
                 ) : null}
-                <div style={{ display: "flex", fontSize: 20, letterSpacing: 3, color: T.dim, marginTop: 8 }}>
-                  {`CLIPPED · ${dateLabel}`}
+                <div style={{ display: "flex", fontSize: 19, letterSpacing: 3, color: "rgba(35,16,7,0.72)", marginTop: 7 }}>
+                  {dateLabel}
                 </div>
               </div>
-              <div style={{ display: "flex", fontSize: 26, fontWeight: 800, letterSpacing: 3, color: T.rust }}>
+              <div style={{ display: "flex", fontSize: 25, fontWeight: 800, letterSpacing: 2, color: "#231007" }}>
                 wortins.com
               </div>
             </div>
           </div>
 
           {/* perforation + stub */}
-          <div style={{ display: "flex", width: 0, borderLeft: `5px dashed rgba(23,19,14,0.35)` }} />
+          <div style={{ display: "flex", width: 0, borderLeft: "5px dashed rgba(23,19,14,0.4)" }} />
           <div
             style={{
               display: "flex",
-              width: 130,
-              backgroundColor: T.rust,
-              backgroundImage: `linear-gradient(180deg, ${T.rustHi} 0%, ${T.rust} 55%, #7d2013 100%)`,
+              width: 116,
+              backgroundColor: "#17130e",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -282,14 +270,14 @@ export function renderShareTicket({ title, quote, highlight, source, dateLabel, 
               style={{
                 display: "flex",
                 transform: "rotate(90deg)",
-                fontSize: 42,
+                fontSize: 38,
                 fontWeight: 800,
-                letterSpacing: 16,
-                color: T.onRust,
+                letterSpacing: 15,
+                color: "#f7ecd7",
                 whiteSpace: "nowrap",
               }}
             >
-              READ ME FIRST
+              AI BRIEFING
             </div>
           </div>
         </div>

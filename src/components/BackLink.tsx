@@ -1,24 +1,28 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 // "← Back" for story pages — typical-website behavior the feed was missing.
 // Uses real history when the reader came from within Wortins, otherwise falls
 // back to the home briefing (direct visits from search/social have no
 // meaningful history entry).
 export default function BackLink() {
+  const router = useRouter();
   function goBack(e: React.MouseEvent) {
     try {
       const cameFromUs =
         document.referrer && new URL(document.referrer).origin === window.location.origin;
       if (cameFromUs && window.history.length > 1) {
         e.preventDefault();
-        window.history.back();
+        router.back();
       }
     } catch {
       // fall through to the href
     }
   }
   return (
-    <a
+    <Link
       href="/"
       onClick={goBack}
       className="mono bs-ilink"
@@ -33,6 +37,6 @@ export default function BackLink() {
       }}
     >
       &larr; Back to the briefing
-    </a>
+    </Link>
   );
 }

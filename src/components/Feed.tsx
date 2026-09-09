@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Item, Section } from "@/lib/types";
 import { recordFeedClick, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
@@ -144,9 +145,9 @@ function SquareCard({
         <span className="bs-square__kicker">{kicker}</span>
         {badge && <span className="bs-square__badge">{badge}</span>}
       </div>
-      <a href={storyHref(it)} onClick={() => onOpen(it, rank)} className="bs-hl bs-square__link">
+      <Link href={storyHref(it)} onClick={() => onOpen(it, rank)} className="bs-hl bs-square__link">
         <h3 className="display bs-square__title">{it.title.replace(/\s*\(Claude skill\)$/, "")}</h3>
-      </a>
+      </Link>
       {it.summary && <p className="serif bs-square__sum">{it.summary}</p>}
       <div className="bs-square__foot">
         {footer ? <span className="mono bs-square__meta">{footer}</span> : <span />}
@@ -454,14 +455,14 @@ export default function Feed({
           {SECTION_TABS.map((s) => {
             const a = s.key === active;
             return (
-              <a
+              <Link
                 key={s.key}
                 href={SECTION_HREF[s.key]}
                 className={`bs-tab${a ? " bs-tab--on" : ""}`}
                 style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, textDecoration: "none", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer" }}
               >
                 {s.label}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -485,11 +486,11 @@ export default function Feed({
                   <article>
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
                     <div style={{ marginTop: 16 }}>{meta(lead, "·", 11, true)}</div>
-                    <a href={storyHref(lead)} onClick={() => onOpen(lead, 0)} className="bs-hl">
+                    <Link href={storyHref(lead)} onClick={() => onOpen(lead, 0)} className="bs-hl">
                       <h2 className="display" style={{ fontSize: "clamp(30px,3.6vw,46px)", lineHeight: 1.05, margin: "12px 0 0", color: "var(--ink)" }}>
                         {withHighlight(lead.title, lead.highlight, 4)}
                       </h2>
-                    </a>
+                    </Link>
                     {lead.summary && (
                       <p className="serif" style={{ fontSize: 18, lineHeight: 1.6, color: "var(--muted)", margin: "14px 0 0", maxWidth: "60ch" }}>
                         {lead.summary}
@@ -512,11 +513,11 @@ export default function Feed({
                       style={{ paddingBottom: 22, marginBottom: i === rail.length - 1 ? 0 : 22, borderBottom: i === rail.length - 1 ? "none" : "1px solid var(--rule)" }}
                     >
                       {meta(it, "·", 10, true)}
-                      <a href={storyHref(it)} onClick={() => onOpen(it, i + 1)} className="bs-hl">
+                      <Link href={storyHref(it)} onClick={() => onOpen(it, i + 1)} className="bs-hl">
                         <h3 className="display" style={{ fontSize: 23, lineHeight: 1.14, margin: "8px 0 0", color: "var(--ink)" }}>
                           {withHighlight(it.title, it.highlight, 3)}
                         </h3>
-                      </a>
+                      </Link>
                       {it.summary && (
                         <p className="serif" style={{ fontSize: 15, lineHeight: 1.55, color: "var(--dim)", margin: "8px 0 0", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           {it.summary}
@@ -547,11 +548,11 @@ export default function Feed({
                       <article className="bs-story" key={it.id}>
                         <div className="bs-story__body">
                           <div>{meta(it, "·", 10, false)}</div>
-                          <a href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
+                          <Link href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
                             <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
                               {it.title}
                             </h4>
-                          </a>
+                          </Link>
                           {it.summary && (
                             <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                               {it.summary}

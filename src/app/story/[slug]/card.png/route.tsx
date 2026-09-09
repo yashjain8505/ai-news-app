@@ -37,6 +37,6 @@ export async function GET(
   const res = new Response(img.body, img);
   res.headers.set("Content-Type", "image/png");
   res.headers.set("Content-Disposition", `attachment; filename="wortins-${slug.slice(0, 40)}.png"`);
-  res.headers.set("Cache-Control", "public, max-age=3600");
+  res.headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800");
   return res;
 }
