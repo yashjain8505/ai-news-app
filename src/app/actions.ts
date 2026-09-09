@@ -376,7 +376,13 @@ export async function subscribeNewsletter(
 
 async function sendWelcomeEmail(email: string, token?: string) {
   const key = process.env.RESEND_KEY;
-  if (!key) return;
+  if (!key) {
+    // Deliberately loud: RESEND_KEY exists as a GitHub secret (the daily
+    // newsletter sends fine from Actions) but was never added as a Worker
+    // secret, so in production every welcome email has silently no-opped.
+    console.log("welcome email SKIPPED: RESEND_KEY is not set on this runtime");
+    return;
+  }
   const site = "https://www.wortins.com";
   const unsub = token ? `${site}/api/unsubscribe?token=${token}` : site;
   const html = `<!doctype html><html><body style="margin:0;background:#f3ecda;padding:28px 0;font-family:Georgia,'Times New Roman',serif;color:#1b1712;">

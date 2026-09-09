@@ -14,22 +14,32 @@ import { getAnalyticsOverview, normalizeRange } from "@/lib/analyticsData";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function authorized(request: NextRequest): boolean {
-  if (!SERVICE_KEY) return false;
+// Read the secret INSIDE the request, not at module scope: on Workers the
+// bindings are bound per-request, so a module-scope read can capture undefined
+// depending on when the isolate first evaluates this file.
+function authorized(request: NextRequest): { ok: true } | { ok: false; why: string } {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return { ok: false, why: "worker-has-no-SUPABASE_SERVICE_ROLE_KEY" };
   const header = request.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (!token) return false;
+  if (!token) return { ok: false, why: "request-sent-no-bearer-token" };
   const a = Buffer.from(token, "utf8");
-  const b = Buffer.from(SERVICE_KEY, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  const b = Buffer.from(serviceKey, "utf8");
+  // Lengths are not secret; logging only the lengths distinguishes "the two
+  // secrets are different values" from "the env is missing" without ever
+  // revealing either one. This endpoint has failed silently since Aug 28 and
+  // there was no way to tell those two causes apart from the outside.
+  if (a.length !== b.length) {
+    return { ok: false, why: `token-length-mismatch(sent=${a.length},expected=${b.length})` };
+  }
+  return timingSafeEqual(a, b) ? { ok: true } : { ok: false, why: "token-same-length-but-different-value" };
 }
 
 export async function GET(request: NextRequest) {
-  if (!authorized(request)) {
-    return new Response("Unauthorized\n", { status: 401 });
+  const auth = authorized(request);
+  if (!auth.ok) {
+    console.log(`brief-input 401: ${auth.why}`);
+    return new Response(`Unauthorized: ${auth.why}\n`, { status: 401 });
   }
   const range = normalizeRange(
     request.nextUrl.searchParams.get("range") ?? undefined
