@@ -34,6 +34,29 @@ const securityHeaders = [
 // prefers text/markdown gets the twin, everyone else gets HTML. Set at the
 // config layer because the framework overwrites a Vary set in proxy.
 const varyAccept = [{ key: "Vary", value: "Accept" }];
+
+// bfcache rescue. The feed pages and story pages are `force-dynamic`, so Next
+// emits `private, no-cache, no-store, max-age=0, must-revalidate` for them, and
+// `no-store` is the ONE header that disqualifies Chrome's back/forward cache.
+// Measured 2026-09-09: Back was 1277-1415ms and re-downloaded the whole 56 KB
+// document, ~2x slower than the same navigation forwards; Chrome's
+// notRestoredReasons reported exactly `response-cache-control-no-store`.
+//
+// Dropping `no-store` while KEEPING `no-cache` costs no freshness: bfcache is an
+// in-memory snapshot of the page the reader just had, not an HTTP cache, and
+// `no-cache` still forces a full revalidation on every real navigation. Only
+// Back/Forward changes, and it becomes instant with scroll position restored.
+//
+// Scoped deliberately: /blog, /about and /daily-ai are edge-cached today
+// (`s-maxage`), so a blanket rule here would REPLACE that with a private,
+// uncacheable header and make them slower. Only pages that already send
+// `no-store` are listed.
+// Set at the config layer for the same reason as Vary above: the framework
+// overwrites a Cache-Control set in proxy.
+const bfcacheFriendly = [
+  { key: "Cache-Control", value: "private, no-cache, max-age=0, must-revalidate" },
+];
+const NO_STORE_SOURCES = ["/", "/articles", "/funding", "/new-tools", "/story/:slug"];
 const CONTENT_HEADER_SOURCES = [
   "/",
   "/about",
@@ -60,6 +83,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       ...CONTENT_HEADER_SOURCES.map((source) => ({ source, headers: varyAccept })),
+      ...NO_STORE_SOURCES.map((source) => ({ source, headers: bfcacheFriendly })),
     ];
   },
   async redirects() {
