@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SITE, absoluteUrl } from "@/lib/seo";
-import { getBlogPostBySlug, getBlogSlugs, getRelatedBlogPosts } from "@/lib/blog";
+import { SITE, FOUNDER, absoluteUrl } from "@/lib/seo";
+import { getBlogPostBySlug, getBlogSlugs, getRelatedBlogPosts, getLatestBlogPosts } from "@/lib/blog";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
 import BlogContent from "@/components/BlogContent";
@@ -41,7 +41,8 @@ export async function generateMetadata({
   const url = absoluteUrl(`/blog/${slug}`);
   const description = post.description || SITE.description;
   return {
-    title: `${post.title} · ${SITE.name}`,
+    // The root layout's title template appends "· Wortins" once.
+    title: post.title,
     description,
     alternates: { canonical: url },
     robots: { index: true, follow: true },
@@ -69,6 +70,7 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   const related = getRelatedBlogPosts(post, 4);
+  const latest = getLatestBlogPosts([post.slug, ...related.map((r) => r.slug)], 6);
   const url = absoluteUrl(`/blog/${slug}`);
   const published = isoDate(post.date);
   const modified = isoDate(post.updated || post.date);
@@ -87,10 +89,11 @@ export default async function BlogPostPage({
     image: [image],
     keywords: post.tags.join(", ") || undefined,
     author: {
-      "@type": "Organization",
-      name: SITE.name,
-      url: SITE.url,
-      logo: { "@type": "ImageObject", url: `${SITE.url}/icon.svg` },
+      "@type": "Person",
+      "@id": FOUNDER.id,
+      name: FOUNDER.name,
+      url: FOUNDER.url,
+      sameAs: FOUNDER.sameAs,
     },
     publisher: {
       "@type": "Organization",
@@ -185,6 +188,8 @@ export default async function BlogPostPage({
           style={{ fontSize: 11, letterSpacing: "0.03em", color: "var(--dim)", marginTop: 28, paddingTop: 14, borderTop: "1px solid var(--rule)" }}
         >
           Written by{" "}
+          <a href={FOUNDER.url} style={{ color: "var(--accent)", textDecoration: "none" }}>{FOUNDER.name}</a>
+          {" for "}
           <a href="/about" style={{ color: "var(--accent)", textDecoration: "none" }}>Wortins</a>
           {post.date && (
             <>
@@ -223,6 +228,24 @@ export default async function BlogPostPage({
                       {r.description}
                     </p>
                   )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {/* Newest posts — so a just-published post is linked from every post
+            in the cluster on the next build, not only from /blog. */}
+        {latest.length > 0 && (
+          <section style={{ marginTop: 40, paddingTop: 18, borderTop: "1px solid var(--rule)" }}>
+            <h2 className="display" style={{ fontSize: 18, color: "var(--ink)", margin: "0 0 12px" }}>
+              Latest from the blog
+            </h2>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {latest.map((r, i) => (
+                <li key={r.slug} style={{ padding: "8px 0", borderBottom: i !== latest.length - 1 ? "1px solid var(--rule)" : "none" }}>
+                  <a href={`/blog/${r.slug}`} className="display" style={{ fontSize: 16, lineHeight: 1.25, color: "var(--ink)", textDecoration: "none" }}>
+                    {r.title}
+                  </a>
                 </li>
               ))}
             </ul>

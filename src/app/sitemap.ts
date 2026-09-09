@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { SITE, absoluteUrl, sectionPath } from "@/lib/seo";
+import { absoluteUrl, sectionPath } from "@/lib/seo";
 import { getAllEditionDates, getIndexableStorySlugs } from "@/lib/publicData";
 import { getAllBlogPosts } from "@/lib/blog";
 
@@ -8,16 +8,18 @@ export const revalidate = 3600;
 
 const SECTIONS = ["daily", "funding", "tools", "articles"] as const;
 
-// The .md twin URL for a page (home -> /index.md), so AI crawlers can discover
-// the Markdown twins straight from the sitemap (an AEO-conformance signal).
-function twinUrl(url: string): string {
-  return url === SITE.url ? `${SITE.url}/index.md` : `${url}.md`;
-}
+// A sitemap is a crawl-priority hint, not an index of everything that exists.
+// Stories and editions are dated news: after a month they earn nothing in
+// search, but listing all of them (thousands of URLs) buried the evergreen blog
+// and Google stopped crawling new posts at all. Older pages stay live and
+// internally linked; they just stop being advertised here.
+const STORY_SITEMAP_DAYS = 30;
+const EDITION_SITEMAP_DAYS = 30;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [dates, stories] = await Promise.all([
     getAllEditionDates(),
-    getIndexableStorySlugs(),
+    getIndexableStorySlugs(5000, STORY_SITEMAP_DAYS),
   ]);
   const blogPosts = getAllBlogPosts();
   const latest = dates[0] ? new Date(`${dates[0]}T12:00:00Z`) : new Date();
@@ -55,18 +57,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     // The latest edition accumulates drops through the day; older ones are
     // effectively immutable once the day closes.
-    ...dates.map((d, i) => ({
+    ...dates.slice(0, EDITION_SITEMAP_DAYS).map((d, i) => ({
       url: absoluteUrl(`/edition/${d}`),
       lastModified: new Date(`${d}T12:00:00Z`),
       changeFrequency: i === 0 ? ("daily" as const) : ("monthly" as const),
       priority: i === 0 ? 0.7 : 0.5,
     })),
-    // Per-story pages — ONLY those carrying an original take (indexable).
-    // Empty until the orchestrator backfills wortins_take.
+    // Per-story pages — ONLY those carrying an original take (indexable), and
+    // only the recent window (see STORY_SITEMAP_DAYS). A story never changes
+    // after it is published.
     ...stories.map((s) => ({
       url: absoluteUrl(`/story/${s.slug}`),
       lastModified: new Date(s.published_at ?? s.created_at),
-      changeFrequency: "weekly" as const,
+      changeFrequency: "never" as const,
       priority: 0.6,
     })),
     // Blog: original evergreen posts (funding deep-dives, explainers). All
@@ -89,14 +92,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  // Advertise each page's Markdown twin so AI crawlers can find them. Twins are
-  // served noindex; they're here purely as an AEO discovery signal.
-  const twins: MetadataRoute.Sitemap = pages.map((p) => ({
-    url: twinUrl(p.url),
-    lastModified: p.lastModified,
-    changeFrequency: p.changeFrequency,
-    priority: 0.3,
-  }));
-
-  return [...pages, ...twins];
+  // The Markdown twins (`<url>.md`) are deliberately NOT listed: they are served
+  // `noindex` with a canonical Link header, and submitting noindexed URLs in a
+  // sitemap is a contradiction that doubled the crawl load for nothing. AI
+  // agents discover twins through content negotiation and llms.txt instead.
+  return pages;
 }

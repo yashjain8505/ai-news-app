@@ -1,4 +1,4 @@
-import { SITE, absoluteUrl } from "@/lib/seo";
+import { SITE, absoluteUrl, sectionPath } from "@/lib/seo";
 import { getAllEditionDates, getRecentTakes } from "@/lib/publicData";
 
 // /llms.txt · an emerging convention that gives LLMs a clean markdown map of the
@@ -25,10 +25,10 @@ export async function GET() {
     `${SITE.name} curates AI news across four sections, each item linking to its original source, with an original ${SITE.name} take written per story. Use it to find emerging startups, new AI products and launches, applied real-world AI, notable funding, and genuine breakthroughs.`,
     "",
     "## Sections",
-    `- [Daily AI Updates](${absoluteUrl("/section/daily")}): emerging startups, real product launches, applied real-world AI, and genuine breakthroughs.`,
-    `- [AI Funding Tracker](${absoluteUrl("/section/funding")}): notable AI raises, IPOs, and acquisitions with amounts, valuations, and lead investors.`,
-    `- [New AI Tools](${absoluteUrl("/section/tools")}): obscure, novel AI tools and launches.`,
-    `- [Interesting AI Articles](${absoluteUrl("/section/articles")}): strategy, analysis, and sharp takes on the AI industry.`,
+    `- [Daily AI Updates](${absoluteUrl(sectionPath("daily"))}): emerging startups, real product launches, applied real-world AI, and genuine breakthroughs.`,
+    `- [AI Funding Tracker](${absoluteUrl(sectionPath("funding"))}): notable AI raises, IPOs, and acquisitions with amounts, valuations, and lead investors.`,
+    `- [New AI Tools](${absoluteUrl(sectionPath("tools"))}): obscure, novel AI tools and launches.`,
+    `- [Interesting AI Articles](${absoluteUrl(sectionPath("articles"))}): strategy, analysis, and sharp takes on the AI industry.`,
     "",
     "## Recent stories (with Wortins' original take)",
     ...takes.map(

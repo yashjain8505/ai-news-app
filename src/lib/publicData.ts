@@ -203,20 +203,28 @@ export type IndexableStorySlug = {
 // non-empty) — the only ones thin/duplicate-safe to index. Feeds the sitemap.
 // Empty right now (takes not yet backfilled); that's the intended rollout state.
 export async function getIndexableStorySlugs(
-  limit = 5000
+  limit = 5000,
+  sinceDays?: number
 ): Promise<IndexableStorySlug[]> {
+  // Optional recency window. The sitemap uses it so a crawler's attention goes
+  // to recent stories and the evergreen blog instead of thousands of old briefs.
+  const since = sinceDays
+    ? new Date(Date.now() - sinceDays * 86_400_000).toISOString()
+    : null;
   // Paged: Supabase REST caps each response at 1000 rows no matter what
   // .limit() asks for, so a single request would silently truncate the
   // sitemap once the story count crossed 1000 (it has).
   const PAGE = 1000;
   const out: IndexableStorySlug[] = [];
   for (let from = 0; from < limit; from += PAGE) {
-    const { data } = await supabase
+    let q = supabase
       .from("items")
       .select("slug, section, published_at, created_at")
       .eq("is_active", true)
       .not("wortins_take", "is", null)
-      .neq("wortins_take", "")
+      .neq("wortins_take", "");
+    if (since) q = q.gte("published_at", since);
+    const { data } = await q
       .order("published_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .range(from, Math.min(from + PAGE, limit) - 1);
