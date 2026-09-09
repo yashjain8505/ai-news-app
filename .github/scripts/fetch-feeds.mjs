@@ -85,6 +85,11 @@ const FEEDS = [
   ["One Useful Thing", "https://www.oneusefulthing.org/feed", "wide"],
   ["AI Snake Oil", "https://www.aisnakeoil.com/feed", "wide"],
   ["Platformer", "https://www.platformer.news/rss/", "wide"],
+  // The readable layer over AI litigation. Court complaints are narrative
+  // documents written to persuade, so they carry facts nobody has reported -
+  // but a raw docket entry is not a story. This blog does the translation.
+  ["ChatGPT Is Eating the World", "https://www.chatgptiseatingtheworld.com/feed/", "beat"],
+  ["Hyperdimensional", "https://www.hyperdimensional.co/feed", "beat"],
 ];
 
 // Farms and rolling index pages, mirroring taste-gate.mjs. A feed can syndicate
