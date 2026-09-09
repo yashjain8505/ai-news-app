@@ -44,6 +44,25 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
         run: node .github/scripts/send-newsletter.mjs
 
+      # Hand off the same edition to Substack: builds the post and emails it
+      # ready to paste (title + formatted body + a link to /compose, whose Copy
+      # button puts rich HTML on the clipboard). Idempotent per edition via the
+      # substack_drafts ledger. continue-on-error: a Substack hand-off hiccup
+      # must never mark the newsletter job failed, since the mail already went.
+      - name: Hand off the edition to Substack (copy-paste ready)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_KEY }}
+          SITE_URL: https://www.wortins.com
+          MAIL_FROM: "Wortins <daily@wortins.com>"
+          SUBSTACK_DRAFT_TO: earanyash@gmail.com
+          EDITION_DATE: ${{ github.event.inputs.edition_date }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node .github/scripts/send-substack-draft.mjs
+
       # Pipeline heartbeat: this job runs every morning right after the 7:00 IST
       # curate slot, so if the newest item is >12h old the curator is dead
       # (broken workflow, dead cron-job.org trigger, expired PAT, ...). Failing

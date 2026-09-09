@@ -17,13 +17,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Substack-native section labels (deliberately different from the email's, so
-// the two channels don't read as carbon copies). Kept short: a daily digest.
+// Mirrors the newsletter's running order (Funding, Top Stories, Interesting
+// Articles) so the Substack post and the email tell the same story. Tools are
+// deliberately left out of both; they still live on the site.
 const SECTION_META: { key: Section; title: string }[] = [
-  { key: "daily", title: "Top Stories" },
-  { key: "tools", title: "New Tools" },
-  { key: "articles", title: "Interesting Articles" },
   { key: "funding", title: "Funding News" },
+  { key: "daily", title: "Top Stories" },
+  { key: "articles", title: "Interesting Articles" },
 ];
 // Same counts as the email — tight and skimmable, not a firehose.
 const PER_SECTION: Record<Section, number> = { daily: 5, tools: 3, articles: 3, funding: 3 };
