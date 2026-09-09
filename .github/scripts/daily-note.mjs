@@ -168,7 +168,7 @@ function claudeNote(items) {
     // so clean this one without it.
     let linkedin = stripUrls(String(parsed.linkedin || "").replace(/\s*[–—]\s*/g, ", ").trim());
     if (linkedin.length < 150 || linkedin.length > 1600) linkedin = "";
-    return { note, tweet, linkedin };
+    return { slug: String(parsed.slug || ""), note, tweet, linkedin };
   } catch (e) {
     // stderr carries the real reason. e.message is "Command failed: claude -p
     // <the entire prompt>", so never log it raw: it buries CI output in the
@@ -199,6 +199,53 @@ function buildNote({ items, dateISO }) {
     for (const it of also) parts.push(`• ${headlineOf(it)}`);
   }
   return parts.join("\n");
+}
+
+// Attach the story's share card to a post. Typefully's media flow is three
+// steps and is scoped to ONE social set, so the same image is uploaded once per
+// set that needs it.
+//
+// The PUT is the footgun: the presigned S3 signature is computed WITHOUT
+// headers, so adding any (Content-Type included) fails with 403
+// SignatureDoesNotMatch. Passing a Buffer makes undici send none; a Blob,
+// string or FormData would each make fetch add Content-Type and break it.
+//
+// Best-effort by design: if anything here fails the post still goes out, just
+// without the image. A missing picture is not worth losing the post.
+async function attachCard(setId, slug, altText) {
+  try {
+    const safe = `wortins-${String(slug).replace(/[^a-zA-Z0-9_.()-]/g, "-").slice(0, 60)}.png`;
+    const created = await tf(`/v2/social-sets/${setId}/media/upload`, {
+      method: "POST",
+      body: JSON.stringify({ file_name: safe, alt_text: String(altText || "").slice(0, 380) }),
+    });
+    if (!created?.media_id || !created?.upload_url) throw new Error("no media_id/upload_url in response");
+
+    const img = await fetch(`${SITE_URL}/story/${encodeURIComponent(slug)}/card.png`);
+    if (!img.ok) throw new Error(`card fetch -> ${img.status}`);
+    const bytes = Buffer.from(await img.arrayBuffer());
+    if (!bytes.length) throw new Error("card was empty");
+
+    const put = await fetch(created.upload_url, { method: "PUT", body: bytes });
+    if (!put.ok) throw new Error(`presigned PUT -> ${put.status}`);
+
+    // "ready" is not immediate, and attaching a still-processing media id makes
+    // the draft POST fail with media_not_found.
+    const deadline = Date.now() + 60000;
+    for (;;) {
+      const st = await tf(`/v2/social-sets/${setId}/media/${created.media_id}`);
+      if (st?.status === "ready") {
+        console.log(`  ✓ card uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB)`);
+        return created.media_id;
+      }
+      if (st?.status === "failed") throw new Error(`processing failed: ${st.error_reason || "unknown"}`);
+      if (Date.now() > deadline) throw new Error("still processing after 60s");
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  } catch (e) {
+    warn(`card image skipped for set ${setId}: ${e.message}`);
+    return null;
+  }
 }
 
 async function main() {
@@ -306,6 +353,25 @@ async function main() {
     console.log("→ LinkedIn connected but no LinkedIn version was drafted; skipping.");
   }
 
+  // Which story's card? Whichever one Claude wrote about, else the hero.
+  const chosen = daily.find((it) => it.slug === drafted?.slug) || daily[0];
+  const altText = `${headlineOf(chosen)}. ${lineOf(chosen)}`;
+
+  // X and LinkedIn carry the card INSTEAD of a link. Substack keeps its link,
+  // which already renders its own preview, so it gets no image.
+  if (!DRY_RUN) {
+    for (const j of jobs) {
+      if (j.label.startsWith("Substack")) continue;
+      const mediaId = await attachCard(j.set.id, chosen.slug, altText);
+      if (mediaId) {
+        const platform = j.label.startsWith("X") ? "x" : "linkedin";
+        j.payload.platforms[platform].posts[0].media_ids = [mediaId];
+      }
+    }
+  } else {
+    console.log(`[DRY RUN] would attach ${SITE_URL}/story/${chosen.slug}/card.png to X + LinkedIn`);
+  }
+
   if (DRY_RUN) {
     for (const j of jobs) {
       console.log(`[DRY RUN] would POST /v2/social-sets/${j.set.id}/drafts (${j.label})`);
@@ -341,7 +407,7 @@ async function main() {
   }).catch((e) => warn(`ledger write failed: ${e.message}`));
 }
 
-export { buildNote, draftPrompt, deDash };
+export { buildNote, draftPrompt, deDash, attachCard };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => {
