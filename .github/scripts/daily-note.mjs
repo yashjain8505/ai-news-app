@@ -248,6 +248,51 @@ async function attachCard(setId, slug, altText) {
   }
 }
 
+// Splice verified LinkedIn company mentions into the post text.
+//
+// LinkedIn needs "@[Exact Page Name](urn:li:organization:123)"; a plain "@Name"
+// is literal text, and if the display name does not match the page name
+// exactly and case-sensitively it silently degrades to plain text with no
+// error (LinkedIn returns 201 either way). So li_mention_text is spliced
+// VERBATIM from the allowlist, never rebuilt from a name in our own data.
+// That is also why the visible word can change: the page for "Nvidia" is
+// actually called "NVIDIA".
+//
+// Only exact, word-boundary matches against the allowlist are tagged. Nothing
+// is ever inferred: a company we have not verified simply goes untagged.
+function addLinkedInMentions(text, entities, max = 3) {
+  if (!text || !entities?.length) return { text, tagged: [] };
+  const cands = [];
+  for (const e of entities) {
+    if (!e.li_mention_text) continue;
+    const names = [e.canonical_name, ...(Array.isArray(e.aliases) ? e.aliases : [])].filter(Boolean);
+    for (const n of names) cands.push({ name: n, mention: e.li_mention_text, canonical: e.canonical_name });
+  }
+  // Longest first, so "Scale AI" wins over "Scale".
+  cands.sort((a, b) => b.name.length - a.name.length);
+
+  let out = text;
+  const used = new Set();
+  const tagged = [];
+  for (const c of cands) {
+    if (tagged.length >= max) break;          // more than a few reads as spam
+    if (used.has(c.canonical)) continue;      // one tag per company
+    const esc = c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(^|[^\\w@\\[])(${esc})(?![\\w\\]])`, "i");
+    // Never rewrite inside a mention we already inserted.
+    const segs = out.split(/(@\[[^\]]*\]\(urn:li:[^)]*\))/);
+    let done = false;
+    for (let i = 0; i < segs.length && !done; i += 2) {
+      if (re.test(segs[i])) {
+        segs[i] = segs[i].replace(re, (_m, pre) => `${pre}${c.mention}`);
+        done = true;
+      }
+    }
+    if (done) { out = segs.join(""); used.add(c.canonical); tagged.push(c.canonical); }
+  }
+  return { text: out, tagged };
+}
+
 async function main() {
   if (!SUPABASE_KEY) return skip("No Supabase key; skipping.");
   if (!TF_KEY) {
@@ -345,10 +390,17 @@ async function main() {
   // reusing prose written for Substack read like a repost. Link-free by
   // design: the card image carries the brand instead.
   if (linkedinSet && drafted?.linkedin) {
+    // Tagging is LinkedIn-only. On X a handle cannot be verified through any
+    // API we have, and X's automation rules prohibit bulk automated mentions,
+    // so a wrong guess would tag a real stranger under our brand, daily.
+    const entities = await sb("social_entities?select=canonical_name,aliases,li_mention_text&li_mention_text=not.is.null")
+      .catch((e) => { warn(`allowlist unavailable, posting untagged: ${e.message}`); return []; });
+    const { text: liText, tagged } = addLinkedInMentions(drafted.linkedin, entities || []);
+    if (tagged.length) console.log(`→ LinkedIn mentions: ${tagged.join(", ")}`);
     jobs.push({ set: linkedinSet, label: "LinkedIn post",
       payload: { draft_title: `Wortins Daily ${dateISO} (LinkedIn)`, ...timing,
-                 platforms: { linkedin: { enabled: true, posts: [{ text: drafted.linkedin }] } } } });
-    console.log(`\n--- LinkedIn ---\n${drafted.linkedin}\n----------------\n`);
+                 platforms: { linkedin: { enabled: true, posts: [{ text: liText }] } } } });
+    console.log(`\n--- LinkedIn ---\n${liText}\n----------------\n`);
   } else if (linkedinSet) {
     console.log("→ LinkedIn connected but no LinkedIn version was drafted; skipping.");
   }
@@ -407,7 +459,7 @@ async function main() {
   }).catch((e) => warn(`ledger write failed: ${e.message}`));
 }
 
-export { buildNote, draftPrompt, deDash, attachCard };
+export { buildNote, draftPrompt, deDash, attachCard, addLinkedInMentions };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => {
