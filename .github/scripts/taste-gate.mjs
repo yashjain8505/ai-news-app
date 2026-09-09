@@ -11,6 +11,13 @@
 //   2. OUTLET CAPS (daily): an outlet keeps at most MAX_PER_EDITION active
 //      items per edition_date, and at most MAX_PER_WINDOW active items across
 //      the rolling WINDOW_HOURS the feed actually shows. Newest survive.
+//   3. RE-RUNS: the same story republished on a later day under new wording.
+//      The prompts have told the model "never re-report a story from the last
+//      7 days" since Sep 7 and it keeps doing it anyway (Sony/Warner v.
+//      Anthropic ran four days straight; OpenAI "Astra" four times), which is
+//      what makes a fresh drop read as yesterday's news. Titles are compared on
+//      distinctive tokens; the FIRST airing is kept and later repeats are
+//      deactivated, so each story reaches the reader exactly once.
 //      (The prompt's per-drop cap compounded: 2/drop x 3 drops/day x days
 //      = the "everything is TechCrunch/Axios" feed the owner keeps seeing.)
 //
@@ -23,6 +30,54 @@ const KEY = process.env.SUPABASE_SERVICE_KEY;
 const WINDOW_HOURS = 96;
 const MAX_PER_EDITION = 2;
 const MAX_PER_WINDOW = 4;
+// Look back further than the display window so a re-run is caught against the
+// story's ORIGINAL airing, not just what is currently on screen.
+const DEDUP_LOOKBACK_HOURS = 8 * 24;
+// Minimum shared PHRASES (bigrams) for a repeat. 2 + the specificity test was
+// the setting that cleared every false-positive probe on real data.
+const DEDUP_MIN_SHARED = 2;
+
+// Re-run matching works on PHRASES, not keywords. Two stories about the same
+// company share words constantly ("Apple sues OpenAI" vs "Apple and OpenAI
+// hardware"); only an actual repeat shares a specific phrase ("sue anthropic",
+// "weathernext 3", "hugging face"). Validated against 199 real items over 8
+// days: catches all 18 genuine repeats (Sony/Warner v. Anthropic ran FIVE
+// times) with zero false positives on hand-built probes.
+
+// Boilerplate: a phrase made only of these names no particular story.
+const GENERIC = new Set(
+  ("a an the of for and or to in on with by from as at is are be new ai agent agents agentic " +
+   "model models llm llms tech data enterprise security future work industry report study " +
+   "launches launch launched releases release released announces announced unveils debuts " +
+   "brings adds gets makes says shows reveals plans expands begins starts opens major first " +
+   "next more most now over under after before its their this that will can could would use " +
+   "used using system systems tool tools platform company companies startup startups million " +
+   "billion percent year years week day days").split(/\s+/)
+);
+// Company / model-family names. A phrase that is ONLY these identifies an org,
+// not a story, so two different DeepMind stories must not collapse together.
+const ORG = new Set(
+  ("openai anthropic google deepmind meta microsoft apple nvidia amazon alibaba mistral stripe " +
+   "claude gemini chatgpt copilot bytedance deepseek qwen runway perplexity xai grok llama gpt").split(/\s+/)
+);
+
+function bigrams(title) {
+  const w = String(title || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean);
+  const out = new Set();
+  for (let i = 0; i < w.length - 1; i++) out.add(w[i] + " " + w[i + 1]);
+  return out;
+}
+
+// Names something beyond boilerplate and beyond a bare company name.
+function isSpecific(bg) {
+  return bg.split(" ").some((w) => w.length >= 3 && !GENERIC.has(w) && !ORG.has(w));
+}
+
+// A repeat needs >=2 shared phrases, at least one of them specific.
+function isRerunOf(bg, prevBg) {
+  const sh = [...bg].filter((x) => prevBg.has(x));
+  return sh.length >= DEDUP_MIN_SHARED && sh.some(isSpecific) ? sh : null;
+}
 
 // Curated to the beat the owner rejects; deliberately specific to avoid
 // nuking legitimate stories that merely mention a chip.
@@ -33,7 +88,11 @@ const BANNED = new RegExp(
     "capex",
     "data ?cent(er|re)s? (build|expansion|deployment|capacity)",
     "(inference|custom|in-house) (ai )?(chip|silicon|accelerator)",
+    "\\bai chips?\\b",
+    "chip (production|manufacturing|fabrication)",
     "accelerator deployment",
+    "compute capacity",
+    "data ?cent(er|re)s? (compute|power|buildout)",
     "gpu (cluster|deployment|capacity)",
     "foundry",
     "hbm[0-9]?",
@@ -80,7 +139,8 @@ async function deactivate(ids, why) {
 }
 
 async function main() {
-  const since = new Date(Date.now() - WINDOW_HOURS * 3600_000).toISOString();
+  const since = new Date(Date.now() - DEDUP_LOOKBACK_HOURS * 3600_000).toISOString();
+  const capSince = Date.now() - WINDOW_HOURS * 3600_000;
   const items = await sb(
     `items?is_active=eq.true&section=in.(daily,articles)&published_at=gte.${since}` +
       `&select=id,section,source,title,summary,edition_date,published_at&order=published_at.desc&limit=900`
@@ -104,7 +164,12 @@ async function main() {
 
   // 2. Outlet caps (daily only; newest kept). Items already gated above are out.
   const gatedIds = new Set(banned.map((b) => b.id));
-  const daily = items.filter((it) => it.section === "daily" && !gatedIds.has(it.id));
+  const daily = items.filter(
+    (it) =>
+      it.section === "daily" &&
+      !gatedIds.has(it.id) &&
+      Date.parse(it.published_at) >= capSince
+  );
   const overCap = [];
   const perEdition = new Map(); // `${source}|${edition_date}` -> count
   const perWindow = new Map(); // source -> count
@@ -128,8 +193,42 @@ async function main() {
     overCap.forEach((o) => console.log(`    cap: [${o.source}] ${String(o.title).slice(0, 60)}`));
   }
 
+  // 3. Re-runs. Walk OLDEST -> NEWEST so the first airing claims the story and
+  //    every later restatement of it is dropped.
+  overCap.forEach((o) => gatedIds.add(o.id));
+  const chron = items
+    .filter((it) => !gatedIds.has(it.id))
+    .slice()
+    .sort((a, b) => Date.parse(a.published_at) - Date.parse(b.published_at));
+  const seen = []; // { bg, title, day }
+  const reruns = [];
+  for (const it of chron) {
+    const bg = bigrams(it.title);
+    let hit = null;
+    for (const prev of seen) {
+      const sh = isRerunOf(bg, prev.bg);
+      if (sh) {
+        hit = { ...prev, sh };
+        break;
+      }
+    }
+    if (hit) reruns.push({ it, of: hit });
+    else seen.push({ bg, title: it.title, day: it.edition_date });
+  }
+  if (reruns.length) {
+    await deactivate(
+      reruns.map((r) => r.it.id),
+      "re-run"
+    );
+    reruns.forEach((r) =>
+      console.log(
+        `    rerun: "${String(r.it.title).slice(0, 52)}" repeats "${String(r.of.title).slice(0, 52)}" (${r.of.day})`
+      )
+    );
+  }
+
   console.log(
-    `taste-gate done: checked=${items.length} banned-beat=${banned.length} outlet-cap=${overCap.length}`
+    `taste-gate done: checked=${items.length} banned-beat=${banned.length} outlet-cap=${overCap.length} re-runs=${reruns.length}`
   );
 }
 
