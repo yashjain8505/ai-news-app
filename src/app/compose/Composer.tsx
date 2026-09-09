@@ -141,7 +141,7 @@ export default function Composer(props: Props) {
             {dates.map((d) => (<option key={d} value={d}>{prettyDate(d)}</option>))}
           </select>
           <button className="ghost" onClick={() => router.push("/compose")}>Latest</button>
-          <a className="openss" href="https://substack.com/publish/post" target="_blank" rel="noopener noreferrer">
+          <a className="openss" href="https://wortins.substack.com/publish/post?type=newsletter" target="_blank" rel="noopener noreferrer">
             Open Substack ↗
           </a>
         </div>
