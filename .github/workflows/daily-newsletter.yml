@@ -6,6 +6,13 @@ on:
     # so the email carries the day's fresh stories. The script is idempotent per
     # edition_date (newsletter_sends ledger), so a re-run never double-mails.
     - cron: "0 2 * * *"
+    # Catch-up pass. On 2026-09-08 the primary run fired before the curator had
+    # published that day's edition, so the sender resolved "latest" to the
+    # PREVIOUS day, found it already sent, skipped, and exited 0 - subscribers
+    # got nothing and nothing alarmed. This second pass mails the day's edition
+    # if the first one missed it; the newsletter_sends ledger makes a
+    # double-send impossible, so a redundant run is free.
+    - cron: "0 8 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -62,6 +69,25 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           FORCE: ${{ github.event.inputs.force }}
         run: node .github/scripts/send-substack-draft.mjs
+
+      # A missed day must be impossible to ignore. By the catch-up pass there is
+      # no excuse for today's edition to be unsent, so fail and let GitHub mail
+      # the owner. (The freshness watchdog below only proves items EXIST; it
+      # cannot tell whether the newsletter actually went out.)
+      - name: Assert today's newsletter actually went out
+        if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 8 * * *' }}
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          today=$(date -u +%F)
+          rows=$(curl -s "$SUPABASE_URL/rest/v1/newsletter_sends?edition_date=eq.$today&select=edition_date,recipients" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
+          echo "newsletter_sends for $today: $rows"
+          if [ "$rows" = "[]" ]; then
+            echo "::error::NEWSLETTER MISSED $today: no send recorded. The curator was likely late, so the sender resolved to an older edition and skipped."
+            exit 1
+          fi
 
       # Pipeline heartbeat: this job runs every morning right after the 7:00 IST
       # curate slot, so if the newest item is >12h old the curator is dead
