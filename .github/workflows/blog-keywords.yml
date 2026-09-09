@@ -10,8 +10,12 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  schedule:
-    - cron: "0 21 * * 2,5" # Tue & Fri 21:00 UTC (02:30 IST) — off the other jobs
+  # PAUSED 2026-09-09. The 36 posts this robot produced target generic
+  # "best AI <category>" listicles owned by Zapier/vendor blogs; the visibility
+  # tracker found 0 cited across every run. Re-enable only with the re-aimed
+  # gather prompt (entity-adjacent queries around companies we already cover).
+  # schedule:
+  #   - cron: "0 21 * * 2,5" # Tue & Fri 21:00 UTC (02:30 IST) — off the other jobs
   workflow_dispatch:
     inputs:
       max_posts:

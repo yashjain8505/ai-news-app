@@ -78,3 +78,11 @@ so the option is on record.
 **TL;DR:** The template works and the wedge is proven. The whole game now is: (1) get them indexed fast,
 (2) add a new per-company page for every notable raise, (3) keep the roundup hubs fresh and cross-linked,
 (4) double down weekly on whatever GSC shows is rising. Slow for 3-4 weeks, then compounding.
+
+## 10. Operating notes (2026-09-09, after the first full audit)
+
+- **The release gate is build-time.** `releaseOn` is evaluated when the blog index is bundled (`prebuild`), so a batch dated for a day ships at the first deploy on or after that day, not at midnight. The robots push most days, but if a batch date passes with no push, deploy once by hand.
+- **The keyword robot is paused** (`blog-keywords.yml`, schedule commented out). Its 36 compare/guide posts chase "best AI <category>" listicles that Zapier and vendor blogs own; the visibility tracker found 0 cited across every run. Re-enable only with the re-aimed gather prompt (entity-adjacent queries around companies already in funding coverage).
+- **The tracker now records `indexed`.** A query whose target page is not indexed is logged as an indexing problem, never handed to a content robot as a gap. `/admin/geo` shows the two lists separately.
+- **Nothing gets auto-deleted.** Funding posts are evergreen — the only blog impressions during the outage recovery came from the oldest posts. Stories and editions are retired from the sitemap after 30 days and from the index after 180/90 days, but stay live: every Bluesky post links a `/story/` URL.
+- **Watch one number:** impressions on `/blog/` pages, evergreen queries only. Blended CTR and story-page impressions are dominated by monitoring bots and say nothing about readers.

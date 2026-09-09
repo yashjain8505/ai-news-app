@@ -232,3 +232,52 @@ export function isoDaysAgo(n: number): string {
   d.setUTCDate(d.getUTCDate() - n);
   return isoDay(d);
 }
+
+// --- URL Inspection ----------------------------------------------------------
+
+const INSPECT_API =
+  "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect";
+
+export type UrlInspection = {
+  url: string;
+  indexed: boolean | null; // null = the inspection itself failed
+  verdict: string | null;
+  coverageState: string | null;
+  lastCrawl: string | null;
+  error?: string;
+};
+
+// Is a page in Google's index? The AI-visibility tracker asks before recording
+// "not cited": a page nothing could have found is an indexing problem, and must
+// never read as a content gap. Same credentials and property as the reports.
+export async function inspectUrl(url: string): Promise<UrlInspection> {
+  const empty = { url, indexed: null, verdict: null, coverageState: null, lastCrawl: null };
+  try {
+    const token = await getAccessToken();
+    const res = await fetch(INSPECT_API, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ inspectionUrl: url, siteUrl: PROPERTY }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      return { ...empty, error: `HTTP ${res.status}: ${detail.slice(0, 200)}` };
+    }
+    const json = (await res.json()) as {
+      inspectionResult?: {
+        indexStatusResult?: { verdict?: string; coverageState?: string; lastCrawlTime?: string };
+      };
+    };
+    const r = json.inspectionResult?.indexStatusResult ?? {};
+    return {
+      url,
+      indexed: r.verdict === "PASS",
+      verdict: r.verdict ?? null,
+      coverageState: r.coverageState ?? null,
+      lastCrawl: r.lastCrawlTime ?? null,
+    };
+  } catch (e) {
+    return { ...empty, error: e instanceof Error ? e.message : String(e) };
+  }
+}
