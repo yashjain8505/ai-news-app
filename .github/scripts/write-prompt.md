@@ -6,6 +6,10 @@ STEPS:
 1. `TODAY="${EDITION_DATE:-$(date -u +%F)}"`. ALSO run `NOW="$(date -u +%FT%TZ)"` and keep it: every new row's `published_at` MUST be this FULL ISO-8601 timestamp WITH the time-of-day (e.g. `2026-07-07T16:42:00Z`), NEVER a bare date (a bare date becomes midnight and buries the whole drop).
 2. READ existing items for today to get the MAX `rank` per section (new rows continue from it) and to avoid duplicating anything (for funding, the SAME raise worded differently or from another source is a duplicate — never re-add a round already in the feed):
    `curl -s "$SUPABASE_URL/rest/v1/items?select=section,title,rank&edition_date=eq.$TODAY" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
+   THEN read the last three days too, so you can see what has already run — this check used to see only today, which is how the same link shipped 14 times in 17 days:
+   `SINCE3=$(date -u -d '3 days ago' +%F)`
+   `curl -s "$SUPABASE_URL/rest/v1/items?select=title,url,edition_date&edition_date=gte.$SINCE3&limit=1000" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
+   Never insert a URL that already appears there, and never re-tell a story that already ran, however differently it is worded.
 3. READ `/tmp/candidates.json`. SELECT the final set (the scraper over-gathered on purpose, so you choose the best and drop the rest):
    - **daily**: pick AT LEAST 12 (count them; today's active total should reach 15+). ONE STORY PER TOPIC (never two about the same event). Never more than 2 from the same outlet, never more than 2 centred on the same company, never all-megacap. Every pick must be genuinely, centrally ABOUT AI — test it by removing the AI: if there is still a story, it is a politics/celebrity/business item that name-drops AI, so drop it; if the story collapses, keep it **no matter what field it comes from** (politics, celebrity, war, courts and culture are not excluded categories). Favor significance + a real "huh, interesting" factor, mixing big and small.
    - **articles**: pick 2+ (skip entirely if the candidates contain none).
