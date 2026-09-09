@@ -9,7 +9,11 @@ import BackLink from "@/components/BackLink";
 import ReadGate from "@/components/ReadGate";
 import SocialShare from "@/components/SocialShare";
 
-export const revalidate = 1800; // 30 min ISR
+// 30 min ISR. Kept as a literal because Next must statically analyse this
+// export, but it MUST equal STORY_REVALIDATE in lib/supabase.ts — the
+// story-page reads use a client whose fetch cache is set to that value, and
+// if the two drift the page quietly stops being prerendered again.
+export const revalidate = 1800;
 
 // Prerender the recent indexable stories (those carrying an original take) so
 // they're ISR-cached HTML at build; any other slug is generated on demand and
