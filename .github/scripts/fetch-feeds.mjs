@@ -71,6 +71,20 @@ const FEEDS = [
   ["ProPublica", "https://www.propublica.org/feeds/propublica/main", "beat"],
   ["Bar and Bench", "https://www.barandbench.com/feed", "beat"],
   ["netzpolitik.org", "https://netzpolitik.org/feed/", "beat"],
+
+  // --- people who report the applied beat better than any outlet ---
+  // These are individuals, but they break real stories in fields no tech desk
+  // covers: what AI is doing to actual jobs, actual courtrooms, actual clinics,
+  // actual classrooms. Closest match there is to "surprising real-world
+  // consequence", which is the hardest part of the brief to source.
+  ["TestingCatalog", "https://www.testingcatalog.com/rss/", "core"],
+  ["Blood in the Machine", "https://www.bloodinthemachine.com/feed", "beat"],
+  ["Artificial Lawyer", "https://www.artificiallawyer.com/feed/", "beat"],
+  ["Eric Topol", "https://erictopol.substack.com/feed", "beat"],
+  ["Marc Watkins", "https://marcwatkins.substack.com/feed", "beat"],
+  ["One Useful Thing", "https://www.oneusefulthing.org/feed", "wide"],
+  ["AI Snake Oil", "https://www.aisnakeoil.com/feed", "wide"],
+  ["Platformer", "https://www.platformer.news/rss/", "wide"],
 ];
 
 // Farms and rolling index pages, mirroring taste-gate.mjs. A feed can syndicate
