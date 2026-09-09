@@ -6,11 +6,19 @@ import type { NextConfig } from "next";
 // CDN since story thumbnails come from arbitrary publishers.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
+  // static.cloudflareinsights.com: Cloudflare auto-injects its Web Analytics
+  // beacon into HTML responses at the edge. It was missing from this list, so
+  // the browser blocked it on every page load and Cloudflare Analytics recorded
+  // nothing at all (confirmed 2026-09-09 from the console: "Loading the script
+  // ... violates the following Content Security Policy directive"). The beacon
+  // is injected by the edge, not by our HTML, so it never shows up in a curl of
+  // the page - only a real browser reveals it.
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com",
+  // cloudflareinsights.com is where the beacon POSTs its measurements.
+  "connect-src 'self' https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://cloudflareinsights.com",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
