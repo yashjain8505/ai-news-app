@@ -27,6 +27,7 @@ const CSS = `
 .cx select{font:inherit;padding:6px 8px;border:1px solid #d8ccb2;background:#fff8ea;border-radius:6px;color:#1b1712}
 .cx button{font:inherit;cursor:pointer;border:1px solid #1b1712;background:#1b1712;color:#f3ecda;padding:7px 13px;border-radius:6px}
 .cx button.ghost{background:transparent;color:#1b1712}
+.cx a.openss{font:inherit;text-decoration:none;border:1px solid #9c2b1d;color:#9c2b1d;background:transparent;padding:7px 13px;border-radius:6px;display:inline-block}
 .cx button:active{transform:translateY(1px)}
 .cx .status{font-family:ui-monospace,monospace;font-size:12px;color:#6a6052}
 .cx .card{border:1px solid #d8ccb2;background:#fbf6e9;border-radius:10px;padding:16px 18px;margin:0 0 18px}
@@ -128,7 +129,7 @@ export default function Composer(props: Props) {
 
         <div className="steps">
           <b>How to use (≈5 min/day):</b>{" "}
-          1) Pick the edition (defaults to the latest). &nbsp;
+          1) This page always shows the latest edition, and a hand-off email lands every morning right after the newsletter. &nbsp;
           2) In Substack, click <b>New post</b>, paste the <b>Title</b>, then paste the <b>Full post</b> into the body. &nbsp;
           3) Hit <b>Publish</b>. &nbsp;
           Prefer a quick <b>Note</b>? Copy the Note block into the Substack Notes box (the link becomes a preview card automatically).
@@ -140,6 +141,9 @@ export default function Composer(props: Props) {
             {dates.map((d) => (<option key={d} value={d}>{prettyDate(d)}</option>))}
           </select>
           <button className="ghost" onClick={() => router.push("/compose")}>Latest</button>
+          <a className="openss" href="https://substack.com/publish/post" target="_blank" rel="noopener noreferrer">
+            Open Substack ↗
+          </a>
         </div>
 
         {/* TITLE */}
