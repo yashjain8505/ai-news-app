@@ -31,7 +31,11 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The job grew: plain-English rewrite (up to 7m on a fat edition) + the
+    # send + the Substack hand-off + drafting 8 stories and creating 30 queue
+    # drafts with card uploads. 15 was tight enough that a slow day would kill
+    # the posting step at the end. The ceiling is free unless actually used.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
