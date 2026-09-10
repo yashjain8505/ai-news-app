@@ -52,7 +52,11 @@ const ALSO_COUNT = 3;
 // Notes and Mastodon sit in the middle, LinkedIn stays at its company-page
 // ceiling of 2, past which it dilutes its own reach.
 const PER_DAY = { substack: 6, x: 8, bluesky: 8, mastodon: 6, linkedin: 2 };
-const PICKS = Math.max(...Object.values(PER_DAY));
+// The day is drafted in WAVES, not one morning batch. Each run drafts only the
+// slots owed until the next wave, from whatever the curator has produced by
+// then, so an evening post carries evening news. Wave sizing self-heals: a
+// skipped run's share flows to the next one.
+const WAVE_HOURS_UTC = [3, 7, 11]; // ~09:00 / 13:00 / 17:00 IST
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
 // The pick pool spans sections: 8 distinct stories a day cannot come from the
 // daily section alone (it dips to 3 on thin days). Funding and articles join
@@ -111,19 +115,17 @@ const lineOf = (it) => deDash(it.plain_line || it.summary || "");
 // reaction. This is the same voice already tuned for Bluesky (news first, no
 // fake-deep closers, plain language), widened for Notes, where there is room
 // for a real thought instead of a 290-character compression.
-function draftPrompt(items) {
+function draftPrompt(items, want) {
   const list = items
     .map((it, i) => `${i + 1}. slug: ${it.slug} [section: ${it.section}]\nHEADLINE: ${deDash(it.plain_title || it.title)}\nEDITORIAL TAKE (the real, specific point, mine on this story): ${deDash(it.wortins_take || it.plain_line || it.summary || "")}`)
     .join("\n\n");
 
   return `You ghost-write the day's social posts for the person behind Wortins, an independent AI-news brief. You are ONE real person telling people what happened in AI today and what you honestly make of it. Not a brand, not a thought-leader. You do not perform cleverness or chase engagement.
 
-Pick the ${PICKS} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read, not eight model releases. Each story is labelled with its section.
+Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
 Order them best first. The order decides where each runs:
-- EVERY pick gets "x_thread".
-- Picks 1 to 6 ALSO get "note".
-- Picks 1 and 2 ALSO get "linkedin".
+- EVERY pick gets "x_thread".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
 Write each required piece native to its place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
@@ -161,13 +163,13 @@ THE THREE PIECES:
 TODAY'S STORIES:
 ${list}
 
-Return ONLY a JSON object, no prose around it, with up to ${PICKS} entries in "picks", best first. Omit "note" and "linkedin" on picks that do not need them per the rules above:
-{"picks":[{"slug":"<slug>","x_thread":["<post 1>"],"note":"<only picks 1-6>","linkedin":"<only picks 1-2>"}]}`;
+Return ONLY a JSON object, no prose around it, with up to ${want.picks} entries in "picks", best first. Omit "note" and "linkedin" on picks that do not need them per the rules above:
+{"picks":[{"slug":"<slug>","x_thread":["<post 1>"],"note":"<where required>","linkedin":"<where required>"}]}`;
 }
 
-function claudeNote(items) {
+function claudeNote(items, want) {
   try {
-    const args = ["-p", draftPrompt(items), "--output-format", "text"];
+    const args = ["-p", draftPrompt(items, want), "--output-format", "text"];
     if (DRAFT_MODEL) args.splice(2, 0, "--model", DRAFT_MODEL);
     const out = execFileSync("claude", args, {
       encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 300000, env: process.env,
@@ -353,10 +355,28 @@ async function main() {
   if (!dateISO) return skip("No edition with items found.");
   console.log(`→ Edition ${dateISO} (mode: ${MODE})`);
 
-  if (!FORCE && !DRY_RUN) {
-    const already = await sb(`substack_notes?edition_date=eq.${dateISO}&select=edition_date,posted_at`).catch(() => null);
-    if (already?.length) return skip(`Already noted ${dateISO} at ${already[0].posted_at}. Skipping (FORCE=1 to redo).`);
+  // Wave accounting. How much of today's per-platform count is already
+  // created, and how many waves are left to spread the remainder over. FORCE
+  // ignores the ledger entirely (full fresh wave, duplicates allowed).
+  const day = new Date().toISOString().slice(0, 10);
+  const hourUTC = new Date().getUTCHours();
+  const remainingRuns = WAVE_HOURS_UTC.filter((h) => hourUTC < h + 2).length || 1;
+  let ledgerRows = [];
+  if (!FORCE) {
+    ledgerRows = (await sb(`social_posts_ledger?day=eq.${day}&select=platform,slug`).catch((e) => {
+      warn(`ledger unreadable (${e.message}); treating today as empty`);
+      return [];
+    })) || [];
   }
+  const createdToday = {};
+  for (const r of ledgerRows) createdToday[r.platform] = (createdToday[r.platform] || 0) + 1;
+  const usedSlugs = new Set(ledgerRows.map((r) => r.slug));
+  const quota = {};
+  for (const [plat, perDay] of Object.entries(PER_DAY)) {
+    quota[plat] = Math.max(0, Math.ceil((perDay - (createdToday[plat] || 0)) / remainingRuns));
+  }
+  console.log(`→ wave: ${remainingRuns} run(s) left today · quotas ${JSON.stringify(quota)} · ${usedSlugs.size} slug(s) already used`);
+  if (Object.values(quota).every((q) => q === 0)) return skip("Today's counts are already met; nothing owed this wave.");
 
   const items = await sb(
     `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,rank,plain_title,plain_line`
@@ -364,7 +384,7 @@ async function main() {
   if (!items?.length) return skip(`No active items for ${dateISO}.`);
 
   const bySection = (sec, n) => items
-    .filter((i) => i.section === sec)
+    .filter((i) => i.section === sec && !usedSlugs.has(i.slug))
     .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
     .slice(0, n);
   const daily = bySection("daily", POOL_DAILY);
@@ -374,7 +394,8 @@ async function main() {
   // The link is appended here, never by the model: Typefully attaches the
   // preview card to the LAST url, so it has to stand alone at the end.
   const editionUrl = `${SITE_URL}/edition/${dateISO}`;
-  let picks = claudeNote(pool);
+  const want = { picks: Math.max(...Object.values(quota)), note: quota.substack, linkedin: quota.linkedin };
+  let picks = claudeNote(pool, want);
   if (!picks?.length) {
     // Fallback: one template note, so a Claude outage still posts something.
     const body = buildNote({ items, dateISO });
@@ -413,10 +434,10 @@ async function main() {
   if (linkedinSet) console.log(`→ LinkedIn: set ${linkedinSet.id}, @${linkedinSet.platforms.linkedin.username || "?"}`);
   if (blueskySet) console.log(`→ Bluesky: set ${blueskySet.id}, @${blueskySet.platforms.bluesky.username || "?"}`);
   if (mastodonSet) console.log(`→ Mastodon: set ${mastodonSet.id}, @${mastodonSet.platforms.mastodon.username || "?"}`);
-  const quota = substackSet.publishing_quota;
-  if (quota) console.log(`→ publishing quota: ${quota.remaining} left, resets ${quota.resets_at}`);
-  if (MODE !== "draft" && quota && quota.remaining <= 0) {
-    return skip(`Publishing quota is exhausted (resets ${quota.resets_at}); not publishing.`);
+  const pubQuota = substackSet.publishing_quota;
+  if (pubQuota) console.log(`→ publishing quota: ${pubQuota.remaining} left, resets ${pubQuota.resets_at}`);
+  if (MODE !== "draft" && pubQuota && pubQuota.remaining <= 0) {
+    return skip(`Publishing quota is exhausted (resets ${pubQuota.resets_at}); not publishing.`);
   }
 
   // Omitting publish_at is what makes a draft. Only add it when the operator
@@ -439,7 +460,7 @@ async function main() {
     const story = pool.find((d) => d.slug === pk.slug) || pool[i] || pool[0];
     const n = i + 1;
 
-    if (i < PER_DAY.substack && pk.note) {
+    if (i < quota.substack && pk.note) {
       jobs.push({
         set: substackSet, label: `Substack ${n}`, platform: "substack", story,
         payload: { draft_title: `Wortins ${dateISO} · Substack ${n}`, ...timing,
@@ -447,7 +468,7 @@ async function main() {
       });
     }
 
-    if (xSet && i < PER_DAY.x && pk.xThread.length) {
+    if (xSet && i < quota.x && pk.xThread.length) {
       // The link is a FINAL post, so it publishes as the first reply and the
       // main post stays link-free. The card attaches to post 1, not the reply.
       const xPosts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
@@ -462,7 +483,7 @@ async function main() {
     // clear our 275 cap, and the audiences barely overlap. Same shape as X:
     // card on post 1, link as the final post (the reply).
     for (const [plat, set] of [["bluesky", blueskySet], ["mastodon", mastodonSet]]) {
-      if (!set || i >= PER_DAY[plat] || !pk.xThread.length) continue;
+      if (!set || i >= quota[plat] || !pk.xThread.length) continue;
       const posts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
       const cap = plat[0].toUpperCase() + plat.slice(1);
       jobs.push({
@@ -472,7 +493,7 @@ async function main() {
       });
     }
 
-    if (linkedinSet && i < PER_DAY.linkedin && pk.linkedin) {
+    if (linkedinSet && i < quota.linkedin && pk.linkedin) {
       const { text: liText, tagged } = addLinkedInMentions(pk.linkedin, entities || []);
       if (tagged.length) console.log(`  · LinkedIn ${n} mentions: ${tagged.join(", ")}`);
       jobs.push({
@@ -510,7 +531,6 @@ async function main() {
     return;
   }
 
-  let id = null, url = null;
   for (const j of jobs) {
     // One channel failing must not take the other down with it.
     try {
@@ -518,23 +538,18 @@ async function main() {
       const did = draft?.id ?? draft?.draft?.id ?? null;
       const durl = draft?.share_url || (did ? `https://typefully.com/?d=${did}` : null);
       console.log(`✓ ${j.label}: ${MODE === "draft" ? "draft created" : "scheduled"}${did ? ` (id ${did})` : ""}${durl ? ` ${durl}` : ""}`);
-      if (j.label.startsWith("Substack")) { id = did; url = durl; }
+      // The ledger is what caps later waves and dedups their picks, so it must
+      // record even when a later insert fails: each row is best-effort alone.
+      await sb("social_posts_ledger", {
+        method: "POST",
+        body: JSON.stringify({ day, platform: j.platform, slug: j.story.slug, draft_id: did ? String(did) : null }),
+      }).catch((e) => warn(`ledger write failed for ${j.label}: ${e.message}`));
     } catch (e) {
       warn(`${j.label} failed: ${e.message}`);
     }
   }
   if (MODE === "draft") console.log("  Open Typefully and hit publish.");
 
-  await sb("substack_notes", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates" },
-    body: JSON.stringify({
-      edition_date: dateISO,
-      posted_at: new Date().toISOString(),
-      note_id: id ? String(id) : null,
-      note_url: url,
-    }),
-  }).catch((e) => warn(`ledger write failed: ${e.message}`));
 }
 
 export { buildNote, draftPrompt, deDash, attachCard, addLinkedInMentions };
