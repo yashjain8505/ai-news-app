@@ -66,6 +66,30 @@ function Meta({ it, now, size }: { it: Item; now: number; size: number }) {
   );
 }
 
+// One story in the right-hand rail: headline, source, three clamped lines. No
+// image - a column of 96px thumbnails is what made the page read as a list of
+// identical rows rather than a page with a front.
+function RailItem({ it, now }: { it: Item; now: number }) {
+  return (
+    <article style={{ padding: "13px 0", borderBottom: "1px solid var(--rule)" }}>
+      <Meta it={it} now={now} size={10} />
+      <h3 className="display" style={{ fontSize: 17, lineHeight: 1.22, margin: "5px 0 0", color: "var(--ink)" }}>
+        <a {...headlineLink(it)} style={{ color: "inherit", textDecoration: "none" }}>
+          {it.title}
+        </a>
+      </h3>
+      {blurb(it) && (
+        <p
+          className="serif"
+          style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--dim)", margin: "6px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+        >
+          {blurb(it)}
+        </p>
+      )}
+    </article>
+  );
+}
+
 export default function PublicEdition({
   items,
   now,
@@ -103,59 +127,83 @@ export default function PublicEdition({
                 )}
               </div>
             )}
-            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {list.map((it, i) => {
-                const notLast = i !== list.length - 1;
-                return (
-                  <li key={it.id} style={{ padding: "16px 0", borderBottom: notLast ? "1px solid var(--rule)" : "none" }}>
-                    {i === 0 ? (
-                      <article>
-                        {it.image_url && (
-                          <Img className="news-photo" src={it.image_url} width={1200} alt={it.title} loading={eagerLead ? "eager" : "lazy"} fetchPriority={eagerLead ? "high" : "auto"} style={{ width: "100%", height: 230, objectFit: "cover", marginBottom: 12 }} />
-                        )}
-                        <Meta it={it} now={now} size={11} />
-                        <h3 className="display" style={{ fontSize: "clamp(23px,3vw,31px)", lineHeight: 1.1, margin: "8px 0 0", color: "var(--ink)" }}>
-                          <a {...headlineLink(it)} style={{ color: "inherit", textDecoration: "none" }}>
-                            {it.title}
-                          </a>
-                        </h3>
-                        {leadBlurb(it) && (
-                          <p className="serif" style={{ fontSize: 17, lineHeight: 1.55, color: "var(--muted)", margin: "10px 0 0", maxWidth: "62ch" }}>
-                            {leadBlurb(it)}
-                          </p>
-                        )}
-                        <a
-                          {...headlineLink(it)}
-                          className="mono"
-                          style={{ display: "inline-block", marginTop: 10, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}
-                        >
-                          Read the full story &rarr;
-                        </a>
-                      </article>
-                    ) : (
-                      <article style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                        {it.image_url && (
-                          <Img className="news-photo" src={it.image_url} width={200} alt={it.title} loading="lazy" style={{ width: 96, height: 66, objectFit: "cover", flexShrink: 0 }} />
-                        )}
-                        <div style={{ minWidth: 0 }}>
-                          <Meta it={it} now={now} size={10} />
-                          <h3 className="display" style={{ fontSize: 18, lineHeight: 1.2, margin: "5px 0 0", color: "var(--ink)" }}>
-                            <a {...headlineLink(it)} style={{ color: "inherit", textDecoration: "none" }}>
-                              {it.title}
-                            </a>
-                          </h3>
-                          {blurb(it) && (
-                            <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                              {blurb(it)}
-                            </p>
-                          )}
-                        </div>
-                      </article>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            {(() => {
+              const [lead, ...rest] = list;
+              // Two columns once there is enough to fill a rail. Below that a
+              // rail would sit half empty and look broken, so the section keeps
+              // the plain stack. This is the same 1.62fr/1fr grid the homepage
+              // lead already uses, and the same shape the FT and Bloomberg front
+              // pages use: one story with a picture, a column of headlines
+              // beside it. It also fills the dead right-hand half of the page,
+              // where a full-width photo used to sit above a 62-character
+              // column of text.
+              const twoCol = list.length >= 4;
+              const rail = twoCol ? rest.slice(0, 4) : [];
+              const below = twoCol ? rest.slice(4) : rest;
+              const LeadArticle = (
+                <article>
+                  {lead.image_url && (
+                    <Img className="news-photo" src={lead.image_url} width={1200} alt={lead.title} loading={eagerLead ? "eager" : "lazy"} fetchPriority={eagerLead ? "high" : "auto"} style={{ width: "100%", height: 260, objectFit: "cover", marginBottom: 12 }} />
+                  )}
+                  <Meta it={lead} now={now} size={11} />
+                  <h3 className="display" style={{ fontSize: "clamp(26px,3.4vw,38px)", lineHeight: 1.06, margin: "8px 0 0", color: "var(--ink)" }}>
+                    <a {...headlineLink(lead)} style={{ color: "inherit", textDecoration: "none" }}>
+                      {lead.title}
+                    </a>
+                  </h3>
+                  {leadBlurb(lead) && (
+                    <p className="serif" style={{ fontSize: 17, lineHeight: 1.55, color: "var(--muted)", margin: "10px 0 0", maxWidth: "62ch" }}>
+                      {leadBlurb(lead)}
+                    </p>
+                  )}
+                  <a {...headlineLink(lead)} className="mono" style={{ display: "inline-block", marginTop: 10, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}>
+                    Read the full story &rarr;
+                  </a>
+                </article>
+              );
+              return (
+                <>
+                  {twoCol ? (
+                    <div className="bs-lead">
+                      <div>{LeadArticle}</div>
+                      <div className="bs-rail">
+                        {rail.map((it) => (
+                          <RailItem key={it.id} it={it} now={now} />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    LeadArticle
+                  )}
+                  {below.length > 0 && (
+                    <ul style={{ listStyle: "none", margin: "22px 0 0", padding: 0, borderTop: "1px solid var(--ruleStrong)" }}>
+                      {below.map((it, i) => (
+                        <li key={it.id} style={{ padding: "16px 0", borderBottom: i !== below.length - 1 ? "1px solid var(--rule)" : "none" }}>
+                          <article style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                            {it.image_url && (
+                              <Img className="news-photo" src={it.image_url} width={200} alt={it.title} loading="lazy" style={{ width: 96, height: 66, objectFit: "cover", flexShrink: 0 }} />
+                            )}
+                            <div style={{ minWidth: 0 }}>
+                              <Meta it={it} now={now} size={10} />
+                              <h3 className="display" style={{ fontSize: 18, lineHeight: 1.2, margin: "5px 0 0", color: "var(--ink)" }}>
+                                <a {...headlineLink(it)} style={{ color: "inherit", textDecoration: "none" }}>
+                                  {it.title}
+                                </a>
+                              </h3>
+                              {blurb(it) && (
+                                <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                  {blurb(it)}
+                                </p>
+                              )}
+                            </div>
+                          </article>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              );
+            })()}
           </section>
         );
       })}
