@@ -343,6 +343,9 @@ function clipHeadlineSize(title: string): number {
 
 export type ClippingFields = {
   title: string;
+  /** Canvas size. Defaults to the portrait share card; pass OG_SIZE for the
+   *  landscape link-preview variant. */
+  size?: { width: number; height: number };
   quote?: string | null;
   source?: string | null;
   dateLabel?: string;
@@ -357,13 +360,24 @@ export async function renderClippingCard({
   dateLabel,
   serial,
   kicker,
+  size,
 }: ClippingFields): Promise<ImageResponse> {
   const fonts = loadSerif();
   const h = clampWords(title, 118);
-  const q = quote ? clampWords(quote, 190) : "";
-  const fs = clipHeadlineSize(h);
+  // Portrait by default (the share card people post). `wide` is the 1200x630
+  // link-preview variant: same clipping, but the canvas is less than half as
+  // tall, so the headline and chrome have to come down or the card overflows.
+  const S = size ?? TICKET_SIZE;
+  const wide = S.width > S.height;
+  const chrome = wide ? 0.72 : 1; // small type: masthead, meta, footer
+  const cardW = wide ? 1010 : 920;
+  const cardPad = wide ? "32px 50px 26px" : "62px 62px 52px";
+  const teeth = Math.round(cardW / 28);
+  const fs = Math.round(clipHeadlineSize(h) * (wide ? 0.5 : 1));
+  const px = (n: number) => Math.round(n * chrome);
+  const q = quote ? clampWords(quote, wide ? 96 : 190) : "";
   const serifBase = { fontFamily: "Instrument Serif" as const };
-  const metaBase = { ...serifBase, letterSpacing: 3, color: CLIP.muted, fontSize: 17 };
+  const metaBase = { ...serifBase, letterSpacing: 3, color: CLIP.muted, fontSize: px(17) };
 
   return new ImageResponse(
     (
@@ -382,9 +396,9 @@ export async function renderClippingCard({
           style={{
             display: "flex",
             flexDirection: "column",
-            width: 920,
+            width: cardW,
             backgroundColor: CLIP.paper,
-            padding: "62px 62px 52px",
+            padding: cardPad,
             transform: "rotate(-1.4deg)",
             boxShadow: "0 34px 80px rgba(0,0,0,0.34)",
             position: "relative",
@@ -392,7 +406,7 @@ export async function renderClippingCard({
         >
           {/* deckled top edge: squares, because Satori has no mask support */}
           <div style={{ position: "absolute", top: -7, left: 0, display: "flex" }}>
-            {Array.from({ length: 33 }).map((_, i) => (
+            {Array.from({ length: teeth }).map((_, i) => (
               <div
                 key={i}
                 style={{ width: 14, height: 14, marginRight: 14, backgroundColor: CLIP.paper }}
@@ -409,11 +423,11 @@ export async function renderClippingCard({
               paddingBottom: 16,
             }}
           >
-            <div style={{ ...serifBase, fontSize: 29, letterSpacing: 7, color: CLIP.ink }}>WORTINS</div>
-            <div style={{ ...metaBase, fontSize: 15 }}>THE DAILY AI BRIEFING</div>
+            <div style={{ ...serifBase, fontSize: px(29), letterSpacing: px(7), color: CLIP.ink }}>WORTINS</div>
+            <div style={{ ...metaBase, fontSize: px(15) }}>THE DAILY AI BRIEFING</div>
           </div>
 
-          <div style={{ ...serifBase, fontSize: 16, letterSpacing: 4, color: CLIP.field, marginTop: 42 }}>
+          <div style={{ ...serifBase, fontSize: px(16), letterSpacing: 4, color: CLIP.field, marginTop: px(42) }}>
             {[kicker || "AI BRIEFING", serial].filter(Boolean).join("  ·  ").toUpperCase()}
           </div>
 
@@ -424,7 +438,7 @@ export async function renderClippingCard({
               lineHeight: 0.98,
               letterSpacing: -1,
               color: CLIP.ink,
-              marginTop: 22,
+              marginTop: px(22),
             }}
           >
             {h}
@@ -435,10 +449,10 @@ export async function renderClippingCard({
               style={{
                 ...serifBase,
                 fontStyle: "italic",
-                fontSize: 30,
+                fontSize: px(30),
                 lineHeight: 1.44,
                 color: CLIP.deck,
-                marginTop: 34,
+                marginTop: px(34),
               }}
             >
               {q}
@@ -451,21 +465,20 @@ export async function renderClippingCard({
               justifyContent: "space-between",
               alignItems: "baseline",
               borderTop: `1px solid ${CLIP.rule}`,
-              marginTop: 48,
-              paddingTop: 22,
+              marginTop: px(48),
+              paddingTop: px(22),
             }}
           >
             <div style={metaBase}>
               {[source ? `SOURCE · ${source.toUpperCase()}` : null, dateLabel].filter(Boolean).join("  ·  ")}
             </div>
-            <div style={{ ...serifBase, fontSize: 26, letterSpacing: 1, color: CLIP.field }}>wortins.com</div>
+            <div style={{ ...serifBase, fontSize: px(26), letterSpacing: 1, color: CLIP.field }}>wortins.com</div>
           </div>
         </div>
       </div>
     ),
     {
-      width: 1080,
-      height: 1350,
+      ...S,
       fonts: [
         { name: "Instrument Serif", data: fonts.regular, weight: 400, style: "normal" },
         { name: "Instrument Serif", data: fonts.italic, weight: 400, style: "italic" },
