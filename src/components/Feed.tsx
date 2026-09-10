@@ -379,9 +379,14 @@ export default function Feed({
     );
   }
 
+  // FT front-page distribution: one hero, a couple of features, then a deeper
+  // rail of headlines, then the list. Measured off ft.com - one 48px hero, three
+  // 32px features, then a long 20px list - because importance there is carried
+  // by size, not by position alone.
   const lead = list[0];
-  const rail = list.slice(1, 4);
-  const more = list.slice(4);
+  const features = list.slice(1, 3);
+  const rail = list.slice(3, 9);
+  const more = list.slice(9);
   const day = days[todayIdx];
 
   const exploreBtn = canExplore ? (
@@ -497,6 +502,7 @@ export default function Feed({
           {active === "daily" && (
             <section>
               <div className="bs-lead">
+                <div>
                 {lead && (
                   <article>
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
@@ -520,6 +526,28 @@ export default function Feed({
                     {cardPrompt(lead)}
                   </article>
                 )}
+
+                {features.length > 0 && (
+                  <div className="bs-features">
+                    {features.map((it, i) => (
+                      <article key={it.id}>
+                        <CardPhoto it={it} ratio="16/9" rank={i + 1} onOpen={onOpen} imgWidth={640} />
+                        <div style={{ marginTop: 11 }}>{meta(it, "\u00b7", 10, true)}</div>
+                        <Link href={storyHref(it)} onClick={() => onOpen(it, i + 1)} className="bs-hl">
+                          <h3 className="display" style={{ fontSize: "clamp(19px,1.9vw,25px)", lineHeight: 1.12, margin: "7px 0 0", color: "var(--ink)" }}>
+                            {withHighlight(it.title, it.highlight, 3)}
+                          </h3>
+                        </Link>
+                        {it.summary && (
+                          <p className="serif" style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--dim)", margin: "8px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                            {it.summary}
+                          </p>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+                </div>
 
                 <div className="bs-rail">
                   {rail.map((it, i) => (
