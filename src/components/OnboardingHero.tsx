@@ -2,37 +2,21 @@
 
 import { useEffect, useState } from "react";
 
-// "Personalize" button + modal for visitors who haven't personalized yet.
+// "Personalize" button + the modal it opens.
 //
-// The modal AUTO-OPENS once on first landing (gated by localStorage so it never
-// nags on every reload), and can be reopened any time from the "Personalize"
-// button. The full news edition is always readable underneath — this is an
-// overlay, not a redirect. Its CTA goes to /welcome, which signs the visitor in
-// (if needed) and then runs onboarding.
-const STORAGE_KEY = "wortins_personalize_seen";
+// It does NOT auto-open. It used to fire once per browser on first landing, and
+// a first-time visitor's first experience of a news site should not be a dialog
+// over the news — they came to read, and anything covering the page is friction
+// before they have any reason to trust us. The modal is now only ever opened by
+// someone pressing "Personalize", which means it is always a thing the reader
+// asked for. Its CTA goes to /welcome, which signs the visitor in (if needed)
+// and then runs onboarding.
 
 export default function OnboardingHero({ signedIn = false }: { signedIn?: boolean }) {
   const [open, setOpen] = useState(false);
 
-  // Auto-open once per browser on first visit. Runs only on the client so the
-  // server HTML stays identical for crawlers.
-  useEffect(() => {
-    let seen = false;
-    try {
-      seen = localStorage.getItem(STORAGE_KEY) === "1";
-    } catch {
-      seen = true; // storage blocked (private mode) — just skip the auto-open.
-    }
-    if (!seen) setOpen(true);
-  }, []);
-
   function dismiss() {
     setOpen(false);
-    try {
-      localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // ignore — a returning visitor may see it again, which is acceptable.
-    }
   }
 
   // Close on Escape while open.
