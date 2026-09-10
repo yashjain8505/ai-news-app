@@ -265,6 +265,12 @@ async function attachCard(setId, slug, altText) {
 //
 // Only exact, word-boundary matches against the allowlist are tagged. Nothing
 // is ever inferred: a company we have not verified simply goes untagged.
+//
+// ALIAS RULE: an alias must be a TRUE SYNONYM for the entity, because matching
+// it substitutes the page's display name into the sentence. "a16z" ->
+// "Andreessen Horowitz" is fine. "Facebook" -> "Meta" is not: it turned
+// "Facebook and Instagram" into "Meta and Instagram", which is simply untrue.
+// Avoid common words too ("Scale" would tag "scale your infrastructure").
 function addLinkedInMentions(text, entities, max = 3) {
   if (!text || !entities?.length) return { text, tagged: [] };
   const cands = [];
@@ -293,7 +299,20 @@ function addLinkedInMentions(text, entities, max = 3) {
         done = true;
       }
     }
-    if (done) { out = segs.join(""); used.add(c.canonical); tagged.push(c.canonical); }
+    if (done) {
+      out = segs.join("");
+      used.add(c.canonical);
+      // A mention REPLACES the matched word with the page's display name, so a
+      // substitution can silently rewrite the sentence. "Nvidia" -> "NVIDIA" is
+      // harmless; "Facebook" -> "Meta" changed a post to claim ads ran on the
+      // wrong thing. Code cannot tell a true synonym from a false one, so every
+      // wording change is logged for review instead of passing unseen.
+      const shown = (c.mention.match(/^@\[([^\]]*)\]/) || [])[1] || "";
+      if (shown.toLowerCase() !== c.name.toLowerCase()) {
+        console.log(`  · mention rewrote "${c.name}" as "${shown}" (alias substitution)`);
+      }
+      tagged.push(c.canonical);
+    }
   }
   return { text: out, tagged };
 }
