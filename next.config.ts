@@ -64,7 +64,14 @@ const varyAccept = [{ key: "Vary", value: "Accept" }];
 const bfcacheFriendly = [
   { key: "Cache-Control", value: "private, no-cache, max-age=0, must-revalidate" },
 ];
-const NO_STORE_SOURCES = ["/", "/articles", "/funding", "/new-tools", "/story/:slug"];
+// Story pages are NOT in this list. They are ISR (`revalidate = 1800`), so Next
+// emits its own `s-maxage` for them - and an override here would REPLACE that
+// with a private, uncacheable header, throwing away the edge caching and making
+// them permanently slow. It also masked the diagnosis: story pages kept
+// reporting `private, no-cache` and it looked like ISR had failed, when what
+// was actually being measured was this rule. ISR's own header carries no
+// `no-store`, so bfcache works there without any help from us.
+const NO_STORE_SOURCES = ["/", "/articles", "/funding", "/new-tools"];
 const CONTENT_HEADER_SOURCES = [
   "/",
   "/about",
