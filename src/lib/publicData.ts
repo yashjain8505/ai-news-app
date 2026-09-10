@@ -1,4 +1,4 @@
-import { supabase, supabaseStatic } from "./supabase";
+import { supabase, sbSelect } from "./supabase";
 import { Item, Section } from "./types";
 
 // Non-personalized, server-side reads for the PUBLIC (crawlable) pages.
@@ -88,13 +88,13 @@ export async function getEditionHeadlines(): Promise<Map<string, string>> {
 
 // One active story by its stable slug (unique). Null if missing/inactive.
 export async function getStoryBySlug(slug: string): Promise<Item | null> {
-  const { data } = await supabaseStatic
-    .from("items")
-    .select("*")
-    .eq("is_active", true)
-    .eq("slug", slug)
-    .maybeSingle();
-  return (data as Item | null) ?? null;
+  const rows = await sbSelect<Item>("items", {
+    select: "*",
+    is_active: "eq.true",
+    slug: `eq.${slug}`,
+    limit: "1",
+  });
+  return rows[0] ?? null;
 }
 
 // Recent active stories related to `item` — same section OR sharing a tag —
@@ -116,16 +116,14 @@ export async function getRelatedStories(
       orClauses.push(`tags.cs.["${esc}"]`);
     }
   }
-  const { data } = await supabaseStatic
-    .from("items")
-    .select("*")
-    .eq("is_active", true)
-    .neq("id", item.id)
-    .or(orClauses.join(","))
-    .order("published_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(limit * 6); // over-fetch, then diversify below
-  const candidates = (data ?? []) as Item[];
+  const candidates = await sbSelect<Item>("items", {
+    select: "*",
+    is_active: "eq.true",
+    id: `neq.${item.id}`,
+    or: `(${orClauses.join(",")})`,
+    order: "published_at.desc.nullslast,created_at.desc",
+    limit: String(limit * 6), // over-fetch, then diversify below
+  });
   return diversify(candidates, limit);
 }
 
@@ -217,18 +215,20 @@ export async function getIndexableStorySlugs(
   const PAGE = 1000;
   const out: IndexableStorySlug[] = [];
   for (let from = 0; from < limit; from += PAGE) {
-    let q = supabaseStatic
-      .from("items")
-      .select("slug, section, published_at, created_at")
-      .eq("is_active", true)
-      .not("wortins_take", "is", null)
-      .neq("wortins_take", "");
-    if (since) q = q.gte("published_at", since);
-    const { data } = await q
-      .order("published_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .range(from, Math.min(from + PAGE, limit) - 1);
-    const rows = (data ?? []) as IndexableStorySlug[];
+    const rows = await sbSelect<IndexableStorySlug>("items", {
+      select: "slug,section,published_at,created_at",
+      is_active: "eq.true",
+      // Both conditions sit on one key, so they go in an `and=()` group: a row
+      // qualifies only if it carries a real original take.
+      and: '(wortins_take.not.is.null,wortins_take.neq."")',
+      // Recency window, when the caller asked for one (the sitemap does, so a
+      // crawler's attention goes to recent stories and the evergreen blog
+      // rather than thousands of old briefs).
+      ...(since ? { published_at: `gte.${since}` } : {}),
+      order: "published_at.desc.nullslast,created_at.desc",
+      offset: String(from),
+      limit: String(Math.min(PAGE, limit - from)),
+    });
     out.push(...rows);
     if (rows.length < PAGE) break;
   }

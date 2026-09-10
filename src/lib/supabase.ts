@@ -30,26 +30,51 @@ export const supabase = createClient(url, key, {
 // — if they disagree, the page silently stops being prerendered.
 export const STORY_REVALIDATE = 1800; // 30 min
 
-// SECOND CLIENT, for story pages only.
+// STORY-PAGE READS use a plain fetch, NOT supabase-js.
 //
-// `cache: "no-store"` above does more than skip the cache: per Next's own docs
-// it makes the route DYNAMICALLY RENDERED. So `export const revalidate = 1800`
-// on the story page was silently dead — every story was a full Worker
-// invocation plus a Supabase round-trip, measured at 0.52-1.38s TTFB for a page
-// that should be a ~20ms edge hit.
+// `export const revalidate = 1800` on the story page was dead code, and the
+// first fix - a second supabase-js client whose fetch set `next.revalidate` -
+// did not revive it: measured on prod, story pages still rendered dynamically
+// at 1.3-2.9s TTFB with no edge cache, for content that should be a ~20ms hit.
 //
-// Why it's safe here and NOT for the feed: a published story does not change.
-// The feed is a LIST whose whole job is to show what arrived since you last
-// looked, so a stale list is the bug (that was the Sep 2026 feed-freeze). A
-// stale story page would at worst show slightly older "related coverage", and
-// revalidation now actually runs since open-next.config.ts got its queue
-// override, which the freeze predates.
+// Ruled out first, with evidence: no request-time API anywhere in the story
+// render tree (the root layout only MENTIONS cookies() in a comment); Next's
+// own patch-fetch only auto-disables caching for an Authorization header when
+// `revalidate === 0`, and this route sets 1800; and it is not a
+// prerendered-vs-on-demand difference, since a story from today behaves exactly
+// like one from August.
 //
-// Do NOT use this for anything the feed renders.
-export const supabaseStatic = createClient(url, key, {
-  auth: { persistSession: false },
-  global: {
-    fetch: (input, init) =>
-      fetch(input, { ...init, next: { revalidate: STORY_REVALIDATE } }),
-  },
-});
+// That leaves supabase-js's own fetch layer - it wraps the call and passes a
+// `signal`, among other things - as the only remaining variable. So these reads
+// bypass it entirely. A plain `fetch` with `next.revalidate` is something Next
+// can unambiguously cache, and PostgREST is a simple enough HTTP API that the
+// query builder buys us very little here.
+//
+// The FEED still uses the client above with `no-store`, deliberately: a stale
+// LIST is the Sep 2026 feed-freeze, because a list's whole job is to show what
+// arrived since you last looked. A published story does not change.
+export async function sbSelect<T>(
+  table: string,
+  params: Record<string, string>,
+  revalidate: number = STORY_REVALIDATE
+): Promise<T[]> {
+  const qs = new URLSearchParams(params).toString();
+  try {
+    const res = await fetch(`${url}/rest/v1/${table}?${qs}`, {
+      headers: {
+        apikey: key,
+        authorization: `Bearer ${key}`,
+        accept: "application/json",
+      },
+      next: { revalidate },
+    });
+    if (!res.ok) {
+      console.log(`sbSelect ${table} failed: HTTP ${res.status}`);
+      return [];
+    }
+    return (await res.json()) as T[];
+  } catch (e) {
+    console.log(`sbSelect ${table} threw: ${e instanceof Error ? e.message : e}`);
+    return [];
+  }
+}
