@@ -17,7 +17,23 @@ export const SITE = {
 // official profile here (LinkedIn company page, YouTube, GitHub, etc.).
 export const SAME_AS: string[] = [
   "https://x.com/wortins",
+  "https://github.com/yashjain8505/ai-news-app",
 ];
+
+// The person behind Wortins. Referenced as Organization.founder and as the
+// author of first-party blog posts, so engines can attribute the writing to a
+// human with an off-domain identity (E-E-A-T) rather than only to the brand.
+// Only profiles that really exist belong in sameAs.
+export const FOUNDER = {
+  id: `${SITE.url}/about#yash`,
+  name: "Yash Jain",
+  url: `${SITE.url}/about#yash`,
+  sameAs: [
+    "https://bsky.app/profile/earanyash.bsky.social",
+    "https://github.com/yashjain8505",
+  ],
+};
+export const FOUNDING_DATE = "2026";
 
 export function absoluteUrl(path = "/"): string {
   const p = path.startsWith("/") ? path : `/${path}`;

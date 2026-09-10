@@ -6,22 +6,23 @@ STEPS:
 
 1. LIST existing coverage: `ls content/blog` — note every slug so you never propose a duplicate. Per-company funding posts (`*-funding.md`, `*-acquisition.md`, `*-ipo.md`) are OWNED by the funding pipeline — do NOT propose those; you cover the OTHER buy-intent shapes.
 
-2. TOP PRIORITY — queries we're already losing. Read the visibility tracker's findings:
-   `curl -s "$SUPABASE_URL/rest/v1/ai_visibility?select=query,cited,notes,checked_at&cited=eq.false&order=checked_at.desc&limit=40" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
-   These are queries where wortins.com is NOT cited by AI search — we know they matter and we're losing them, so they are the highest-value targets. For any that suit a buy-intent article (not a funding round, and not already covered in `content/blog`), prefer them over freshly-seeded ideas. This is the flywheel: the tracker finds the gap, you fill it.
+2. Read the visibility tracker's findings — but treat them as a FILTER, never as a target list:
+   `curl -s "$SUPABASE_URL/rest/v1/ai_visibility?select=query,cited,indexed,target_url,notes,checked_at&order=checked_at.desc&limit=60" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
+   - A row with `indexed=false` means our page for that query is NOT in Google's index yet. That is an indexing problem, not a content gap. NEVER propose a new post for it and never propose a rewrite of that page.
+   - A row with `cited=false` and `indexed=true` where the top sources are big publishers, tool vendors, or listicle sites (Zapier, TechCrunch, Crunchbase, vendor blogs) is a query Wortins structurally cannot win. Do NOT propose posts that chase it.
+   - The tracker's losses are useful only to rule things OUT. Your candidates come from step 4.
 
 3. If a GSC opportunity feed is available, use it. Try:
    `curl -s -m 20 -H "x-seo-token: $SUPABASE_SERVICE_KEY" "https://www.wortins.com/api/seo/opportunities"` — if it returns a non-empty JSON array of `{query, impressions, position}`, those are queries Wortins ALREADY gets impressions for but ranks poorly (page 2-3) = the highest-ROI targets. Prefer them. If it 404s or returns `[]`, skip this step and seed from step 4.
 
-4. SEED buy-intent queries from what Wortins covers. Read the real AI products/companies in the feed:
-   `curl -s "$SUPABASE_URL/rest/v1/items?select=title,section,tags,summary&is_active=eq.true&section=in.(tools,daily)&order=published_at.desc&limit=120" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
-   From the notable, distinctively-named tools/products, form buy-intent queries in these shapes (pick the ones with real search demand and low competition):
-   - **Comparison:** "<Tool A> vs <Tool B>" (two genuine competitors in the same category)
-   - **Alternatives:** "best <Tool> alternatives" / "<Tool> alternatives"
-   - **Best-for:** "best AI <category> for <use case>" (e.g. "best AI video generator for marketers")
-   - **Pricing/cost:** "<Tool> pricing" / "how much does <Tool> cost"
-   - **Review / worth-it:** "is <Tool> worth it" / "<Tool> review"
-   Favor real, specific, currently-relevant tools with genuine buyer interest. Avoid the megacap assistants (ChatGPT/Gemini/Claude/Copilot) — too competitive.
+4. SEED entity-adjacent queries ONLY around companies Wortins already covers. Wortins' winnable ground is the distinctively-named AI companies in its funding coverage — the same entities the per-company funding posts already rank for. Start from `ls content/blog | grep -- '-funding.md'` and from the funding feed:
+   `curl -s "$SUPABASE_URL/rest/v1/items?select=title,section,tags,summary&is_active=eq.true&section=eq.funding&order=published_at.desc&limit=120" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"`
+   Allowed query shapes — every one must name a specific company we cover:
+   - **Pricing/cost:** "<Company> pricing" / "how much does <Company> cost"
+   - **Alternatives:** "<Company> alternatives"
+   - **Comparison:** "<Company> vs <Direct competitor>" (a real head-to-head in the same category)
+   - **Review / worth-it:** "is <Company> worth it" / "<Company> review"
+   FORBIDDEN shapes: "best AI <category>", "best <category> tools", "top <anything>", "<category> for <use case>", or any query that does not name a specific company. Those listicle queries are owned by Zapier, vendor blogs and big publishers; Wortins has never been cited for one. Avoid the megacap assistants (ChatGPT/Gemini/Claude/Copilot) — too competitive.
 
 5. CHOOSE up to `$MAX_POSTS` of the highest-opportunity queries (real demand, winnable, not already covered in `content/blog`).
 

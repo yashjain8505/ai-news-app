@@ -22,7 +22,7 @@ function prettyDate(d: string): string {
 }
 
 export const metadata: Metadata = {
-  title: `${BLOG_TITLE} · ${SITE.name} Blog`,
+  title: { absolute: `${BLOG_TITLE} · ${SITE.name} Blog` },
   description: BLOG_DESC,
   alternates: { canonical: absoluteUrl("/blog") },
   openGraph: {

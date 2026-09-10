@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SITE, SECTION_SEO, absoluteUrl } from "@/lib/seo";
 import { getStoryBySlug, getRelatedStories, getIndexableStorySlugs } from "@/lib/publicData";
+import { getBlogPostsForStory } from "@/lib/blog";
 import { timeAgo } from "@/lib/time";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
@@ -14,6 +15,12 @@ import SocialShare from "@/components/SocialShare";
 // story-page reads use a client whose fetch cache is set to that value, and
 // if the two drift the page quietly stops being prerendered again.
 export const revalidate = 1800;
+
+// A story older than this is retired from the index (page stays live: Bluesky
+// posts and other sites link to it). Dated briefs earn nothing in search after
+// a few weeks, and thousands of them indexed diluted the site's crawl budget
+// and quality picture. Raise/lower without touching anything else.
+const STORY_INDEX_DAYS = 180;
 
 // Prerender the recent indexable stories (those carrying an original take) so
 // they're ISR-cached HTML at build; any other slug is generated on demand and
@@ -39,6 +46,8 @@ export async function generateMetadata({
 
   const take = item.wortins_take;
   const indexable = hasTake(take);
+  const publishedMs = Date.parse(item.published_at ?? item.created_at) || Date.now();
+  const retired = Date.now() - publishedMs > STORY_INDEX_DAYS * 86_400_000;
   // Keep meta/OG description SHORT (the take is now multi-paragraph): prefer the
   // one-line dek, else trim the take. The full take renders in the page body.
   const description =
@@ -52,9 +61,10 @@ export async function generateMetadata({
     description,
     alternates: { canonical: url },
     // SEO moat: only pages that carry our original editorial take are worth
-    // indexing. Without a take a story page is thin/duplicative — keep it out
-    // of the index (but let crawlers follow its links).
-    robots: indexable
+    // indexing, and only while the story is recent (STORY_INDEX_DAYS). Without
+    // a take a story page is thin/duplicative — keep it out of the index (but
+    // let crawlers follow its links either way).
+    robots: indexable && !retired
       ? { index: true, follow: true }
       : { index: false, follow: true },
     openGraph: {
@@ -82,6 +92,7 @@ export default async function StoryPage({
   if (!item) notFound();
 
   const related = await getRelatedStories(item, 6);
+  const blogPicks = getBlogPostsForStory(item, 3);
 
   const take = item.wortins_take;
   const indexable = hasTake(take);
@@ -268,6 +279,30 @@ export default async function StoryPage({
                 );
               })}
             </div>
+          </section>
+        )}
+        {/* Blog cross-links: every story page points into the evergreen blog,
+            so a freshly published post has in-links from pages that are
+            already crawled — not only from the sitemap. */}
+        {blogPicks.length > 0 && (
+          <section style={{ marginTop: 40, paddingTop: 18, borderTop: "3px solid var(--ruleStrong)" }}>
+            <h2 className="display" style={{ fontSize: 22, color: "var(--ink)", margin: "0 0 14px" }}>
+              From the Wortins blog
+            </h2>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {blogPicks.map((p, i) => (
+                <li key={p.slug} style={{ padding: "10px 0", borderBottom: i !== blogPicks.length - 1 ? "1px solid var(--rule)" : "none" }}>
+                  <a href={`/blog/${p.slug}`} className="display" style={{ fontSize: 17, lineHeight: 1.25, color: "var(--ink)", textDecoration: "none" }}>
+                    {p.title}
+                  </a>
+                  {p.description && (
+                    <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--muted)", margin: "3px 0 0", maxWidth: "68ch" }}>
+                      {p.description}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </PublicChrome>

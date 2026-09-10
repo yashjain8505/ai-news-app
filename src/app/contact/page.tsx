@@ -52,6 +52,11 @@ export default function ContactPage() {
           <p className="serif" style={{ fontSize: 18, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 20px" }}>
             Feedback, a story tip, a correction, or a partnership idea? We&#8217;d like to hear it.
           </p>
+          <p className="serif" style={{ fontSize: 17, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 20px" }}>
+            Every message is read by the person who runs the site. For a correction, include the
+            story link and what is wrong; for a tip, the source link is enough; for partnerships
+            and press, a line or two about what you have in mind is plenty.
+          </p>
           <p className="serif" style={{ fontSize: 18, lineHeight: 1.6, color: "var(--ink)", margin: "0 0 8px" }}>
             Email:{" "}
             <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: "var(--accent)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}>

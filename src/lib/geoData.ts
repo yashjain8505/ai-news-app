@@ -10,6 +10,10 @@ import { supabaseService } from "@/lib/supabase-service";
 export type VisRow = {
   query: string;
   cited: boolean;
+  // false = the target page is not in Google's index (an indexing problem, not
+  // a content gap); null = head query or unknown.
+  indexed: boolean | null;
+  target_url: string | null;
   best_position: number | null;
   wortins_url: string | null;
   notes: string | null;
@@ -23,7 +27,8 @@ export type VisOverview = {
   citedPct: number;
   latestAt: string | null;
   winning: VisRow[]; // cited, best position first
-  losing: VisRow[]; // not cited — the robots' target list
+  losing: VisRow[]; // indexed (or head query) but not cited — a real gap
+  unindexed: VisRow[]; // target page not indexed — fix crawling, don't write more
 };
 
 const EMPTY: VisOverview = {
@@ -34,6 +39,7 @@ const EMPTY: VisOverview = {
   latestAt: null,
   winning: [],
   losing: [],
+  unindexed: [],
 };
 
 export async function getVisibilityOverview(): Promise<VisOverview> {
@@ -42,7 +48,7 @@ export async function getVisibilityOverview(): Promise<VisOverview> {
 
   const { data } = await db
     .from("ai_visibility")
-    .select("query,cited,best_position,wortins_url,notes,checked_at")
+    .select("query,cited,indexed,target_url,best_position,wortins_url,notes,checked_at")
     .order("checked_at", { ascending: false })
     .limit(1000);
 
@@ -69,6 +75,7 @@ export async function getVisibilityOverview(): Promise<VisOverview> {
     winning: cited
       .slice()
       .sort((a, b) => (a.best_position ?? 99) - (b.best_position ?? 99)),
-    losing: latest.filter((r) => !r.cited),
+    losing: latest.filter((r) => !r.cited && r.indexed !== false),
+    unindexed: latest.filter((r) => !r.cited && r.indexed === false),
   };
 }

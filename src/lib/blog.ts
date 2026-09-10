@@ -171,6 +171,49 @@ export function getBlogSlugs(): string[] {
   return getAllBlogPosts().map((p) => p.slug);
 }
 
+// Blog posts to surface on a story page: tag/entity overlap first, then the
+// newest posts, so every story page links into the blog cluster and a freshly
+// published post gets in-links from pages that are already crawled.
+export function getBlogPostsForStory(
+  story: { title: string; tags?: string[] | null; section?: string },
+  limit = 3
+): BlogPost[] {
+  const all = getAllBlogPosts();
+  if (all.length === 0) return [];
+  const hay = `${story.title} ${(story.tags ?? []).join(" ")}`.toLowerCase();
+  const relevant = all
+    .map((p) => {
+      let score = 0;
+      for (const t of p.tags) {
+        const tl = t.toLowerCase();
+        // Two-letter tags ("AI") match everything; ignore them.
+        if (tl.length >= 3 && hay.includes(tl)) score += tl.length >= 6 ? 3 : 1;
+      }
+      if (story.section === "funding" && p.category === "funding") score += 1;
+      return { p, score };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score || (b.p.date || "").localeCompare(a.p.date || ""))
+    .map((s) => s.p);
+  const picked: BlogPost[] = [];
+  const seen = new Set<string>();
+  for (const p of [...relevant, ...all]) {
+    if (picked.length >= limit) break;
+    if (seen.has(p.slug)) continue;
+    picked.push(p);
+    seen.add(p.slug);
+  }
+  return picked;
+}
+
+// The newest posts other than the ones a page already shows. Rendered on every
+// post so a new post has in-links from the whole cluster after the next build,
+// not only from /blog.
+export function getLatestBlogPosts(exclude: string[], limit = 6): BlogPost[] {
+  const skip = new Set(exclude);
+  return getAllBlogPosts().filter((p) => !skip.has(p.slug)).slice(0, limit);
+}
+
 // Resolve a post's `related` slugs to real posts; fall back to newest siblings
 // (same category) so every post links out into the cluster even if unset.
 export function getRelatedBlogPosts(post: BlogPost, limit = 4): BlogPost[] {

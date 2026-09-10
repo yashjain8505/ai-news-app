@@ -14,6 +14,8 @@ import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 1800; // 30 min ISR
 
+const EDITION_INDEX_DAYS = 90;
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function generateStaticParams() {
@@ -42,10 +44,14 @@ export async function generateMetadata({
   const title = `AI news for ${pretty}`;
   const description = `${SITE.name}'s AI briefing for ${pretty}: startups, product launches, applied AI, funding, and breakthroughs.`;
   const url = absoluteUrl(`/edition/${date}`);
+  // An edition is a dated digest: worth indexing while recent, retired from
+  // the index after EDITION_INDEX_DAYS (the page itself stays live).
+  const ageDays = (Date.now() - Date.parse(`${date}T12:00:00Z`)) / 86_400_000;
   return {
     title,
     description,
     alternates: { canonical: url },
+    robots: { index: ageDays <= EDITION_INDEX_DAYS, follow: true },
     openGraph: { title, description, url, type: "article", siteName: SITE.name },
     twitter: { card: "summary_large_image", title, description },
   };

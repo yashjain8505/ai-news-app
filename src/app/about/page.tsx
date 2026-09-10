@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE, absoluteUrl } from "@/lib/seo";
+import { SITE, FOUNDER, absoluteUrl } from "@/lib/seo";
 import { SITE_FAQ, GLOSSARY } from "@/lib/faq";
 import PublicChrome from "@/components/PublicChrome";
 import JsonLd from "@/components/JsonLd";
@@ -64,10 +64,22 @@ export default function AboutPage() {
       { "@type": "ListItem", position: 2, name: "About", item: absoluteUrl("/about") },
     ],
   };
+  // The human behind the brand — the same @id the Organization's `founder` and
+  // every blog post's `author` point at.
+  const personLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": FOUNDER.id,
+    name: FOUNDER.name,
+    url: FOUNDER.url,
+    sameAs: FOUNDER.sameAs,
+    jobTitle: "Founder and editor",
+    worksFor: { "@type": "Organization", name: SITE.name, url: SITE.url },
+  };
 
   return (
     <>
-      <JsonLd data={[aboutLd, faqLd, glossaryLd, breadcrumb]} />
+      <JsonLd data={[aboutLd, personLd, faqLd, glossaryLd, breadcrumb]} />
       <PublicChrome subtitle="About">
         <h1 className="display" style={{ fontSize: "clamp(30px,4.5vw,46px)", lineHeight: 1.05, color: "var(--ink)", margin: "0 0 16px" }}>
           About Wortins
@@ -94,6 +106,33 @@ export default function AboutPage() {
             read&#8221; on each is our own words, original analysis, never a republished article.
           </p>
         </div>
+
+        <section id="yash" style={{ marginTop: 48 }}>
+          <h2 className="display" style={{ fontSize: 28, color: "var(--ink)", margin: "0 0 8px", borderBottom: "3px solid var(--ruleStrong)", paddingBottom: 10 }}>
+            Who makes Wortins
+          </h2>
+          <div style={{ maxWidth: "66ch", marginTop: 14 }}>
+            <p className="serif" style={{ fontSize: 17, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 14px" }}>
+              Wortins is built and run by {FOUNDER.name}, who designed the curation system and is
+              responsible for everything published here: which stories get picked, how each one is
+              summarised, what gets left out, and what the blog covers. Corrections and tips go
+              straight to him at{" "}
+              <a href={`mailto:${SITE.email}`} style={{ color: "var(--accent)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}>
+                {SITE.email}
+              </a>
+              .
+            </p>
+            <p className="mono" style={{ fontSize: 12, letterSpacing: "0.04em", color: "var(--dim)", margin: 0 }}>
+              <a href={FOUNDER.sameAs[0]} rel="me noopener" target="_blank" style={{ color: "var(--accent)", textDecoration: "none" }}>
+                Bluesky
+              </a>
+              {" · "}
+              <a href={FOUNDER.sameAs[1]} rel="me noopener" target="_blank" style={{ color: "var(--accent)", textDecoration: "none" }}>
+                GitHub
+              </a>
+            </p>
+          </div>
+        </section>
 
         <section style={{ marginTop: 48 }}>
           <h2 className="display" style={{ fontSize: 28, color: "var(--ink)", margin: "0 0 8px", borderBottom: "3px solid var(--ruleStrong)", paddingBottom: 10 }}>

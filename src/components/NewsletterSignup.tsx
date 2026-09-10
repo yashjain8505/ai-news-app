@@ -80,7 +80,7 @@ export default function NewsletterSignup() {
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             lineHeight: 1.4,
-            color: "var(--faint)",
+            color: "var(--dim)",
             margin: "5px 0 0",
           }}
         >

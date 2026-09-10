@@ -35,7 +35,11 @@ function QueryRow({ r }: { r: VisRow }) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
         <span className="serif" style={{ fontSize: 15, color: "var(--ink)" }}>{r.query}</span>
         <span className="mono" style={{ fontSize: 11, color: r.cited ? "var(--accent)" : "var(--dim)", whiteSpace: "nowrap" }}>
-          {r.cited ? `cited${r.best_position ? ` · #${r.best_position}` : ""}` : "not cited"}
+          {r.cited
+            ? `cited${r.best_position ? ` · #${r.best_position}` : ""}`
+            : r.indexed === false
+              ? "not indexed"
+              : "not cited"}
         </span>
       </div>
       {r.notes ? (
@@ -60,7 +64,7 @@ export default async function GeoPage() {
         GEO visibility
       </h1>
       <p className="mono" style={{ fontSize: 11, letterSpacing: "0.04em", color: "var(--dim)", margin: "0 0 22px" }}>
-        Is wortins.com cited by AI search for the queries we target · the content robots fill the &ldquo;not cited&rdquo; gaps
+        Is wortins.com cited by AI search for the queries we target · &ldquo;not indexed&rdquo; is an indexing problem, &ldquo;not cited&rdquo; is a content gap
       </p>
 
       {!o.configured ? (
@@ -76,12 +80,26 @@ export default async function GeoPage() {
             <Tile big={fmtPct(o.citedPct)} label="Citation rate" />
             <Tile big={`${o.cited}/${o.total}`} label="Queries cited" />
             <Tile big={String(o.losing.length)} label="Gaps to fill" />
+            <Tile big={String(o.unindexed.length)} label="Not indexed yet" />
           </div>
+
+          {o.unindexed.length > 0 && (
+            <section style={{ marginTop: 32 }}>
+              <h2 className="display" style={{ fontSize: 18, color: "var(--ink)", margin: "0 0 10px" }}>
+                Not indexed yet — get these crawled, don&apos;t write more
+              </h2>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                {o.unindexed.map((r) => (
+                  <QueryRow key={r.query} r={r} />
+                ))}
+              </ul>
+            </section>
+          )}
 
           {o.losing.length > 0 && (
             <section style={{ marginTop: 32 }}>
               <h2 className="display" style={{ fontSize: 18, color: "var(--ink)", margin: "0 0 10px" }}>
-                Not cited — the robots&apos; target list
+                Not cited — real gaps (page is indexed, AI search still prefers others)
               </h2>
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {o.losing.map((r) => (
