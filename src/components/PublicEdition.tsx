@@ -29,6 +29,22 @@ function blurb(it: Item): string | null {
   return it.wortins_take || it.summary || null;
 }
 
+// `wortins_take` is 2-3 paragraphs (130-220 words) written for the STORY page.
+// The edition lead rendered ALL of it inside a single <p>, so the paragraph
+// breaks were lost too and ~200 words arrived as one unbroken block before the
+// reader ever reached the second headline. That is the whole "not reader
+// friendly" complaint: the page reads as an essay, not an edition.
+// The lead now gets the first paragraph - the "what happened" - and the rest is
+// one click away on the story page.
+function firstPara(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const first = String(text).split(/\n\s*\n/)[0]?.trim();
+  return first || null;
+}
+function leadBlurb(it: Item): string | null {
+  return firstPara(it.wortins_take) || it.summary || null;
+}
+
 function group(items: Item[]): Record<Section, Item[]> {
   const g: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) g[it.section]?.push(it);
@@ -103,11 +119,18 @@ export default function PublicEdition({
                             {it.title}
                           </a>
                         </h3>
-                        {blurb(it) && (
+                        {leadBlurb(it) && (
                           <p className="serif" style={{ fontSize: 17, lineHeight: 1.55, color: "var(--muted)", margin: "10px 0 0", maxWidth: "62ch" }}>
-                            {blurb(it)}
+                            {leadBlurb(it)}
                           </p>
                         )}
+                        <a
+                          {...headlineLink(it)}
+                          className="mono"
+                          style={{ display: "inline-block", marginTop: 10, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", textDecoration: "none" }}
+                        >
+                          Read the full story &rarr;
+                        </a>
                       </article>
                     ) : (
                       <article style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
