@@ -1,15 +1,14 @@
 name: Bluesky review packet (3x/day)
 
 on:
-  schedule:
-    # Three packets a day, each just after that edition drop lands, so the
-    # afternoon and evening ones carry the fresh news (not a repeat of morning):
-    # 03:00 UTC = 08:30 IST (morning) · 08:30 UTC = 14:00 IST (afternoon) ·
-    # 13:30 UTC = 19:00 IST (evening). Each: you approve the top 3, they drip 1h
-    # apart. The prepare script skips stories already scheduled earlier today.
-    - cron: "0 3 * * *"
-    - cron: "30 8 * * *"
-    - cron: "30 13 * * *"
+  # Schedule DISABLED 2026-09-10: Bluesky POSTS now go out through Typefully
+  # alongside Substack, X and LinkedIn, on the same 11:00/15:00/19:00 IST queue
+  # and from the same three-story drafting pass. This pipeline also depended on
+  # the drip endpoint, which had been cancelling most rows as stale.
+  #
+  # bluesky-replies.yml is deliberately UNTOUCHED: Typefully cannot reply to
+  # someone else's post or follow anyone, and replies + follows are what
+  # actually grew this account.
   workflow_dispatch:
     inputs:
       dry_run:

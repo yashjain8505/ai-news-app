@@ -109,7 +109,10 @@ jobs:
           # drafting is unavailable the script falls back to a headline template.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SITE_URL: https://www.wortins.com
-          NOTES_MODE: draft
+          # LIVE. 'queue' publishes each draft at the next free Typefully queue
+          # slot (11:00 / 15:00 / 19:00 IST). Set back to 'draft' to stop
+          # publishing and just stage posts for manual review.
+          NOTES_MODE: queue
           EDITION_DATE: ${{ github.event.inputs.edition_date }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: node .github/scripts/daily-note.mjs

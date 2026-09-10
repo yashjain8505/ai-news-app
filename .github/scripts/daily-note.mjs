@@ -47,8 +47,8 @@ const ALSO_COUNT = 3;
 // created with publish_at "next-free-slot", so three drafts land on the three
 // configured slots (11:00 / 15:00 / 19:00 IST). LinkedIn takes fewer because a
 // company page dilutes its own reach if it posts more than about twice a day.
-const PER_DAY = { substack: 3, x: 3, linkedin: 2 };
-const PICKS = Math.max(PER_DAY.substack, PER_DAY.x, PER_DAY.linkedin);
+const PER_DAY = { substack: 3, x: 3, linkedin: 2, bluesky: 3 };
+const PICKS = Math.max(...Object.values(PER_DAY));
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
 const POOL = 10; // top daily stories Claude picks from (needs 3 distinct ones)
 
@@ -384,6 +384,7 @@ async function main() {
     : details.find((d) => d?.platforms?.substack);
   const xSet = details.find((d) => d?.platforms?.x);
   const linkedinSet = details.find((d) => d?.platforms?.linkedin);
+  const blueskySet = details.find((d) => d?.platforms?.bluesky);
 
   if (!substackSet) {
     return skip(
@@ -394,6 +395,7 @@ async function main() {
   console.log(`→ Substack: set ${substackSet.id}, @${substackSet.platforms.substack.username || "?"}`);
   if (xSet) console.log(`→ X: set ${xSet.id}, @${xSet.platforms.x.username || "?"}`);
   if (linkedinSet) console.log(`→ LinkedIn: set ${linkedinSet.id}, @${linkedinSet.platforms.linkedin.username || "?"}`);
+  if (blueskySet) console.log(`→ Bluesky: set ${blueskySet.id}, @${blueskySet.platforms.bluesky.username || "?"}`);
   const quota = substackSet.publishing_quota;
   if (quota) console.log(`→ publishing quota: ${quota.remaining} left, resets ${quota.resets_at}`);
   if (MODE !== "draft" && quota && quota.remaining <= 0) {
@@ -436,6 +438,18 @@ async function main() {
         set: xSet, label: `X ${n}`, platform: "x", story,
         payload: { draft_title: `Wortins ${dateISO} · X ${n}`, ...timing,
           platforms: { x: { enabled: true, posts: xPosts } } },
+      });
+    }
+
+    // Bluesky reuses the X thread: its limit is 300 characters and those posts
+    // are capped at 275, so they fit as-is, and the audiences barely overlap.
+    // Same shape as X: card on post 1, link as the final post (the reply).
+    if (blueskySet && i < PER_DAY.bluesky && pk.xThread.length) {
+      const bsPosts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
+      jobs.push({
+        set: blueskySet, label: `Bluesky ${n}`, platform: "bluesky", story,
+        payload: { draft_title: `Wortins ${dateISO} · Bluesky ${n}`, ...timing,
+          platforms: { bluesky: { enabled: true, posts: bsPosts } } },
       });
     }
 
