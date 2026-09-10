@@ -10,7 +10,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // vertical height to the masthead (no tall box pushing the feed down). Wraps to a
 // stacked layout on narrow screens. Emails land in our own `subscribers` table so
 // we stay free to pick a sender (Substack, Resend, …) later. Newspaper look.
-export default function NewsletterSignup() {
+// `compact` renders the corner form: input + button + one small line, sized to
+// live in the masthead's top-right where the account button used to be. The
+// full band (default) still serves the story/edition pages via PublicChrome.
+export default function NewsletterSignup({ compact = false }: { compact?: boolean } = {}) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
@@ -38,6 +41,43 @@ export default function NewsletterSignup() {
           : "Something went wrong, please try again."
       );
     }
+  }
+
+  if (compact) {
+    return (
+      <div aria-label="Subscribe to the Wortins Daily" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, minWidth: 0 }}>
+        {state === "done" ? (
+          <p className="serif" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.4, color: "var(--ink)", textAlign: "right" }}>
+            <span style={{ color: "var(--accent)" }}>&#10003;</span> You&rsquo;re in &mdash; the next Daily lands tomorrow morning.
+          </p>
+        ) : (
+          <>
+            <form onSubmit={onSubmit} style={{ display: "flex", alignItems: "stretch" }}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-label="Email address"
+                className="serif"
+                style={{ width: "min(220px, 52vw)", padding: "9px 12px", fontSize: 14.5, border: "1px solid var(--ruleStrong)", borderRight: "none", background: "var(--bg)", color: "var(--ink)", outline: "none", borderRadius: 0 }}
+              />
+              <button
+                type="submit"
+                disabled={state === "loading"}
+                className="mono bs-tap"
+                style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 16px", background: "var(--accent)", color: "var(--onAccent)", border: "1px solid var(--accent)", cursor: "pointer", borderRadius: 0 }}
+              >
+                {state === "loading" ? "\u2026" : "Subscribe"}
+              </button>
+            </form>
+            <span className="mono" style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: state === "error" ? "var(--accent)" : "var(--faint)", whiteSpace: "nowrap" }}>
+              {state === "error" && msg ? msg : "One email each morning \u00b7 free"}
+            </span>
+          </>
+        )}
+      </div>
+    );
   }
 
   return (

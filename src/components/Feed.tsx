@@ -7,7 +7,6 @@ import { recordFeedClick, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
 import { optImg } from "@/lib/img";
 import ShareButton from "@/components/ShareButton";
-import OnboardingHero from "@/components/OnboardingHero";
 import NewsletterSignup from "@/components/NewsletterSignup";
 
 type Day = { label: string; date: string; big: string; full: string };
@@ -420,30 +419,18 @@ export default function Feed({
                 before any news on a 900px viewport, which is the owner's "40%
                 of the page is not even relevant". */}
             <div className="mono" style={{ fontSize: 10.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--dim)", marginTop: 8 }}>
-              {personalized ? "The daily AI briefing, curated to your taste" : "The daily AI briefing"}
+              The daily AI briefing
               {"  "}<span style={{ color: "var(--sep)" }}>&middot;</span>{"  "}
               <span style={{ color: "var(--ink)", fontWeight: 700 }}>{day?.full}</span>
             </div>
           </div>
-          {/* utility controls — top-right of the masthead */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 16, marginTop: 4, minWidth: 0 }}>
-            <div className="mono" style={{ display: "flex", alignItems: "center", gap: 12, rowGap: 8, flexWrap: "wrap", justifyContent: "flex-end", color: "var(--faint)", fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
-              {updatedAgo ? `Updated ${updatedAgo}` : "Live"}
-            </span>
-            {personalized ? (
-              <a
-                href="/tune"
-                className="mono bs-tap"
-                style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 18px", border: "1.5px solid var(--accent)", background: "transparent", color: "var(--accent)", textDecoration: "none" }}
-              >
-                My account
-              </a>
-            ) : (
-              <OnboardingHero signedIn={signedIn} />
-            )}
-            </div>
+          {/* Top-right corner: the subscribe form, squeezed. Yash's sketch —
+              the account button is gone entirely and the wide subscribe band
+              below the masthead went with it, so the corner does the band's
+              job in ~70px and the news starts a full band higher. The
+              "Updated" pill moved to the tab row. */}
+          <div style={{ marginTop: 6 }}>
+            <NewsletterSignup compact />
           </div>
         </div>
         {/* Cold-visitor value hook: the differentiator + primary CTA, shown only
@@ -467,9 +454,6 @@ export default function Feed({
             </a>
           </section>
         )}
-        <div style={{ marginTop: 12 }}>
-          <NewsletterSignup />
-        </div>
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 12 }} />
       </header>
 
@@ -490,6 +474,12 @@ export default function Feed({
             );
           })}
         </nav>
+        {updatedAgo && (
+          <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6, paddingBottom: 12, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--faint)", whiteSpace: "nowrap" }}>
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
+            Updated {updatedAgo}
+          </span>
+        )}
       </div>
 
       {!hasContent ? (
