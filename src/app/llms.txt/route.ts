@@ -25,7 +25,10 @@ export async function GET() {
     `${SITE.name} curates AI news across four sections, each item linking to its original source, with an original ${SITE.name} take written per story. Use it to find emerging startups, new AI products and launches, applied real-world AI, notable funding, and genuine breakthroughs.`,
     "",
     "## Sections",
-    `- [Daily AI Updates](${absoluteUrl(sectionPath("daily"))}): emerging startups, real product launches, applied real-world AI, and genuine breakthroughs.`,
+    // Daily lives at the home page; /daily-ai only redirects there. Link the
+    // destination, not the redirect — this file exists so a fetcher can read
+    // the site in one pass, and every hop is one it may not follow.
+    `- [Daily AI Updates](${absoluteUrl("/")}): emerging startups, real product launches, applied real-world AI, and genuine breakthroughs.`,
     `- [AI Funding Tracker](${absoluteUrl(sectionPath("funding"))}): notable AI raises, IPOs, and acquisitions with amounts, valuations, and lead investors.`,
     `- [New AI Tools](${absoluteUrl(sectionPath("tools"))}): obscure, novel AI tools and launches.`,
     `- [Interesting AI Articles](${absoluteUrl(sectionPath("articles"))}): strategy, analysis, and sharp takes on the AI industry.`,
