@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Story = { slug: string; headline: string; line: string; card: string };
 type Props = {
@@ -17,55 +17,94 @@ const CSS = `
 .td .card{border:1px solid #ded3ba;background:#faf7f0;border-radius:14px;padding:16px;margin:16px 0}
 .td .lbl{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9c2b1d;margin-bottom:10px}
 .td .ttl{font-size:21px;line-height:1.25;font-weight:700;margin:0 0 12px}
-.td pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:15px;line-height:1.6;margin:0;max-height:220px;overflow:auto;color:#3a342a}
-/* buttons sized for thumbs */
+.td pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:15px;line-height:1.6;margin:0;max-height:200px;overflow:auto;color:#3a342a}
 .td button,.td a.btn{display:block;width:100%;font:inherit;font-size:17px;cursor:pointer;border:1px solid #1b1712;background:#1b1712;color:#f3ecda;padding:14px;border-radius:10px;margin-top:10px;text-align:center;text-decoration:none}
 .td button.ghost{background:transparent;color:#1b1712}
 .td button.rust{background:#9c2b1d;border-color:#9c2b1d;color:#fff}
+.td button[disabled]{opacity:.55}
 .td .row{display:flex;gap:8px}
 .td .row button{flex:1}
-.td img.shot{width:100%;border-radius:10px;border:1px solid #ded3ba;display:block}
+.td .story{border-top:1px solid #e6dcc6;padding:14px 0 4px}
 .td .st{font-size:16px;line-height:1.35;font-weight:700;margin:0 0 8px}
-.td .ok{color:#9c2b1d;font-family:ui-monospace,monospace;font-size:12px;text-align:center;margin-top:8px}
+.td img.shot{width:100%;border-radius:10px;border:1px solid #ded3ba;display:block;margin-top:10px}
+.td .ok{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#1b1712;color:#f3ecda;
+  font-family:ui-monospace,monospace;font-size:13px;padding:10px 18px;border-radius:999px;z-index:20}
 `;
+
+// One in-memory blob per slug. The card is a server-rendered 1080x1350 PNG that
+// takes ~3s to generate and is NOT edge-cached, so it must be fetched at most
+// once per story per visit, and never with cache:'no-store' (which forced a
+// fresh 3s render on every single tap and made the button look dead).
+const blobs = new Map<string, Blob>();
 
 export default function Today(p: Props) {
   const [flash, setFlash] = useState<string | null>(null);
-  const say = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 1800); };
+  const [busy, setBusy] = useState<string | null>(null);
+  const [shown, setShown] = useState<Record<string, string>>({});
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function say(m: string) {
+    setFlash(m);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setFlash(null), 1600);
+  }
 
   async function copy(text: string, what: string) {
     try {
       await navigator.clipboard.writeText(text);
-      say(`${what} copied ✓`);
+      say(`${what} copied`);
     } catch {
       const ta = document.createElement("textarea");
       ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
       document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); say(`${what} copied ✓`); } catch { say("select and copy manually"); }
+      try { document.execCommand("copy"); say(`${what} copied`); } catch { say("copy failed"); }
       ta.remove();
     }
   }
 
-  // Share the card straight into an app where the OS supports it, otherwise
-  // fall back to opening it so a long-press can save it.
-  async function shareCard(s: Story) {
+  async function getBlob(s: Story): Promise<Blob> {
+    const hit = blobs.get(s.slug);
+    if (hit) return hit;
+    const res = await fetch(s.card); // default cache, never no-store
+    if (!res.ok) throw new Error(String(res.status));
+    const b = await res.blob();
+    blobs.set(s.slug, b);
+    return b;
+  }
+
+  // Fetch once, show it, and keep the blob so Share is instant afterwards.
+  async function load(s: Story) {
+    if (shown[s.slug] || busy) return;
+    setBusy(s.slug);
+    say("making the image…");
     try {
-      const res = await fetch(s.card, { cache: "no-store" });
-      if (!res.ok) throw new Error(String(res.status));
-      const blob = await res.blob();
-      const file = new File([blob], `wortins-${s.slug.slice(0, 40)}.png`, { type: "image/png" });
+      const b = await getBlob(s);
+      setShown((m) => ({ ...m, [s.slug]: URL.createObjectURL(b) }));
+      say("ready");
+    } catch {
+      say("image failed, tap again");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function share(s: Story) {
+    setBusy(s.slug);
+    try {
+      const b = await getBlob(s);
+      const file = new File([b], `wortins-${s.slug.slice(0, 40)}.png`, { type: "image/png" });
       const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
       if (nav.share && nav.canShare?.({ files: [file] })) {
         await nav.share({ files: [file] });
-        return;
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(b); a.download = file.name; a.click();
+        say("saved");
       }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = file.name; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      say("image saved ✓");
     } catch {
-      window.open(s.card, "_blank");
+      say("could not share");
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -82,7 +121,7 @@ export default function Today(p: Props) {
       <style>{CSS}</style>
       <div className="wrap">
         <h1>WORTINS · TODAY</h1>
-        <div className="sub">{p.dateLabel} · tap to copy or share</div>
+        <div className="sub">{p.dateLabel}</div>
 
         <div className="card">
           <div className="lbl">Substack post</div>
@@ -95,21 +134,34 @@ export default function Today(p: Props) {
         </div>
 
         <div className="card">
-          <div className="lbl">Images · {p.stories.length} cards</div>
-          {p.stories.map((s) => (
-            <div key={s.slug} style={{ marginBottom: 22 }}>
-              <p className="st">{s.headline}</p>
-              <img className="shot" src={s.card} alt={s.headline} loading="lazy" />
-              <div className="row">
-                <button className="rust" onClick={() => shareCard(s)}>Save / Share</button>
-                <button className="ghost" onClick={() => copy(s.headline + "\n\n" + s.line, "Caption")}>Copy caption</button>
+          <div className="lbl">Images · {p.stories.length} stories</div>
+          {p.stories.map((s) => {
+            const isBusy = busy === s.slug;
+            const src = shown[s.slug];
+            return (
+              <div className="story" key={s.slug}>
+                <p className="st">{s.headline}</p>
+                {src && <img className="shot" src={src} alt={s.headline} />}
+                <div className="row">
+                  {!src ? (
+                    <button className="rust" disabled={isBusy} onClick={() => load(s)}>
+                      {isBusy ? "Making image…" : "Get image"}
+                    </button>
+                  ) : (
+                    <button className="rust" disabled={isBusy} onClick={() => share(s)}>
+                      {isBusy ? "Working…" : "Save / Share"}
+                    </button>
+                  )}
+                  <button className="ghost" onClick={() => copy(`${s.headline}\n\n${s.line}`, "Caption")}>
+                    Copy caption
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-
-        {flash && <p className="ok">{flash}</p>}
       </div>
+      {flash && <div className="ok">{flash}</div>}
     </div>
   );
 }

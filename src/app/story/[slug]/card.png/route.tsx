@@ -15,11 +15,40 @@ function serialFor(slug: string): string {
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
+// Rendering this card costs ~3s of Satori work, and Worker responses are not
+// edge-cached by default (cf-cache-status came back null), so every single
+// request paid it — which is what made /today unusable. Cache the rendered PNG
+// on Cloudflare's edge, keyed by the request URL.
+//
+// Entirely best-effort: `caches` does not exist under `next dev`, and any
+// failure here must fall through to a normal render rather than break the card.
+type EdgeCache = { match(k: Request): Promise<Response | undefined>; put(k: Request, v: Response): Promise<void> };
+function edgeCache(): EdgeCache | null {
+  try {
+    const c = (globalThis as { caches?: { default?: EdgeCache } }).caches;
+    return c?.default ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+
+  // Strip cache-busting query params so every visitor shares one cached render.
+  const keyUrl = new URL(req.url);
+  keyUrl.search = "";
+  const cacheKey = new Request(keyUrl.toString(), { method: "GET" });
+  const cache = edgeCache();
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheKey);
+      if (hit) return hit;
+    } catch { /* fall through to a fresh render */ }
+  }
   const item = await getStoryBySlug(slug);
   if (!item) return new Response("Not found", { status: 404 });
 
@@ -46,5 +75,8 @@ export async function GET(
   res.headers.set("Content-Type", "image/png");
   res.headers.set("Content-Disposition", `attachment; filename="wortins-${slug.slice(0, 40)}.png"`);
   res.headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800");
+  if (cache) {
+    try { await cache.put(cacheKey, res.clone()); } catch { /* caching is optional */ }
+  }
   return res;
 }
