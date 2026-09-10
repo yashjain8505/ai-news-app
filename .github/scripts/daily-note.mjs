@@ -43,8 +43,14 @@ const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 
 const TF = "https://api.typefully.com";
 const ALSO_COUNT = 3;
+// Posts per platform per day. Typefully's queue spaces them: each draft is
+// created with publish_at "next-free-slot", so three drafts land on the three
+// configured slots (11:00 / 15:00 / 19:00 IST). LinkedIn takes fewer because a
+// company page dilutes its own reach if it posts more than about twice a day.
+const PER_DAY = { substack: 3, x: 3, linkedin: 2 };
+const PICKS = Math.max(PER_DAY.substack, PER_DAY.x, PER_DAY.linkedin);
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
-const POOL = 6; // top daily stories Claude picks the note from
+const POOL = 10; // top daily stories Claude picks from (needs 3 distinct ones)
 
 const warn = (m) => console.warn(`⚠ ${m}`);
 const skip = (m) => { console.log(`→ ${m}`); process.exitCode = 0; };
@@ -105,9 +111,11 @@ function draftPrompt(items) {
 
   return `You ghost-write the day's social posts for the person behind Wortins, an independent AI-news brief. You are ONE real person telling people what happened in AI today and what you honestly make of it. Not a brand, not a thought-leader. You do not perform cleverness or chase engagement.
 
-Pick the ONE story below that is most worth writing about: the most surprising or consequential, not simply the first.
+Pick the ${PICKS} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed. They must be GENUINELY DIFFERENT stories, not three angles on the same news, and ideally not all the same kind of story (do not pick three model releases). If there is a funding story worth covering, make one of them that.
 
-Write it THREE times, native to each place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
+Order them best first.
+
+Write EACH of them three times, native to each place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
 
 HOW TO WRITE (all three):
 1. Say what happened, clearly, in plain full sentences. Name the company and what they did, with the key numbers or dates, so someone who knows nothing understands it from the opening. Clarity beats brevity.
@@ -142,8 +150,8 @@ THE THREE PIECES:
 TODAY'S STORIES:
 ${list}
 
-Return ONLY a JSON object, no prose around it:
-{"slug":"<the slug you chose>","note":"<Substack note, short paragraphs>","x_thread":["<post 1>","<post 2>"],"linkedin":"<LinkedIn post, short paragraphs>"}`;
+Return ONLY a JSON object, no prose around it, with exactly ${PICKS} entries in "picks", best first:
+{"picks":[{"slug":"<slug>","note":"<Substack note, short paragraphs>","x_thread":["<post 1>","<post 2>"],"linkedin":"<LinkedIn post, short paragraphs>"}]}`;
 }
 
 function claudeNote(items) {
@@ -162,18 +170,19 @@ function claudeNote(items) {
     const stripUrls = (t) => t.replace(/https?:\/\/\S+/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     const clean = (t) => stripUrls(String(t || "").replace(/\s*[–—]\s*/g, ", ").replace(/[ \t]+/g, " ").trim());
 
-    const note = clean(parsed.note);
-    if (note.length < 150) throw new Error(`note too short (${note.length} chars)`);
-
-    // X publishes as a thread; the link becomes the reply, added later.
-    let xThread = Array.isArray(parsed.x_thread) ? parsed.x_thread : [];
-    xThread = xThread.map((t) => clean(t).replace(/\n+/g, " ")).filter(Boolean).filter((t) => t.length <= 275).slice(0, 3);
-    if (xThread.length < 1) xThread = [];
-
-    let linkedin = clean(parsed.linkedin);
-    if (linkedin.length < 300 || linkedin.length > 2200) linkedin = "";
-
-    return { slug: String(parsed.slug || ""), note, xThread, linkedin };
+    const raw = Array.isArray(parsed.picks) ? parsed.picks : [parsed];
+    const picks = [];
+    for (const it of raw) {
+      const note = clean(it.note);
+      if (note.length < 150) continue; // a pick without a usable note is dropped
+      let xThread = Array.isArray(it.x_thread) ? it.x_thread : [];
+      xThread = xThread.map((t) => clean(t).replace(/\n+/g, " ")).filter(Boolean).filter((t) => t.length <= 275).slice(0, 3);
+      let linkedin = clean(it.linkedin);
+      if (linkedin.length < 300 || linkedin.length > 2200) linkedin = "";
+      picks.push({ slug: String(it.slug || ""), note, xThread, linkedin });
+    }
+    if (!picks.length) throw new Error("no usable picks in claude output");
+    return picks;
   } catch (e) {
     // stderr carries the real reason. e.message is "Command failed: claude -p
     // <the entire prompt>", so never log it raw: it buries CI output in the
@@ -349,12 +358,15 @@ async function main() {
 
   // The link is appended here, never by the model: Typefully attaches the
   // preview card to the LAST url, so it has to stand alone at the end.
-  const drafted = claudeNote(daily);
-  const body = (drafted && drafted.note) || buildNote({ items, dateISO });
-  if (!body) return skip("No daily story to build a note from.");
   const editionUrl = `${SITE_URL}/edition/${dateISO}`;
-  const text = `${body}\n\nToday's full AI briefing: ${editionUrl}`;
-  console.log(`\n--- note ---\n${text}\n------------\n`);
+  let picks = claudeNote(daily);
+  if (!picks?.length) {
+    // Fallback: one template note, so a Claude outage still posts something.
+    const body = buildNote({ items, dateISO });
+    if (!body) return skip("No daily story to build a note from.");
+    picks = [{ slug: daily[0].slug, note: body, xThread: [], linkedin: "" }];
+  }
+  console.log(`→ ${picks.length} story pick(s) drafted`);
 
   // Pick sets BY CAPABILITY, never by list order. The account now has one set
   // per channel (Substack on one, X on another), and results[0] is not
@@ -389,74 +401,72 @@ async function main() {
   }
 
   // Omitting publish_at is what makes a draft. Only add it when the operator
-  // has explicitly asked for real publishing.
+  // has explicitly asked for real publishing. "next-free-slot" is what spaces
+  // the day's posts: each draft takes the next configured queue slot, so three
+  // drafts land on 11:00 / 15:00 / 19:00 IST without us hardcoding any times.
   const timing = MODE === "queue" ? { publish_at: "next-free-slot" }
                : MODE === "now"   ? { publish_at: "now" }
                : {};
 
-  const jobs = [
-    { set: substackSet, label: "Substack Note",
-      payload: { draft_title: `Wortins Daily ${dateISO}`, ...timing,
-                 platforms: { substack: { enabled: true, posts: [{ text }] } } } },
-  ];
-  // X only when a tweet was drafted: the 400-700 char note would not fit, and a
-  // truncated one reads worse than no post at all.
-  if (xSet && drafted?.xThread?.length) {
-    // X allows a thread (posts maxItems 50), so the link goes in a FINAL post,
-    // i.e. the first reply, keeping the main post link-free. Verified against
-    // the live API: a 2-post X draft is accepted (201).
-    const xPosts = [...drafted.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
-    jobs.push({ set: xSet, label: "X post",
-      payload: { draft_title: `Wortins Daily ${dateISO} (X)`, ...timing,
-                 platforms: { x: { enabled: true, posts: xPosts } } } });
-    console.log(`\n--- X (${drafted.xThread.length} posts + link reply) ---`);
-    drafted.xThread.forEach((t, i) => console.log(`  [${i + 1}] ${t}`));
-    console.log(`  [reply] Today's full AI briefing: ${editionUrl}\n`);
-  } else if (xSet) {
-    console.log("→ X connected but no thread was drafted; skipping the X draft.");
-  }
-  // LinkedIn gets its OWN draft, not the note reused. Its first line is all
-  // most people see before "see more", and it needs real paragraph breaks, so
-  // reusing prose written for Substack read like a repost. Link-free by
-  // design: the card image carries the brand instead.
-  if (linkedinSet && drafted?.linkedin) {
-    // No link and no link-comment here. LinkedIn is capped at ONE post per
-    // draft (verified: a 2-post LinkedIn draft is rejected 400
-    // "LinkedIn only supports single posts"), so Typefully cannot post a first
-    // comment. The card image carries the brand; the link is added by hand.
-    //
-    // Tagging is LinkedIn-only. On X a handle cannot be verified through any
-    // API we have, and X's automation rules prohibit bulk automated mentions,
-    // so a wrong guess would tag a real stranger under our brand, daily.
-    const entities = await sb("social_entities?select=canonical_name,aliases,li_mention_text&li_mention_text=not.is.null")
-      .catch((e) => { warn(`allowlist unavailable, posting untagged: ${e.message}`); return []; });
-    const { text: liText, tagged } = addLinkedInMentions(drafted.linkedin, entities || []);
-    if (tagged.length) console.log(`→ LinkedIn mentions: ${tagged.join(", ")}`);
-    jobs.push({ set: linkedinSet, label: "LinkedIn post",
-      payload: { draft_title: `Wortins Daily ${dateISO} (LinkedIn)`, ...timing,
-                 platforms: { linkedin: { enabled: true, posts: [{ text: liText }] } } } });
-    console.log(`\n--- LinkedIn ---\n${liText}\n----------------\n`);
-  } else if (linkedinSet) {
-    console.log("→ LinkedIn connected but no LinkedIn version was drafted; skipping.");
-  }
+  // Tagging is LinkedIn-only. On X a handle cannot be verified through any API
+  // we have, and X's automation rules prohibit bulk automated mentions.
+  const entities = linkedinSet
+    ? await sb("social_entities?select=canonical_name,aliases,li_mention_text&li_mention_text=not.is.null")
+        .catch((e) => { warn(`allowlist unavailable, posting untagged: ${e.message}`); return []; })
+    : [];
 
-  // Which story's card? Whichever one Claude wrote about, else the hero.
-  const chosen = daily.find((it) => it.slug === drafted?.slug) || daily[0];
-  const altText = `${headlineOf(chosen)}. ${lineOf(chosen)}`;
+  const jobs = [];
+  picks.forEach((pk, i) => {
+    const story = daily.find((d) => d.slug === pk.slug) || daily[i] || daily[0];
+    const n = i + 1;
 
-  // X and LinkedIn carry the card INSTEAD of a link. Substack keeps its link,
-  // which already renders its own preview, so it gets no image.
-  if (!DRY_RUN) {
-    for (const j of jobs) {
-      if (j.label.startsWith("Substack")) continue;
-      const mediaId = await attachCard(j.set.id, chosen.slug, altText);
-      if (mediaId) {
-        const platform = j.label.startsWith("X") ? "x" : "linkedin";
-        j.payload.platforms[platform].posts[0].media_ids = [mediaId];
-      }
+    if (i < PER_DAY.substack) {
+      jobs.push({
+        set: substackSet, label: `Substack ${n}`, platform: "substack", story,
+        payload: { draft_title: `Wortins ${dateISO} · Substack ${n}`, ...timing,
+          platforms: { substack: { enabled: true, posts: [{ text: `${pk.note}\n\nToday's full AI briefing: ${editionUrl}` }] } } },
+      });
     }
-  } else {
-    console.log(`[DRY RUN] would attach ${SITE_URL}/story/${chosen.slug}/card.png to X + LinkedIn`);
+
+    if (xSet && i < PER_DAY.x && pk.xThread.length) {
+      // The link is a FINAL post, so it publishes as the first reply and the
+      // main post stays link-free. The card attaches to post 1, not the reply.
+      const xPosts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
+      jobs.push({
+        set: xSet, label: `X ${n}`, platform: "x", story,
+        payload: { draft_title: `Wortins ${dateISO} · X ${n}`, ...timing,
+          platforms: { x: { enabled: true, posts: xPosts } } },
+      });
+    }
+
+    if (linkedinSet && i < PER_DAY.linkedin && pk.linkedin) {
+      const { text: liText, tagged } = addLinkedInMentions(pk.linkedin, entities || []);
+      if (tagged.length) console.log(`  · LinkedIn ${n} mentions: ${tagged.join(", ")}`);
+      jobs.push({
+        set: linkedinSet, label: `LinkedIn ${n}`, platform: "linkedin", story,
+        payload: { draft_title: `Wortins ${dateISO} · LinkedIn ${n}`, ...timing,
+          platforms: { linkedin: { enabled: true, posts: [{ text: liText }] } } },
+      });
+    }
+  });
+
+  for (const j of jobs) console.log(`  → ${j.label}: ${headlineOf(j.story)}`);
+
+  // X and LinkedIn carry the story card INSTEAD of a link. Substack keeps its
+  // link, which already renders a preview, so it gets no image. Media is
+  // scoped to one social set, so the same card uploads once per set.
+  if (!DRY_RUN) {
+    const cache = new Map(); // set+slug -> media_id, so a repeated story is uploaded once per set
+    for (const j of jobs) {
+      if (j.platform === "substack") continue;
+      const key = `${j.set.id}:${j.story.slug}`;
+      let mediaId = cache.get(key);
+      if (mediaId === undefined) {
+        mediaId = await attachCard(j.set.id, j.story.slug, `${headlineOf(j.story)}. ${lineOf(j.story)}`);
+        cache.set(key, mediaId);
+      }
+      if (mediaId) j.payload.platforms[j.platform].posts[0].media_ids = [mediaId];
+    }
   }
 
   if (DRY_RUN) {
