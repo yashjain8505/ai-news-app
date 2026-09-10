@@ -408,18 +408,21 @@ export default function Feed({
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", rowGap: 12 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, background: "var(--accent)", color: "var(--onAccent)", fontSize: 32, lineHeight: 1 }}>
+              <span aria-hidden className="display" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, background: "var(--accent)", color: "var(--onAccent)", fontSize: 25, lineHeight: 1 }}>
                 W
               </span>
-              <h1 className="display" style={{ fontSize: "clamp(40px,6vw,58px)", lineHeight: 0.9, letterSpacing: "0.13em", textTransform: "uppercase", margin: 0, color: "var(--ink)" }}>
+              <h1 className="display" style={{ fontSize: "clamp(30px,4.2vw,42px)", lineHeight: 0.9, letterSpacing: "0.13em", textTransform: "uppercase", margin: 0, color: "var(--ink)" }}>
                 Wortins
               </h1>
             </div>
-            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--dim)", marginTop: 12 }}>
+            {/* One line, not two. The masthead is chrome, and every masthead
+                pixel pushes the first story down - measured at 528px of header
+                before any news on a 900px viewport, which is the owner's "40%
+                of the page is not even relevant". */}
+            <div className="mono" style={{ fontSize: 10.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--dim)", marginTop: 8 }}>
               {personalized ? "The daily AI briefing, curated to your taste" : "The daily AI briefing"}
-            </div>
-            <div className="mono" style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink)", fontWeight: 700, marginTop: 10 }}>
-              {day?.full}
+              {"  "}<span style={{ color: "var(--sep)" }}>&middot;</span>{"  "}
+              <span style={{ color: "var(--ink)", fontWeight: 700 }}>{day?.full}</span>
             </div>
           </div>
           {/* utility controls — top-right of the masthead */}
@@ -446,27 +449,28 @@ export default function Feed({
         {/* Cold-visitor value hook: the differentiator + primary CTA, shown only
             to non-personalized visitors (returning readers never see it). */}
         {!personalized && (
-          <section style={{ marginTop: 18, border: "1px solid var(--ruleStrong)", background: "var(--ph1)", padding: "22px 26px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "18px 36px" }}>
-            <div style={{ flex: "1 1 440px", minWidth: 0 }}>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--accent)" }}>
-                Personalized &#183; Free
-              </div>
-              <h2 className="display" style={{ fontSize: "clamp(23px,2.8vw,30px)", lineHeight: 1.08, color: "var(--ink)", margin: "8px 0 0" }}>
+          <section style={{ marginTop: 14, border: "1px solid var(--ruleStrong)", background: "var(--ph1)", padding: "12px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px 24px" }}>
+            {/* One row. The old version was a kicker, a 30px headline and a
+                three-line paragraph - a ~170px pitch shown to someone who came
+                to read the news that sits directly under it. The pitch is one
+                line now; /welcome makes the full case to anyone who clicks. */}
+            <div style={{ flex: "1 1 360px", minWidth: 0, display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+              <h2 className="display" style={{ fontSize: "clamp(17px,2vw,21px)", lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
                 AI news, tuned to you.
               </h2>
-              <p className="serif" style={{ fontSize: 15.5, lineHeight: 1.5, color: "var(--muted)", margin: "9px 0 0", maxWidth: "58ch" }}>
-                The most interesting AI stories across new tools, funding, and applied AI, minus the big-lab hype. Answer a few questions and your daily briefing rebuilds around your taste.
-              </p>
+              <span className="serif" style={{ fontSize: 14, color: "var(--muted)" }}>
+                Answer a few questions and the briefing rebuilds around your taste — free.
+              </span>
             </div>
-            <a href="/welcome" className="mono bs-tap" style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "14px 24px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", whiteSpace: "nowrap" }}>
-              Personalize your feed &rarr;
+            <a href="/welcome" className="mono bs-tap" style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "10px 18px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", whiteSpace: "nowrap" }}>
+              Personalize &rarr;
             </a>
           </section>
         )}
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 12 }}>
           <NewsletterSignup />
         </div>
-        <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 14 }} />
+        <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 12 }} />
       </header>
 
       {/* section tabs (no counts) */}
@@ -547,6 +551,56 @@ export default function Feed({
                     ))}
                   </div>
                 )}
+                {/* The main well continues: hero, features, then the ledger.
+                    Moving the list up here is what removes the dead space - the
+                    grid stretches both columns to the taller one, so with the
+                    list below the grid the left column ended in ~500px of
+                    measured blank while the rail ran on. Now both columns carry
+                    content for their full height, and old news starts right
+                    where new news ends instead of a screen later. */}
+                  {more.length > 0 && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 10 }}>
+                        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", whiteSpace: "nowrap" }}>
+                          More stories
+                        </span>
+                        <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
+                      </div>
+                      {/* Row list: text-forward, with a small thumbnail on the right.
+                          Real photo when we have one, else a branded plate — so every
+                          row reads as a complete card. Row height follows the text. */}
+                      <div className="bs-more">
+                        {more.map((it, i) => (
+                          <article className="bs-story" key={it.id}>
+                            <div className="bs-story__body">
+                              <div>{meta(it, "·", 10, false)}</div>
+                              <Link href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
+                                <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
+                                  {it.title}
+                                </h4>
+                              </Link>
+                              {it.summary && (
+                                <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                  {it.summary}
+                                </p>
+                              )}
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9 }}>
+                                {it.read_time && (
+                                  <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
+                                    {it.read_time} min read
+                                  </span>
+                                )}
+                                <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                              </div>
+                              {cardPrompt(it)}
+                            </div>
+                            <CardPhoto it={it} ratio="4/3" rank={i + 3} onOpen={onOpen} className="bs-story__thumb" imgWidth={400} />
+                          </article>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {exploreBtn}
                 </div>
 
                 <div className="bs-rail">
@@ -575,49 +629,6 @@ export default function Feed({
                 </div>
               </div>
 
-              {more.length > 0 && (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 10 }}>
-                    <span className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", whiteSpace: "nowrap" }}>
-                      More stories
-                    </span>
-                    <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
-                  </div>
-                  {/* Row list: text-forward, with a small thumbnail on the right.
-                      Real photo when we have one, else a branded plate — so every
-                      row reads as a complete card. Row height follows the text. */}
-                  <div className="bs-more">
-                    {more.map((it, i) => (
-                      <article className="bs-story" key={it.id}>
-                        <div className="bs-story__body">
-                          <div>{meta(it, "·", 10, false)}</div>
-                          <Link href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
-                            <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
-                              {it.title}
-                            </h4>
-                          </Link>
-                          {it.summary && (
-                            <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                              {it.summary}
-                            </p>
-                          )}
-                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9 }}>
-                            {it.read_time && (
-                              <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
-                                {it.read_time} min read
-                              </span>
-                            )}
-                            <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
-                          </div>
-                          {cardPrompt(it)}
-                        </div>
-                        <CardPhoto it={it} ratio="4/3" rank={i + 3} onOpen={onOpen} className="bs-story__thumb" imgWidth={400} />
-                      </article>
-                    ))}
-                  </div>
-                </>
-              )}
-              {exploreBtn}
             </section>
           )}
 

@@ -46,7 +46,7 @@ export default function NewsletterSignup() {
       style={{
         border: "1px solid var(--ruleStrong)",
         background: "var(--ph1)",
-        padding: "14px 18px",
+        padding: "10px 16px",
         display: "flex",
         flexWrap: "wrap",
         alignItems: "center",
@@ -69,7 +69,7 @@ export default function NewsletterSignup() {
         </div>
         <h2
           className="display"
-          style={{ fontSize: 20, lineHeight: 1.1, margin: "4px 0 0", color: "var(--ink)" }}
+          style={{ fontSize: 17, lineHeight: 1.1, margin: "3px 0 0", color: "var(--ink)" }}
         >
           Keep up with AI in five minutes
         </h2>
