@@ -3,7 +3,7 @@
 // Deliberately dependency-free: hand-rolled inline SVG + CSS bars driven by the
 // design-system CSS vars (--accent, --ink, --dim, --rule…), so they theme with
 // light/dark and add nothing to the bundle. All server components — no
-// interactivity here. Mirrors admin/analytics/charts.tsx so the two dashboards
+// interactivity here. (Originally mirrored the since-removed analytics dashboard's
 // look like one product; adds SEO-specific bits (a position KPI where LOWER is
 // better, and query/page tables with rank-movement deltas).
 

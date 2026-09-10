@@ -10,13 +10,13 @@ import "server-only";
 // rank rose or fell). This is the evidence the dashboard renders and the AI brief
 // (src/lib/seoBrief.ts) reasons over.
 //
-// Mirrors analyticsData.ts's shapes on purpose (Kpi, TrendPoint, current-vs-prev
+// Kpi/TrendPoint shapes (current-vs-prev deltas) were shared with the removed
 // windows, graceful degradation) so /admin/seo is a true sibling of
-// /admin/analytics. Callers MUST verify isAdmin() first — same contract.
+// analytics dashboard. Callers MUST verify isAdmin() first — same contract.
 
 import { searchAnalytics, gscConfigured, gscProperty, isoDay, type GscRow } from "@/lib/gsc";
 
-// --- shared shapes (kept identical to analyticsData.ts) ----------------------
+// --- shared shapes -----------------------------------------------------------
 
 export type Kpi = {
   value: number;

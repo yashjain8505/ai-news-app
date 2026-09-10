@@ -14,9 +14,8 @@ export function AdminShell({
   subtitle?: string;
   active?: "overview" | "analytics" | "search" | "geo";
 }) {
-  const navItems: { key: "overview" | "analytics" | "search" | "geo"; label: string; href: string }[] = [
+  const navItems: { key: "overview" | "search" | "geo"; label: string; href: string }[] = [
     { key: "overview", label: "Overview", href: "/admin" },
-    { key: "analytics", label: "Analytics", href: "/admin/analytics" },
     { key: "search", label: "Search", href: "/admin/seo" },
     { key: "geo", label: "GEO", href: "/admin/geo" },
   ];
