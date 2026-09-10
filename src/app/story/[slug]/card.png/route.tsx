@@ -15,21 +15,51 @@ function serialFor(slug: string): string {
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-// Rendering this card costs ~3s of Satori work, and Worker responses are not
-// edge-cached by default (cf-cache-status came back null), so every single
-// request paid it — which is what made /today unusable. Cache the rendered PNG
-// on Cloudflare's edge, keyed by the request URL.
+// Rendering this card costs ~3s of Satori work, so it must be stored, not
+// recomputed. Two layers, in order:
 //
-// Entirely best-effort: `caches` does not exist under `next dev`, and any
-// failure here must fall through to a normal render rather than break the card.
+//   1. R2  - GLOBAL. This is the one that matters. Cloudflare's Cache API is
+//            per-datacenter, so a card warmed from a CI runner in the US does
+//            nothing for a reader in Mumbai; measured here as HIT 1.0s vs
+//            MISS 4.6s on alternating requests to the same URL. R2 is one
+//            bucket for the world, so a single render serves everyone.
+//   2. Edge - still worth keeping in front of R2 to save the round trip.
+//
+// Both are best-effort. Any failure falls through to a normal render: caching
+// can make this route faster but must never be able to break it.
+const R2_PREFIX = "cards/";
+
+type R2Like = {
+  get(k: string): Promise<{ body: ReadableStream | null } | null>;
+  put(k: string, v: ArrayBuffer): Promise<unknown>;
+};
+
+async function r2(): Promise<R2Like | null> {
+  try {
+    const mod = await import("@opennextjs/cloudflare");
+    const ctx = await mod.getCloudflareContext({ async: true });
+    return (ctx?.env as unknown as { NEXT_INC_CACHE_R2_BUCKET?: R2Like })
+      ?.NEXT_INC_CACHE_R2_BUCKET ?? null;
+  } catch {
+    return null; // next dev, or no binding: just render
+  }
+}
+
 type EdgeCache = { match(k: Request): Promise<Response | undefined>; put(k: Request, v: Response): Promise<void> };
 function edgeCache(): EdgeCache | null {
   try {
-    const c = (globalThis as { caches?: { default?: EdgeCache } }).caches;
-    return c?.default ?? null;
+    return (globalThis as { caches?: { default?: EdgeCache } }).caches?.default ?? null;
   } catch {
     return null;
   }
+}
+
+function pngHeaders(slug: string): Record<string, string> {
+  return {
+    "Content-Type": "image/png",
+    "Content-Disposition": `attachment; filename="wortins-${slug.slice(0, 40)}.png"`,
+    "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+  };
 }
 
 export async function GET(
@@ -38,17 +68,32 @@ export async function GET(
 ) {
   const { slug } = await params;
 
-  // Strip cache-busting query params so every visitor shares one cached render.
+  // Strip query params so cache-busting callers still share one stored render.
   const keyUrl = new URL(req.url);
   keyUrl.search = "";
   const cacheKey = new Request(keyUrl.toString(), { method: "GET" });
+
   const cache = edgeCache();
   if (cache) {
     try {
       const hit = await cache.match(cacheKey);
       if (hit) return hit;
+    } catch { /* fall through */ }
+  }
+
+  const bucket = await r2();
+  const r2Key = `${R2_PREFIX}${slug}.png`;
+  if (bucket) {
+    try {
+      const obj = await bucket.get(r2Key);
+      if (obj?.body) {
+        const res = new Response(obj.body, { headers: pngHeaders(slug) });
+        if (cache) { try { await cache.put(cacheKey, res.clone()); } catch { /* optional */ } }
+        return res;
+      }
     } catch { /* fall through to a fresh render */ }
   }
+
   const item = await getStoryBySlug(slug);
   if (!item) return new Response("Not found", { status: 404 });
 
@@ -71,12 +116,14 @@ export async function GET(
     serial: serialFor(slug),
     kicker: item.section === "funding" ? "Funding" : null,
   });
-  const res = new Response(img.body, img);
-  res.headers.set("Content-Type", "image/png");
-  res.headers.set("Content-Disposition", `attachment; filename="wortins-${slug.slice(0, 40)}.png"`);
-  res.headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800");
+  // Buffer once so the same bytes can be stored and returned.
+  const bytes = await new Response(img.body).arrayBuffer();
+  if (bucket) {
+    try { await bucket.put(r2Key, bytes); } catch { /* optional */ }
+  }
+  const res = new Response(bytes, { headers: pngHeaders(slug) });
   if (cache) {
-    try { await cache.put(cacheKey, res.clone()); } catch { /* caching is optional */ }
+    try { await cache.put(cacheKey, res.clone()); } catch { /* optional */ }
   }
   return res;
 }

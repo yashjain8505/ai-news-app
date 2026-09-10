@@ -53,3 +53,15 @@ jobs:
           NOTES_MODE: queue
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: node .github/scripts/daily-note.mjs
+
+      # Warm the edge cache for today's cards while nobody is waiting. /today
+      # shows a card per story and each render costs ~3s, so an unwarmed page
+      # made the first tap on every story feel broken. Never fails the wave.
+      - name: Pre-warm today's story cards
+        if: ${{ always() && github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SITE_URL: https://www.wortins.com
+        run: node .github/scripts/prewarm-cards.mjs
