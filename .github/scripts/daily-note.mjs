@@ -125,7 +125,7 @@ function draftPrompt(items, want) {
 Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
 Order them best first. The order decides where each runs:
-- EVERY pick gets "x_thread".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
+- EVERY pick gets "short".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
 Write each required piece native to its place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
@@ -149,11 +149,12 @@ THE THREE PIECES:
 
 "note" - the Substack Note. 700 to 1100 characters. **Written to be READ, not skimmed off a wall of text: SHORT PARAGRAPHS of one to three sentences, with a blank line between every paragraph.** Open on the news itself, give it room to breathe across several paragraphs, and land on the part that actually matters. This is the longest of the three and can carry the most detail.
 
-"x_thread" - an ARRAY of 1 to 3 posts for X, in order. One strong self-contained post is fine and often best; use 2 or 3 only when the story genuinely needs the room. Multiple posts publish as a thread.
-- Each post 270 characters or fewer, hard limit.
-- Post 1 must stand completely on its own: the most concrete, surprising thing, stated as a full thought. Someone who reads only post 1 should have learned the news.
-- Posts 2 and 3 add the detail and then the observation. Do not write "1/", "2/", or "a thread".
-- Do not tease the later posts from post 1.
+"short" - ONE standalone post, used on X, Bluesky and Mastodon. Never a thread.
+- 270 characters or fewer, hard limit.
+- It must stand completely on its own. Someone who reads only this has learned the news.
+- Lead with the most concrete, surprising thing, stated as a full sentence.
+- FORMAT IT TO BE READ ON A PHONE: put a blank line between the news and your reaction. Two short blocks read far better than one dense paragraph. Never one long run-on block.
+- No "1/", no "a thread", no teasing a follow-up, no "read more".
 
 "linkedin" - for LinkedIn. 900 to 1500 characters. Longer and more considered than the others.
 - The FIRST line is the only thing most people see before "see more". Make it a complete, specific, interesting sentence. Never a label, never a question, never "Here's what happened".
@@ -164,7 +165,7 @@ TODAY'S STORIES:
 ${list}
 
 Return ONLY a JSON object, no prose around it, with up to ${want.picks} entries in "picks", best first. Omit "note" and "linkedin" on picks that do not need them per the rules above:
-{"picks":[{"slug":"<slug>","x_thread":["<post 1>"],"note":"<where required>","linkedin":"<where required>"}]}`;
+{"picks":[{"slug":"<slug>","short":"<the one standalone post>","note":"<where required>","linkedin":"<where required>"}]}`;
 }
 
 function claudeNote(items, want) {
@@ -187,14 +188,16 @@ function claudeNote(items, want) {
     const picks = [];
     for (const it of raw) {
       const note = clean(it.note);
-      let xThread = Array.isArray(it.x_thread) ? it.x_thread : [];
-      xThread = xThread.map((t) => clean(t).replace(/\n+/g, " ")).filter(Boolean).filter((t) => t.length <= 275).slice(0, 3);
+      // One standalone post. Paragraph breaks are preserved on purpose: they
+      // are what makes it readable on a phone.
+      let short = clean(it.short);
+      if (short.length > 275) short = "";
       let linkedin = clean(it.linkedin);
       if (linkedin.length < 300 || linkedin.length > 2200) linkedin = "";
       // every pick must at least carry the short format; note under 150 chars
       // is treated as absent rather than posted half-baked
-      if (!xThread.length) continue;
-      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", xThread, linkedin });
+      if (!short) continue;
+      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", short, linkedin });
     }
     if (!picks.length) throw new Error("no usable picks in claude output");
     return picks;
@@ -277,70 +280,6 @@ async function attachCard(setId, slug, altText) {
   }
 }
 
-// Splice verified LinkedIn company mentions into the post text.
-//
-// LinkedIn needs "@[Exact Page Name](urn:li:organization:123)"; a plain "@Name"
-// is literal text, and if the display name does not match the page name
-// exactly and case-sensitively it silently degrades to plain text with no
-// error (LinkedIn returns 201 either way). So li_mention_text is spliced
-// VERBATIM from the allowlist, never rebuilt from a name in our own data.
-// That is also why the visible word can change: the page for "Nvidia" is
-// actually called "NVIDIA".
-//
-// Only exact, word-boundary matches against the allowlist are tagged. Nothing
-// is ever inferred: a company we have not verified simply goes untagged.
-//
-// ALIAS RULE: an alias must be a TRUE SYNONYM for the entity, because matching
-// it substitutes the page's display name into the sentence. "a16z" ->
-// "Andreessen Horowitz" is fine. "Facebook" -> "Meta" is not: it turned
-// "Facebook and Instagram" into "Meta and Instagram", which is simply untrue.
-// Avoid common words too ("Scale" would tag "scale your infrastructure").
-function addLinkedInMentions(text, entities, max = 3) {
-  if (!text || !entities?.length) return { text, tagged: [] };
-  const cands = [];
-  for (const e of entities) {
-    if (!e.li_mention_text) continue;
-    const names = [e.canonical_name, ...(Array.isArray(e.aliases) ? e.aliases : [])].filter(Boolean);
-    for (const n of names) cands.push({ name: n, mention: e.li_mention_text, canonical: e.canonical_name });
-  }
-  // Longest first, so "Scale AI" wins over "Scale".
-  cands.sort((a, b) => b.name.length - a.name.length);
-
-  let out = text;
-  const used = new Set();
-  const tagged = [];
-  for (const c of cands) {
-    if (tagged.length >= max) break;          // more than a few reads as spam
-    if (used.has(c.canonical)) continue;      // one tag per company
-    const esc = c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(^|[^\\w@\\[])(${esc})(?![\\w\\]])`, "i");
-    // Never rewrite inside a mention we already inserted.
-    const segs = out.split(/(@\[[^\]]*\]\(urn:li:[^)]*\))/);
-    let done = false;
-    for (let i = 0; i < segs.length && !done; i += 2) {
-      if (re.test(segs[i])) {
-        segs[i] = segs[i].replace(re, (_m, pre) => `${pre}${c.mention}`);
-        done = true;
-      }
-    }
-    if (done) {
-      out = segs.join("");
-      used.add(c.canonical);
-      // A mention REPLACES the matched word with the page's display name, so a
-      // substitution can silently rewrite the sentence. "Nvidia" -> "NVIDIA" is
-      // harmless; "Facebook" -> "Meta" changed a post to claim ads ran on the
-      // wrong thing. Code cannot tell a true synonym from a false one, so every
-      // wording change is logged for review instead of passing unseen.
-      const shown = (c.mention.match(/^@\[([^\]]*)\]/) || [])[1] || "";
-      if (shown.toLowerCase() !== c.name.toLowerCase()) {
-        console.log(`  · mention rewrote "${c.name}" as "${shown}" (alias substitution)`);
-      }
-      tagged.push(c.canonical);
-    }
-  }
-  return { text: out, tagged };
-}
-
 async function main() {
   if (!SUPABASE_KEY) return skip("No Supabase key; skipping.");
   if (!TF_KEY) {
@@ -393,14 +332,13 @@ async function main() {
 
   // The link is appended here, never by the model: Typefully attaches the
   // preview card to the LAST url, so it has to stand alone at the end.
-  const editionUrl = `${SITE_URL}/edition/${dateISO}`;
   const want = { picks: Math.max(...Object.values(quota)), note: quota.substack, linkedin: quota.linkedin };
   let picks = claudeNote(pool, want);
   if (!picks?.length) {
     // Fallback: one template note, so a Claude outage still posts something.
     const body = buildNote({ items, dateISO });
     if (!body) return skip("No daily story to build a note from.");
-    picks = [{ slug: pool[0].slug, note: body, xThread: [], linkedin: "" }];
+    picks = [{ slug: pool[0].slug, note: body, short: "", linkedin: "" }];
   }
   console.log(`→ ${picks.length} story pick(s) drafted`);
 
@@ -450,10 +388,6 @@ async function main() {
 
   // Tagging is LinkedIn-only. On X a handle cannot be verified through any API
   // we have, and X's automation rules prohibit bulk automated mentions.
-  const entities = linkedinSet
-    ? await sb("social_entities?select=canonical_name,aliases,li_mention_text&li_mention_text=not.is.null")
-        .catch((e) => { warn(`allowlist unavailable, posting untagged: ${e.message}`); return []; })
-    : [];
 
   const jobs = [];
   picks.forEach((pk, i) => {
@@ -464,55 +398,39 @@ async function main() {
       jobs.push({
         set: substackSet, label: `Substack ${n}`, platform: "substack", story,
         payload: { draft_title: `Wortins ${dateISO} · Substack ${n}`, ...timing,
-          platforms: { substack: { enabled: true, posts: [{ text: `${pk.note}\n\nToday's full AI briefing: ${editionUrl}` }] } } },
+          platforms: { substack: { enabled: true, posts: [{ text: pk.note }] } } },
       });
     }
 
-    if (xSet && i < quota.x && pk.xThread.length) {
-      // The link is a FINAL post, so it publishes as the first reply and the
-      // main post stays link-free. The card attaches to post 1, not the reply.
-      const xPosts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
-      jobs.push({
-        set: xSet, label: `X ${n}`, platform: "x", story,
-        payload: { draft_title: `Wortins ${dateISO} · X ${n}`, ...timing,
-          platforms: { x: { enabled: true, posts: xPosts } } },
-      });
-    }
-
-    // Bluesky and Mastodon reuse the X thread: their limits (300 and 500) both
-    // clear our 275 cap, and the audiences barely overlap. Same shape as X:
-    // card on post 1, link as the final post (the reply).
-    for (const [plat, set] of [["bluesky", blueskySet], ["mastodon", mastodonSet]]) {
-      if (!set || i >= quota[plat] || !pk.xThread.length) continue;
-      const posts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
-      const cap = plat[0].toUpperCase() + plat.slice(1);
+    // X, Bluesky and Mastodon each get ONE standalone post carrying the story
+    // card. No threads, no links, no mentions: the card is the payload and it
+    // has wortins.com on it.
+    for (const [plat, set] of [["x", xSet], ["bluesky", blueskySet], ["mastodon", mastodonSet]]) {
+      if (!set || i >= quota[plat] || !pk.short) continue;
+      const cap = plat === "x" ? "X" : plat[0].toUpperCase() + plat.slice(1);
       jobs.push({
         set, label: `${cap} ${n}`, platform: plat, story,
         payload: { draft_title: `Wortins ${dateISO} · ${cap} ${n}`, ...timing,
-          platforms: { [plat]: { enabled: true, posts } } },
+          platforms: { [plat]: { enabled: true, posts: [{ text: pk.short }] } } },
       });
     }
 
     if (linkedinSet && i < quota.linkedin && pk.linkedin) {
-      const { text: liText, tagged } = addLinkedInMentions(pk.linkedin, entities || []);
-      if (tagged.length) console.log(`  · LinkedIn ${n} mentions: ${tagged.join(", ")}`);
       jobs.push({
         set: linkedinSet, label: `LinkedIn ${n}`, platform: "linkedin", story,
         payload: { draft_title: `Wortins ${dateISO} · LinkedIn ${n}`, ...timing,
-          platforms: { linkedin: { enabled: true, posts: [{ text: liText }] } } },
+          platforms: { linkedin: { enabled: true, posts: [{ text: pk.linkedin }] } } },
       });
     }
   });
 
   for (const j of jobs) console.log(`  → ${j.label}: ${headlineOf(j.story)}`);
 
-  // X and LinkedIn carry the story card INSTEAD of a link. Substack keeps its
-  // link, which already renders a preview, so it gets no image. Media is
-  // scoped to one social set, so the same card uploads once per set.
+  // EVERY platform carries the story card. Media is scoped to one social set,
+  // so the same card uploads once per set.
   if (!DRY_RUN) {
-    const cache = new Map(); // set+slug -> media_id, so a repeated story is uploaded once per set
+    const cache = new Map();
     for (const j of jobs) {
-      if (j.platform === "substack") continue;
       const key = `${j.set.id}:${j.story.slug}`;
       let mediaId = cache.get(key);
       if (mediaId === undefined) {
@@ -552,7 +470,7 @@ async function main() {
 
 }
 
-export { buildNote, draftPrompt, deDash, attachCard, addLinkedInMentions };
+export { buildNote, draftPrompt, deDash, attachCard };
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((e) => {
