@@ -371,9 +371,13 @@ export async function renderClippingCard({
   const wide = S.width > S.height;
   const chrome = wide ? 0.72 : 1; // small type: masthead, meta, footer
   const cardW = wide ? 1010 : 920;
-  const cardPad = wide ? "32px 50px 26px" : "62px 62px 52px";
+  const cardPad = wide ? "46px 56px 38px" : "62px 62px 52px";
   const teeth = Math.round(cardW / 28);
-  const fs = Math.round(clipHeadlineSize(h) * (wide ? 0.5 : 1));
+  // 0.5 left the clipping filling barely half the 630px canvas, so the card
+  // read as letterboxed against a lot of empty red. 0.62 plus deeper padding
+  // gives it roughly two thirds of the height, which sits like a clipping on
+  // a desk rather than a strip.
+  const fs = Math.round(clipHeadlineSize(h) * (wide ? 0.62 : 1));
   const px = (n: number) => Math.round(n * chrome);
   const q = quote ? clampWords(quote, wide ? 96 : 190) : "";
   const serifBase = { fontFamily: "Instrument Serif" as const };
