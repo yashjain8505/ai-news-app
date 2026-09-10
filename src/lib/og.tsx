@@ -320,15 +320,33 @@ function clampWords(s: string, max: number): string {
 }
 
 let serifCache: { regular: ArrayBuffer; italic: ArrayBuffer } | null = null;
+
+// Fetch the fonts over HTTP rather than reading them off disk.
+//
+// This route ran fine locally and 500'd on every single production request for
+// days, silently costing every post its image. Vercel serves public/ from the
+// CDN but does NOT trace it into the serverless function bundle, so
+// readFile(process.cwd()/public/fonts/...) throws in the deployed function
+// while working perfectly in dev. The CDN copy is reachable, so use that, and
+// keep readFile only as the local-dev fallback.
+async function loadFont(file: string): Promise<ArrayBuffer> {
+  try {
+    const res = await fetch(`${SITE.url}/fonts/${file}`, { cache: "force-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.arrayBuffer();
+  } catch {
+    const b = await readFile(path.join(process.cwd(), "public", "fonts", file));
+    return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+  }
+}
+
 async function loadSerif() {
   if (serifCache) return serifCache;
-  const dir = path.join(process.cwd(), "public", "fonts");
-  const toAB = (b: Buffer) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
-  const [r, i] = await Promise.all([
-    readFile(path.join(dir, "InstrumentSerif-Regular.ttf")),
-    readFile(path.join(dir, "InstrumentSerif-Italic.ttf")),
+  const [regular, italic] = await Promise.all([
+    loadFont("InstrumentSerif-Regular.ttf"),
+    loadFont("InstrumentSerif-Italic.ttf"),
   ]);
-  serifCache = { regular: toAB(r), italic: toAB(i) };
+  serifCache = { regular, italic };
   return serifCache;
 }
 
