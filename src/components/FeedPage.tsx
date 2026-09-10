@@ -26,7 +26,12 @@ const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // cannot go stale for longer than its TTL.
 // How many recent stories to hold in memory for the feed. Only ~15 render up
 // front; the rest is the pool "Explore more" reveals. 600 was pure payload.
-const FEED_POOL = 200;
+// 120, not 200. Every field of every pooled item is serialised into the RSC
+// payload the browser downloads, and at 200 that was 178 KB of a 226 KB
+// document - 78% - to render about fifteen stories. At 120 each section still
+// has plenty behind "Explore more" (measured: daily 61, funding 21, articles
+// 15, tools 13 in the newest 110).
+const FEED_POOL = 120;
 let activeItemsMemo: { at: number; items: Item[] } | null = null;
 const ACTIVE_ITEMS_TTL_MS = 60_000;
 async function getActiveItems(): Promise<Item[]> {
@@ -123,7 +128,14 @@ export default async function FeedPage({ section }: { section: Section }) {
       b.pub - a.pub ||                                    // newest first (recency wins)
       b.s - a.s                                           // taste breaks ties within a drop
     )
-    .map((x) => x.it);
+    // Drop the fields the CLIENT never reads. `tech_level` scores the sort
+    // just above and is then dead weight; `traction` is a column the curator
+    // never writes, rendered as an empty tile footer. Both are multiplied by
+    // FEED_POOL in the payload.
+    .map(({ it }) => {
+      const { tech_level: _tech, traction: _traction, ...rest } = it;
+      return rest as Item;
+    });
 
   const now = Date.now();
   const today = new Date(now);
