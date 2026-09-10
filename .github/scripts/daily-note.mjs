@@ -47,10 +47,17 @@ const ALSO_COUNT = 3;
 // created with publish_at "next-free-slot", so three drafts land on the three
 // configured slots (11:00 / 15:00 / 19:00 IST). LinkedIn takes fewer because a
 // company page dilutes its own reach if it posts more than about twice a day.
-const PER_DAY = { substack: 3, x: 3, linkedin: 2, bluesky: 3 };
+// 30 posts/day total. X and Bluesky take the most (short-format feeds that
+// tolerate frequency, and Bluesky is the only account with traction), Substack
+// Notes and Mastodon sit in the middle, LinkedIn stays at its company-page
+// ceiling of 2, past which it dilutes its own reach.
+const PER_DAY = { substack: 6, x: 8, bluesky: 8, mastodon: 6, linkedin: 2 };
 const PICKS = Math.max(...Object.values(PER_DAY));
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
-const POOL = 10; // top daily stories Claude picks from (needs 3 distinct ones)
+// The pick pool spans sections: 8 distinct stories a day cannot come from the
+// daily section alone (it dips to 3 on thin days). Funding and articles join
+// the pool; tools stay out per editorial call.
+const POOL_DAILY = 10, POOL_FUNDING = 6, POOL_ARTICLES = 4;
 
 const warn = (m) => console.warn(`⚠ ${m}`);
 const skip = (m) => { console.log(`→ ${m}`); process.exitCode = 0; };
@@ -106,16 +113,20 @@ const lineOf = (it) => deDash(it.plain_line || it.summary || "");
 // for a real thought instead of a 290-character compression.
 function draftPrompt(items) {
   const list = items
-    .map((it, i) => `${i + 1}. slug: ${it.slug}\nHEADLINE: ${deDash(it.plain_title || it.title)}\nEDITORIAL TAKE (the real, specific point, mine on this story): ${deDash(it.wortins_take || it.plain_line || it.summary || "")}`)
+    .map((it, i) => `${i + 1}. slug: ${it.slug} [section: ${it.section}]\nHEADLINE: ${deDash(it.plain_title || it.title)}\nEDITORIAL TAKE (the real, specific point, mine on this story): ${deDash(it.wortins_take || it.plain_line || it.summary || "")}`)
     .join("\n\n");
 
   return `You ghost-write the day's social posts for the person behind Wortins, an independent AI-news brief. You are ONE real person telling people what happened in AI today and what you honestly make of it. Not a brand, not a thought-leader. You do not perform cleverness or chase engagement.
 
-Pick the ${PICKS} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed. They must be GENUINELY DIFFERENT stories, not three angles on the same news, and ideally not all the same kind of story (do not pick three model releases). If there is a funding story worth covering, make one of them that.
+Pick the ${PICKS} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read, not eight model releases. Each story is labelled with its section.
 
-Order them best first.
+Order them best first. The order decides where each runs:
+- EVERY pick gets "x_thread".
+- Picks 1 to 6 ALSO get "note".
+- Picks 1 and 2 ALSO get "linkedin".
+Later picks get fewer formats, so put the stories with the most substance first.
 
-Write EACH of them three times, native to each place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
+Write each required piece native to its place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
 
 HOW TO WRITE (all three):
 1. Say what happened, clearly, in plain full sentences. Name the company and what they did, with the key numbers or dates, so someone who knows nothing understands it from the opening. Clarity beats brevity.
@@ -136,7 +147,7 @@ THE THREE PIECES:
 
 "note" - the Substack Note. 700 to 1100 characters. **Written to be READ, not skimmed off a wall of text: SHORT PARAGRAPHS of one to three sentences, with a blank line between every paragraph.** Open on the news itself, give it room to breathe across several paragraphs, and land on the part that actually matters. This is the longest of the three and can carry the most detail.
 
-"x_thread" - an ARRAY of 2 or 3 posts for X, in order, which will publish as a thread.
+"x_thread" - an ARRAY of 1 to 3 posts for X, in order. One strong self-contained post is fine and often best; use 2 or 3 only when the story genuinely needs the room. Multiple posts publish as a thread.
 - Each post 270 characters or fewer, hard limit.
 - Post 1 must stand completely on its own: the most concrete, surprising thing, stated as a full thought. Someone who reads only post 1 should have learned the news.
 - Posts 2 and 3 add the detail and then the observation. Do not write "1/", "2/", or "a thread".
@@ -150,8 +161,8 @@ THE THREE PIECES:
 TODAY'S STORIES:
 ${list}
 
-Return ONLY a JSON object, no prose around it, with exactly ${PICKS} entries in "picks", best first:
-{"picks":[{"slug":"<slug>","note":"<Substack note, short paragraphs>","x_thread":["<post 1>","<post 2>"],"linkedin":"<LinkedIn post, short paragraphs>"}]}`;
+Return ONLY a JSON object, no prose around it, with up to ${PICKS} entries in "picks", best first. Omit "note" and "linkedin" on picks that do not need them per the rules above:
+{"picks":[{"slug":"<slug>","x_thread":["<post 1>"],"note":"<only picks 1-6>","linkedin":"<only picks 1-2>"}]}`;
 }
 
 function claudeNote(items) {
@@ -159,7 +170,7 @@ function claudeNote(items) {
     const args = ["-p", draftPrompt(items), "--output-format", "text"];
     if (DRAFT_MODEL) args.splice(2, 0, "--model", DRAFT_MODEL);
     const out = execFileSync("claude", args, {
-      encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 180000, env: process.env,
+      encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 300000, env: process.env,
     });
     const m = out.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("no JSON in claude output");
@@ -174,12 +185,14 @@ function claudeNote(items) {
     const picks = [];
     for (const it of raw) {
       const note = clean(it.note);
-      if (note.length < 150) continue; // a pick without a usable note is dropped
       let xThread = Array.isArray(it.x_thread) ? it.x_thread : [];
       xThread = xThread.map((t) => clean(t).replace(/\n+/g, " ")).filter(Boolean).filter((t) => t.length <= 275).slice(0, 3);
       let linkedin = clean(it.linkedin);
       if (linkedin.length < 300 || linkedin.length > 2200) linkedin = "";
-      picks.push({ slug: String(it.slug || ""), note, xThread, linkedin });
+      // every pick must at least carry the short format; note under 150 chars
+      // is treated as absent rather than posted half-baked
+      if (!xThread.length) continue;
+      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", xThread, linkedin });
     }
     if (!picks.length) throw new Error("no usable picks in claude output");
     return picks;
@@ -350,21 +363,23 @@ async function main() {
   );
   if (!items?.length) return skip(`No active items for ${dateISO}.`);
 
-  const daily = items
-    .filter((i) => i.section === "daily")
+  const bySection = (sec, n) => items
+    .filter((i) => i.section === sec)
     .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
-    .slice(0, POOL);
-  if (!daily.length) return skip("No daily story to build a note from.");
+    .slice(0, n);
+  const daily = bySection("daily", POOL_DAILY);
+  const pool = [...daily, ...bySection("funding", POOL_FUNDING), ...bySection("articles", POOL_ARTICLES)];
+  if (!pool.length) return skip("No stories to build a note from.");
 
   // The link is appended here, never by the model: Typefully attaches the
   // preview card to the LAST url, so it has to stand alone at the end.
   const editionUrl = `${SITE_URL}/edition/${dateISO}`;
-  let picks = claudeNote(daily);
+  let picks = claudeNote(pool);
   if (!picks?.length) {
     // Fallback: one template note, so a Claude outage still posts something.
     const body = buildNote({ items, dateISO });
     if (!body) return skip("No daily story to build a note from.");
-    picks = [{ slug: daily[0].slug, note: body, xThread: [], linkedin: "" }];
+    picks = [{ slug: pool[0].slug, note: body, xThread: [], linkedin: "" }];
   }
   console.log(`→ ${picks.length} story pick(s) drafted`);
 
@@ -385,6 +400,7 @@ async function main() {
   const xSet = details.find((d) => d?.platforms?.x);
   const linkedinSet = details.find((d) => d?.platforms?.linkedin);
   const blueskySet = details.find((d) => d?.platforms?.bluesky);
+  const mastodonSet = details.find((d) => d?.platforms?.mastodon);
 
   if (!substackSet) {
     return skip(
@@ -396,6 +412,7 @@ async function main() {
   if (xSet) console.log(`→ X: set ${xSet.id}, @${xSet.platforms.x.username || "?"}`);
   if (linkedinSet) console.log(`→ LinkedIn: set ${linkedinSet.id}, @${linkedinSet.platforms.linkedin.username || "?"}`);
   if (blueskySet) console.log(`→ Bluesky: set ${blueskySet.id}, @${blueskySet.platforms.bluesky.username || "?"}`);
+  if (mastodonSet) console.log(`→ Mastodon: set ${mastodonSet.id}, @${mastodonSet.platforms.mastodon.username || "?"}`);
   const quota = substackSet.publishing_quota;
   if (quota) console.log(`→ publishing quota: ${quota.remaining} left, resets ${quota.resets_at}`);
   if (MODE !== "draft" && quota && quota.remaining <= 0) {
@@ -419,10 +436,10 @@ async function main() {
 
   const jobs = [];
   picks.forEach((pk, i) => {
-    const story = daily.find((d) => d.slug === pk.slug) || daily[i] || daily[0];
+    const story = pool.find((d) => d.slug === pk.slug) || pool[i] || pool[0];
     const n = i + 1;
 
-    if (i < PER_DAY.substack) {
+    if (i < PER_DAY.substack && pk.note) {
       jobs.push({
         set: substackSet, label: `Substack ${n}`, platform: "substack", story,
         payload: { draft_title: `Wortins ${dateISO} · Substack ${n}`, ...timing,
@@ -441,15 +458,17 @@ async function main() {
       });
     }
 
-    // Bluesky reuses the X thread: its limit is 300 characters and those posts
-    // are capped at 275, so they fit as-is, and the audiences barely overlap.
-    // Same shape as X: card on post 1, link as the final post (the reply).
-    if (blueskySet && i < PER_DAY.bluesky && pk.xThread.length) {
-      const bsPosts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
+    // Bluesky and Mastodon reuse the X thread: their limits (300 and 500) both
+    // clear our 275 cap, and the audiences barely overlap. Same shape as X:
+    // card on post 1, link as the final post (the reply).
+    for (const [plat, set] of [["bluesky", blueskySet], ["mastodon", mastodonSet]]) {
+      if (!set || i >= PER_DAY[plat] || !pk.xThread.length) continue;
+      const posts = [...pk.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
+      const cap = plat[0].toUpperCase() + plat.slice(1);
       jobs.push({
-        set: blueskySet, label: `Bluesky ${n}`, platform: "bluesky", story,
-        payload: { draft_title: `Wortins ${dateISO} · Bluesky ${n}`, ...timing,
-          platforms: { bluesky: { enabled: true, posts: bsPosts } } },
+        set, label: `${cap} ${n}`, platform: plat, story,
+        payload: { draft_title: `Wortins ${dateISO} · ${cap} ${n}`, ...timing,
+          platforms: { [plat]: { enabled: true, posts } } },
       });
     }
 
