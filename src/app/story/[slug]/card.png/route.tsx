@@ -1,5 +1,5 @@
 import { getStoryBySlug } from "@/lib/publicData";
-import { renderShareTicket } from "@/lib/og";
+import { renderClippingCard } from "@/lib/og";
 
 // Downloadable share-ticket image for a story (portrait 1080x1350). The share
 // flow: reader saves this card and posts it NATIVELY on LinkedIn/X with their
@@ -30,19 +30,17 @@ export async function GET(
   // LinkedIn in place of a link, so it has to be readable at a glance: the
   // curator title ("...Industrial-Scale Model Distillation") is exactly the
   // press-release phrasing the plain rewrite exists to replace. `highlight` is
-  // an exact substring of the ORIGINAL title, so only keep it when it still
-  // appears in whichever title we actually render.
+  // The clipping card has no marker-highlight, so `highlight` is unused here.
   const cardTitle = item.plain_title || item.title;
   const cardQuote = item.plain_line || item.summary;
-  const highlight = item.highlight && cardTitle.includes(item.highlight) ? item.highlight : null;
 
-  const img = renderShareTicket({
+  const img = await renderClippingCard({
     title: cardTitle,
     quote: cardQuote,
-    highlight,
     source: item.source,
     dateLabel,
     serial: serialFor(slug),
+    kicker: item.section === "funding" ? "Funding" : null,
   });
   const res = new Response(img.body, img);
   res.headers.set("Content-Type", "image/png");
