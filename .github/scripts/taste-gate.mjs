@@ -132,6 +132,49 @@ function isInfraFlavoured(it) {
   return SOFT_BEAT.some((r) => r.test(hay(it)));
 }
 
+// JUNK SOURCES. Measured 2026-09-09 over 27 days of the live feed: the named
+// source list supplied ~11% of the daily section and the rest was whatever
+// WebSearch returned - which is dominated by SEO-optimised "AI news roundup"
+// pages, because those are engineered to rank for exactly the query the curator
+// runs. These are content farms and press-release wires, never a primary report.
+const JUNK_DOMAIN =
+  /(^|\.)(techstartups\.com|skycrumbs\.com|imfounder\.com|aiweekly\.co|aiagentstore\.ai|releasebot\.io|unite\.ai|eesel\.ai|enterprisedna\.co|marktechpost\.com|dataconomy\.com|technology\.org|artificialintelligence-news\.com|pymnts\.com|latestly\.com|techtimes\.com|aibusinessweekly\.net|outsourceaccelerator\.com|aibusiness\.com)$/i;
+
+// ROLLING INDEX PAGES. `aiweekly.co/ai-news-today` and
+// `aiagentstore.ai/ai-agent-news/this-week` were each run five times as if they
+// were stories. They are live index pages whose URL never changes and whose
+// content is different every day, so they can never be deduped by URL either -
+// they must simply never be treated as an article.
+const ROLLING_INDEX =
+  /\/(ai-news-today|ai-agent-news|this-week|this-month|today|latest|updates|roundup|news|blog|feed|index)\/?$/i;
+
+function junkSource(it) {
+  let u;
+  try {
+    u = new URL(String(it.url || ""));
+  } catch {
+    return "unparseable-url";
+  }
+  if (JUNK_DOMAIN.test(u.hostname.replace(/^www\./, ""))) return `farm:${u.hostname}`;
+  if (ROLLING_INDEX.test(u.pathname)) return `rolling-index:${u.pathname}`;
+  return null;
+}
+
+// Same story, same link, different wording. The bigram dedup below compares
+// TITLES, so it misses a re-run whose headline was rewritten - which is exactly
+// what happened: one DARPA URL ran 14 times over 17 days and all 14 stayed live.
+// Normalise away the things that differ without changing the destination.
+function urlKey(raw) {
+  try {
+    const u = new URL(String(raw));
+    const host = u.hostname.replace(/^www\./, "").toLowerCase();
+    const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+    return `${host}${path}`;
+  } catch {
+    return String(raw || "").trim().toLowerCase();
+  }
+}
+
 function die(m) {
   console.error("✗ " + m);
   process.exit(1);
@@ -170,15 +213,25 @@ async function main() {
   const capSince = Date.now() - WINDOW_HOURS * 3600_000;
   const items = await sb(
     `items?is_active=eq.true&section=in.(daily,articles)&published_at=gte.${since}` +
-      `&select=id,section,source,title,summary,edition_date,published_at&order=published_at.desc&limit=900`
+      `&select=id,section,source,title,summary,url,edition_date,published_at&order=published_at.desc&limit=900`
   );
   if (!items?.length) {
     console.log("taste-gate: nothing in window");
     return;
   }
 
+  // 0. Junk sources: content farms, wire reprints, and rolling index pages.
+  const junk = items.filter((it) => junkSource(it));
+  if (junk.length) {
+    await deactivate(junk.map((j) => j.id), "junk-source");
+    junk.forEach((j) =>
+      console.log(`    junk[${junkSource(j)}]: ${String(j.title).slice(0, 54)}`)
+    );
+  }
+  const junkIds = new Set(junk.map((j) => j.id));
+
   // 1. Banned beat - procurement vocabulary only (see HARD_BEAT).
-  const banned = items.filter((it) => hardBeat(it));
+  const banned = items.filter((it) => !junkIds.has(it.id) && hardBeat(it));
   if (banned.length) {
     await deactivate(
       banned.map((b) => b.id),
@@ -193,7 +246,7 @@ async function main() {
   //     can genuinely be the day's biggest story - but only
   //     MAX_INFRA_PER_EDITION of them per edition, newest first, so the beat
   //     can never take over the feed the way it used to.
-  const gatedIds = new Set(banned.map((b) => b.id));
+  const gatedIds = new Set([...junkIds, ...banned.map((b) => b.id)]);
   const perEditionInfra = new Map();
   const overInfra = [];
   for (const it of items) {
@@ -213,6 +266,28 @@ async function main() {
       console.log(`    infra: ${String(o.title).slice(0, 66)}`)
     );
     overInfra.forEach((o) => gatedIds.add(o.id));
+  }
+
+  // 1c. Exact-URL re-runs. Oldest airing wins; every later one is dropped.
+  const byUrl = new Map();
+  const urlDupes = [];
+  for (const it of [...items].sort(
+    (a, b) => Date.parse(a.published_at) - Date.parse(b.published_at)
+  )) {
+    if (gatedIds.has(it.id)) continue;
+    const k = urlKey(it.url);
+    if (!k) continue;
+    if (byUrl.has(k)) urlDupes.push({ it, first: byUrl.get(k) });
+    else byUrl.set(k, it);
+  }
+  if (urlDupes.length) {
+    await deactivate(urlDupes.map((d) => d.it.id), "same-url-rerun");
+    urlDupes.forEach((d) =>
+      console.log(
+        `    same-url: ${String(d.it.title).slice(0, 50)} == ${String(d.first.title).slice(0, 40)}`
+      )
+    );
+    urlDupes.forEach((d) => gatedIds.add(d.it.id));
   }
 
   // 2. Outlet caps (daily only; newest kept). Items already gated above are out.

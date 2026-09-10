@@ -31,7 +31,11 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The job grew: plain-English rewrite (up to 7m on a fat edition) + the
+    # send + the Substack hand-off + drafting 8 stories and creating 30 queue
+    # drafts with card uploads. 15 was tight enough that a slow day would kill
+    # the posting step at the end. The ceiling is free unless actually used.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -91,23 +95,31 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
         run: node .github/scripts/send-substack-draft.mjs
 
-      # Substack Notes, the one part of Substack CI can actually reach. Typefully
+      # The daily social note. Substack Notes are the one part of Substack CI can
+      # actually reach, and X rides along when it is connected. Typefully
       # is an official Substack integration, so it sidesteps the Cloudflare wall
       # that blocks the internal API from datacenter IPs. Defaults to creating a
       # DRAFT (NOTES_MODE=draft): nothing goes public unreviewed and it costs
       # none of the monthly publishing quota. No-ops cleanly until the
       # TYPEFULLY_API_KEY secret exists and Substack is connected in Typefully.
-      - name: Draft a Substack Note (via Typefully)
+      - name: Draft the daily note (Substack + X, via Typefully)
         continue-on-error: true
         env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TYPEFULLY_API_KEY: ${{ secrets.TYPEFULLY_API_KEY }}
+          # The note is drafted in the house voice via the claude CLI, which the
+          # Simplify step above already installed globally on this runner. If
+          # drafting is unavailable the script falls back to a headline template.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SITE_URL: https://www.wortins.com
-          NOTES_MODE: draft
+          # LIVE. 'queue' publishes each draft at the next free Typefully queue
+          # slot (11:00 / 15:00 / 19:00 IST). Set back to 'draft' to stop
+          # publishing and just stage posts for manual review.
+          NOTES_MODE: queue
           EDITION_DATE: ${{ github.event.inputs.edition_date }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
-        run: node .github/scripts/substack-note.mjs
+        run: node .github/scripts/daily-note.mjs
 
       # A missed day must be impossible to ignore. By the catch-up pass there is
       # no excuse for today's edition to be unsent, so fail and let GitHub mail

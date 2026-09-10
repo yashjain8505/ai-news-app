@@ -36,6 +36,31 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: node .github/scripts/bluesky-replies.mjs
 
+      # Drain the queue ourselves instead of depending on cron-job.org.
+      #
+      # That external poke is how replies were meant to publish, and it had been
+      # returning 401 for a week: the secret configured there drifted from the
+      # one in the Vercel runtime. Nothing published, rows aged past the drip's
+      # 12h staleness guard, and a week of drafted replies was cancelled. Over
+      # the 7 days to 2026-09-10 that was 53 replies cancelled against 5 posted.
+      #
+      # This job already holds a secret that works, so it pokes the endpoint
+      # itself. With 7 runs a day nothing waits more than about 2h, far inside
+      # the 12h window, and cron-job.org becomes redundancy rather than a single
+      # point of failure. continue-on-error because a failed flush must not
+      # bury the watchdog below, which is what reports the real problem.
+      - name: Flush due replies (drain the drip queue)
+        if: ${{ always() && github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
+        run: |
+          code=$(curl -s -o /tmp/drip.txt -w "%{http_code}" -X POST \
+            "https://www.wortins.com/api/bluesky/drip" \
+            -H "Authorization: Bearer ${{ secrets.BLUESKY_REVIEW_SECRET }}")
+          echo "drip -> HTTP $code"; cat /tmp/drip.txt || true
+          if [ "$code" = "401" ]; then
+            echo "::error::DRIP AUTH FAILED (401): the repo's BLUESKY_REVIEW_SECRET no longer matches the Vercel runtime. Replies will not publish until they match."
+          fi
+
       # Bluesky channel heartbeat. The Aug 27 - Sep 9 2026 outage ran 12.5 days
       # in total silence: the runtime's Supabase key was a placeholder, so
       # /api/bluesky/drip 500'd, cron-job.org disabled the job after repeated
@@ -68,7 +93,19 @@ jobs:
           if [ -z "$last" ]; then quiet_h=999; else
             quiet_h=$(( ( $(date -u +%s) - $(date -u -d "$last" +%s) ) / 3600 ))
           fi
-          echo "overdue pending rows: ${overdue:-0} | last successful post: ${last:-never} (${quiet_h}h ago)"
+          # A cancelled row is drafted work thrown away, which is the very thing
+          # we want to hear about. It also silences the check above: cancelling
+          # clears `pending`, so "work is waiting" goes false at the moment the
+          # loss happens. That blind spot is why a week of cancellations passed
+          # unnoticed. Any cancellation in the last 24h is a fault on its own.
+          cancel_cutoff=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          cancelled=$(curl -s "$SUPABASE_URL/rest/v1/bluesky_scheduled?select=id&status=eq.canceled&scheduled_for=gte.$cancel_cutoff&limit=100" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq 'length')
+          echo "overdue pending rows: ${overdue:-0} | cancelled in 24h: ${cancelled:-0} | last successful post: ${last:-never} (${quiet_h}h ago)"
+          if [ "${cancelled:-0}" -gt 0 ]; then
+            echo "::error::BLUESKY WORK DISCARDED: ${cancelled} row(s) cancelled in the last 24h. Drafted replies aged past the drip's 12h window and were thrown away. Check the drip is publishing (a 401 means BLUESKY_REVIEW_SECRET drifted between GitHub, Vercel and cron-job.org)."
+            exit 1
+          fi
           if [ "${overdue:-0}" -gt 0 ] && [ "$quiet_h" -ge 3 ]; then
             echo "::error::BLUESKY DRIP STUCK: ${overdue} row(s) overdue >2h and nothing has posted for ${quiet_h}h. Check (1) the cron-job.org job for https://www.wortins.com/api/bluesky/drip is ENABLED, (2) POST it with the BLUESKY_REVIEW_SECRET bearer token - 401 means that secret drifted, 502 means Bluesky rejected BLUESKY_IDENTIFIER/BLUESKY_APP_PASSWORD."
             exit 1

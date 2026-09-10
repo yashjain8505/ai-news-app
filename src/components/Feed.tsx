@@ -109,7 +109,22 @@ function CardPhoto({
           </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={optImg(it.image_url, imgWidth)} alt={it.title} onError={() => setFailed(true)} />
+          // Only the lead image is a real LCP candidate. Without an explicit
+          // loading/fetchPriority, React server-renders a
+          // `<link rel="preload" as="image">` for EVERY one of these, so the
+          // homepage shipped 10 preloads: one 1200px lead and nine 400px
+          // thumbnails, all racing each other and the JS for bandwidth against
+          // a free public image proxy that served the lead in up to 2.29s.
+          // Lazy images are not preloaded, so this leaves exactly one.
+          <img
+            src={optImg(it.image_url, imgWidth)}
+            alt={it.title}
+            loading={rank === 0 ? "eager" : "lazy"}
+            fetchPriority={rank === 0 ? "high" : "low"}
+            decoding="async"
+            onError={() => setFailed(true)}
+          />
+
         )}
         <div className="news-photo__screen" />
       </div>

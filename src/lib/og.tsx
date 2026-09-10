@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 import { SITE } from "@/lib/seo";
 
@@ -284,5 +286,193 @@ export function renderShareTicket({ title, quote, highlight, source, dateLabel, 
       </div>
     ),
     TICKET_SIZE
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The share card: a newspaper clipping pinned on the brand rust.
+//
+// Satori only does flexbox and a CSS subset, so two things from the design
+// mockup are built differently here: the deckled top edge is a row of small
+// squares rather than a CSS mask (masks are unsupported), and every text node
+// names its fontFamily explicitly rather than relying on inheritance.
+//
+// Inset-clipping-on-colour is also what fixes the old card's dead space: the
+// frame is filled by the coloured field no matter how short the headline is.
+const CLIP = {
+  field: "#b8391f", // rust field behind the clipping
+  paper: "#faf7f0", // the cutting
+  ink: "#17130f",
+  muted: "#9b8f7c",
+  rule: "#d8cfbd",
+  deck: "#5a5044",
+};
+
+// clamp() cuts at an exact character count, which lands mid-word on the long
+// curator titles that have no plain-English rewrite yet ("...with its cam…").
+// Cut back to the last word boundary instead.
+function clampWords(s: string, max: number): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return (at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[,;:.\s]+$/, "") + "…";
+}
+
+let serifCache: { regular: ArrayBuffer; italic: ArrayBuffer } | null = null;
+async function loadSerif() {
+  if (serifCache) return serifCache;
+  const dir = path.join(process.cwd(), "public", "fonts");
+  const toAB = (b: Buffer) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+  const [r, i] = await Promise.all([
+    readFile(path.join(dir, "InstrumentSerif-Regular.ttf")),
+    readFile(path.join(dir, "InstrumentSerif-Italic.ttf")),
+  ]);
+  serifCache = { regular: toAB(r), italic: toAB(i) };
+  return serifCache;
+}
+
+// Instrument Serif is narrow, so it fits more per line than a normal serif.
+// Sized against the clipping's ~796px of usable width.
+function clipHeadlineSize(title: string): number {
+  const n = title.trim().length;
+  if (n <= 34) return 112;
+  if (n <= 46) return 100;
+  if (n <= 60) return 88;
+  if (n <= 78) return 76;
+  if (n <= 100) return 66;
+  return 58;
+}
+
+export type ClippingFields = {
+  title: string;
+  quote?: string | null;
+  source?: string | null;
+  dateLabel?: string;
+  serial?: string;
+  kicker?: string | null;
+};
+
+export async function renderClippingCard({
+  title,
+  quote,
+  source,
+  dateLabel,
+  serial,
+  kicker,
+}: ClippingFields): Promise<ImageResponse> {
+  const fonts = await loadSerif();
+  const h = clampWords(title, 118);
+  const q = quote ? clampWords(quote, 190) : "";
+  const fs = clipHeadlineSize(h);
+  const serifBase = { fontFamily: "Instrument Serif" as const };
+  const metaBase = { ...serifBase, letterSpacing: 3, color: CLIP.muted, fontSize: 17 };
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: CLIP.field,
+          backgroundImage: `radial-gradient(120% 90% at 20% 10%, rgba(255,255,255,0.13), rgba(255,255,255,0) 55%)`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            width: 920,
+            backgroundColor: CLIP.paper,
+            padding: "62px 62px 52px",
+            transform: "rotate(-1.4deg)",
+            boxShadow: "0 34px 80px rgba(0,0,0,0.34)",
+            position: "relative",
+          }}
+        >
+          {/* deckled top edge: squares, because Satori has no mask support */}
+          <div style={{ position: "absolute", top: -7, left: 0, display: "flex" }}>
+            {Array.from({ length: 33 }).map((_, i) => (
+              <div
+                key={i}
+                style={{ width: 14, height: 14, marginRight: 14, backgroundColor: CLIP.paper }}
+              />
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              borderBottom: `1px solid ${CLIP.ink}`,
+              paddingBottom: 16,
+            }}
+          >
+            <div style={{ ...serifBase, fontSize: 29, letterSpacing: 7, color: CLIP.ink }}>WORTINS</div>
+            <div style={{ ...metaBase, fontSize: 15 }}>THE DAILY AI BRIEFING</div>
+          </div>
+
+          <div style={{ ...serifBase, fontSize: 16, letterSpacing: 4, color: CLIP.field, marginTop: 42 }}>
+            {[kicker || "AI BRIEFING", serial].filter(Boolean).join("  ·  ").toUpperCase()}
+          </div>
+
+          <div
+            style={{
+              ...serifBase,
+              fontSize: fs,
+              lineHeight: 0.98,
+              letterSpacing: -1,
+              color: CLIP.ink,
+              marginTop: 22,
+            }}
+          >
+            {h}
+          </div>
+
+          {q ? (
+            <div
+              style={{
+                ...serifBase,
+                fontStyle: "italic",
+                fontSize: 30,
+                lineHeight: 1.44,
+                color: CLIP.deck,
+                marginTop: 34,
+              }}
+            >
+              {q}
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              borderTop: `1px solid ${CLIP.rule}`,
+              marginTop: 48,
+              paddingTop: 22,
+            }}
+          >
+            <div style={metaBase}>
+              {[source ? `SOURCE · ${source.toUpperCase()}` : null, dateLabel].filter(Boolean).join("  ·  ")}
+            </div>
+            <div style={{ ...serifBase, fontSize: 26, letterSpacing: 1, color: CLIP.field }}>wortins.com</div>
+          </div>
+        </div>
+      </div>
+    ),
+    {
+      width: 1080,
+      height: 1350,
+      fonts: [
+        { name: "Instrument Serif", data: fonts.regular, weight: 400, style: "normal" },
+        { name: "Instrument Serif", data: fonts.italic, weight: 400, style: "italic" },
+      ],
+    }
   );
 }

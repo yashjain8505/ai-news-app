@@ -1,5 +1,5 @@
 import { getStoryBySlug } from "@/lib/publicData";
-import { renderShareTicket } from "@/lib/og";
+import { renderClippingCard } from "@/lib/og";
 
 // Downloadable share-ticket image for a story (portrait 1080x1350). The share
 // flow: reader saves this card and posts it NATIVELY on LinkedIn/X with their
@@ -26,13 +26,21 @@ export async function GET(
   const d = new Date(item.published_at ?? item.created_at);
   const dateLabel = `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 
-  const img = renderShareTicket({
-    title: item.title,
-    quote: item.summary,
-    highlight: item.highlight,
+  // Prefer the plain-English rewrite. This card is what goes out on X and
+  // LinkedIn in place of a link, so it has to be readable at a glance: the
+  // curator title ("...Industrial-Scale Model Distillation") is exactly the
+  // press-release phrasing the plain rewrite exists to replace. `highlight` is
+  // The clipping card has no marker-highlight, so `highlight` is unused here.
+  const cardTitle = item.plain_title || item.title;
+  const cardQuote = item.plain_line || item.summary;
+
+  const img = await renderClippingCard({
+    title: cardTitle,
+    quote: cardQuote,
     source: item.source,
     dateLabel,
     serial: serialFor(slug),
+    kicker: item.section === "funding" ? "Funding" : null,
   });
   const res = new Response(img.body, img);
   res.headers.set("Content-Type", "image/png");

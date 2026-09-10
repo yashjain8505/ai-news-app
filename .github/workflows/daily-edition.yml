@@ -128,6 +128,21 @@ jobs:
           echo "since=$since" >> "$GITHUB_OUTPUT"
           echo "gather window: $since -> now (last daily item was ${last:-none})"
 
+      # Discovery moved OUT of the model. See fetch-feeds.mjs for the measurement,
+      # but the short version: WebFetch is hard-blocked from theverge.com,
+      # arstechnica.com, wired.com and theguardian.com, and Bloomberg/Reuters/NYT
+      # 403 bots - so the model could not reach most of its own source list and
+      # fell back to WebSearch, which returns SEO "AI roundup" farms. Plain curl
+      # reaches all of them. Ingesting here means the model CHOOSES from a pool
+      # instead of having to find one, which removes the farm class outright.
+      # Never fails the run: on a feed outage the gather pass can still search.
+      - name: Fetch candidate feeds
+        if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
+        continue-on-error: true
+        env:
+          GATHER_SINCE: ${{ steps.window.outputs.since }}
+        run: node .github/scripts/fetch-feeds.mjs
+
       - name: Install Claude Code
         if: ${{ github.event.inputs.selftest != 'true' && steps.check.outputs.recent != 'true' }}
         run: npm install -g @anthropic-ai/claude-code
