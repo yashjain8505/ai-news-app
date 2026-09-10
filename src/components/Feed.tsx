@@ -433,27 +433,6 @@ export default function Feed({
             <NewsletterSignup compact />
           </div>
         </div>
-        {/* Cold-visitor value hook: the differentiator + primary CTA, shown only
-            to non-personalized visitors (returning readers never see it). */}
-        {!personalized && (
-          <section style={{ marginTop: 14, border: "1px solid var(--ruleStrong)", background: "var(--ph1)", padding: "12px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px 24px" }}>
-            {/* One row. The old version was a kicker, a 30px headline and a
-                three-line paragraph - a ~170px pitch shown to someone who came
-                to read the news that sits directly under it. The pitch is one
-                line now; /welcome makes the full case to anyone who clicks. */}
-            <div style={{ flex: "1 1 360px", minWidth: 0, display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <h2 className="display" style={{ fontSize: "clamp(17px,2vw,21px)", lineHeight: 1.1, color: "var(--ink)", margin: 0 }}>
-                AI news, tuned to you.
-              </h2>
-              <span className="serif" style={{ fontSize: 14, color: "var(--muted)" }}>
-                Answer a few questions and the briefing rebuilds around your taste — free.
-              </span>
-            </div>
-            <a href="/welcome" className="mono bs-tap" style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "10px 18px", background: "var(--accent)", color: "var(--onAccent)", textDecoration: "none", whiteSpace: "nowrap" }}>
-              Personalize &rarr;
-            </a>
-          </section>
-        )}
         <div style={{ borderTop: "3px solid var(--ruleStrong)", marginTop: 12 }} />
       </header>
 
