@@ -103,12 +103,14 @@ function draftPrompt(items) {
     .map((it, i) => `${i + 1}. slug: ${it.slug}\nHEADLINE: ${deDash(it.plain_title || it.title)}\nEDITORIAL TAKE (the real, specific point, mine on this story): ${deDash(it.wortins_take || it.plain_line || it.summary || "")}`)
     .join("\n\n");
 
-  return `You ghost-write a single Substack Note for the person behind Wortins, an independent AI-news brief. You are ONE real person telling people what happened in AI today and what you honestly make of it. Not a brand, not a thought-leader. You do not perform cleverness or chase engagement.
+  return `You ghost-write the day's social posts for the person behind Wortins, an independent AI-news brief. You are ONE real person telling people what happened in AI today and what you honestly make of it. Not a brand, not a thought-leader. You do not perform cleverness or chase engagement.
 
-Pick the ONE story below that is most worth a note: the most surprising or consequential, not simply the first.
+Pick the ONE story below that is most worth writing about: the most surprising or consequential, not simply the first.
 
-STRUCTURE:
-1. Say what happened, clearly, in plain full sentences. Name the company and what they did, with the key numbers or dates, so someone who knows nothing understands it from your opening sentences. Clarity beats brevity.
+Write it THREE times, native to each place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
+
+HOW TO WRITE (all three):
+1. Say what happened, clearly, in plain full sentences. Name the company and what they did, with the key numbers or dates, so someone who knows nothing understands it from the opening. Clarity beats brevity.
 2. Point at the genuinely notable part in plain words. Then, IF you close at all, close with ONE of: a real specific observation (who this actually helps or hurts, a concrete knock-on effect), OR a simple honest reaction. Ending on the clear facts with no closer is also fine.
 
 VOICE MODEL (news stated plainly, then a simple honest reaction):
@@ -120,28 +122,28 @@ NEVER write the fake-deep tacked-on closer. These are real rejected drafts; avoi
 - "...kind of the real story this week..."
 They sound profound and say nothing. Test: if your last line could be pasted onto almost any story, cut it.
 
-RULES:
-- No em dashes. No hashtags, no emoji, no engagement bait, no "thread below".
-- Plain, clear, simple language. Full sentences. Contractions fine.
-- 400 to 700 characters, two or three short paragraphs. This is Substack Notes, not Twitter, so there is room for a real thought, but do not pad to fill it.
-- Do NOT include any URL or link. One is appended afterwards.
-- Any reaction must be specific and true to THIS story, never a generic significance claim.
+ALWAYS: no em dashes, no hashtags, no emoji, no engagement bait, no "thread below", no questions asked to farm replies, no sign-offs, no "The takeaway is". Plain clear language, full sentences, contractions fine. Any reaction must be specific and true to THIS story.
 
-Then write the same story for two more places. Same voice, same facts, same rules every time. These are three native posts, not one post reformatted, and NONE of them may contain a URL.
+THE THREE PIECES:
 
-"tweet" - for X. 240 characters or fewer, hard limit. One or two sentences. It must land on its own with no link and no image caption energy. Say the most surprising concrete thing first. Do not tease ("a thread below", "more here"), do not ask a question to farm replies.
+"note" - the Substack Note. 700 to 1100 characters. **Written to be READ, not skimmed off a wall of text: SHORT PARAGRAPHS of one to three sentences, with a blank line between every paragraph.** Open on the news itself, give it room to breathe across several paragraphs, and land on the part that actually matters. This is the longest of the three and can carry the most detail.
 
-"linkedin" - for LinkedIn. 500 to 900 characters. Formatting matters here and it is not the same as prose:
+"x_thread" - an ARRAY of 2 or 3 posts for X, in order, which will publish as a thread.
+- Each post 270 characters or fewer, hard limit.
+- Post 1 must stand completely on its own: the most concrete, surprising thing, stated as a full thought. Someone who reads only post 1 should have learned the news.
+- Posts 2 and 3 add the detail and then the observation. Do not write "1/", "2/", or "a thread".
+- Do not tease the later posts from post 1.
+
+"linkedin" - for LinkedIn. 900 to 1500 characters. Longer and more considered than the others.
 - The FIRST line is the only thing most people see before "see more". Make it a complete, specific, interesting sentence. Never a label, never a question, never "Here's what happened".
-- Then a blank line, then the detail in SHORT paragraphs of one or two sentences each, blank line between them. No paragraph longer than two sentences.
-- Write it the way a person types a post, not the way a brand writes a caption. No bullet lists, no emoji, no hashtags, no "Thoughts?", no "The takeaway is". Do not open with the company name as a headline fragment.
-- End when you are done. No sign-off, no call to action.
+- Then a blank line, then the argument in SHORT paragraphs of one to two sentences each, blank line between them. No paragraph longer than two sentences.
+- Write the way a person types a post, not the way a brand writes a caption. No bullet lists. Do not open with the company name as a headline fragment.
 
 TODAY'S STORIES:
 ${list}
 
 Return ONLY a JSON object, no prose around it:
-{"slug":"<the slug you chose>","note":"<the Substack note>","tweet":"<the X post, 240 chars max, no url>","linkedin":"<the LinkedIn post, 500-900 chars, short paragraphs, no url>"}`;
+{"slug":"<the slug you chose>","note":"<Substack note, short paragraphs>","x_thread":["<post 1>","<post 2>"],"linkedin":"<LinkedIn post, short paragraphs>"}`;
 }
 
 function claudeNote(items) {
@@ -154,21 +156,24 @@ function claudeNote(items) {
     const m = out.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("no JSON in claude output");
     const parsed = JSON.parse(m[0]);
-    const note = deDash(String(parsed.note || "")).trim();
-    if (note.length < 80) throw new Error(`note too short (${note.length} chars)`);
-    // The tweet is optional: a missing or overlong one just means no X draft,
-    // never a failed note.
-    // Both extras are optional: a missing or malformed one costs that channel's
-    // draft, never the note. Strip any url the model slipped in anyway, since
-    // X and LinkedIn are deliberately link-free.
+    // deDash collapses ALL whitespace, which silently flattened every
+    // paragraph into one block. That is why the Substack note read as a wall.
+    // Everything long is cleaned with breaks preserved.
     const stripUrls = (t) => t.replace(/https?:\/\/\S+/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-    let tweet = stripUrls(deDash(String(parsed.tweet || "")).trim());
-    if (tweet.length > 260) tweet = "";
-    // deDash collapses newlines, which would destroy LinkedIn's paragraphing,
-    // so clean this one without it.
-    let linkedin = stripUrls(String(parsed.linkedin || "").replace(/\s*[–—]\s*/g, ", ").trim());
-    if (linkedin.length < 150 || linkedin.length > 1600) linkedin = "";
-    return { slug: String(parsed.slug || ""), note, tweet, linkedin };
+    const clean = (t) => stripUrls(String(t || "").replace(/\s*[–—]\s*/g, ", ").replace(/[ \t]+/g, " ").trim());
+
+    const note = clean(parsed.note);
+    if (note.length < 150) throw new Error(`note too short (${note.length} chars)`);
+
+    // X publishes as a thread; the link becomes the reply, added later.
+    let xThread = Array.isArray(parsed.x_thread) ? parsed.x_thread : [];
+    xThread = xThread.map((t) => clean(t).replace(/\n+/g, " ")).filter(Boolean).filter((t) => t.length <= 275).slice(0, 3);
+    if (xThread.length < 1) xThread = [];
+
+    let linkedin = clean(parsed.linkedin);
+    if (linkedin.length < 300 || linkedin.length > 2200) linkedin = "";
+
+    return { slug: String(parsed.slug || ""), note, xThread, linkedin };
   } catch (e) {
     // stderr carries the real reason. e.message is "Command failed: claude -p
     // <the entire prompt>", so never log it raw: it buries CI output in the
@@ -377,19 +382,30 @@ async function main() {
   ];
   // X only when a tweet was drafted: the 400-700 char note would not fit, and a
   // truncated one reads worse than no post at all.
-  if (xSet && drafted?.tweet) {
+  if (xSet && drafted?.xThread?.length) {
+    // X allows a thread (posts maxItems 50), so the link goes in a FINAL post,
+    // i.e. the first reply, keeping the main post link-free. Verified against
+    // the live API: a 2-post X draft is accepted (201).
+    const xPosts = [...drafted.xThread.map((t) => ({ text: t })), { text: `Today's full AI briefing: ${editionUrl}` }];
     jobs.push({ set: xSet, label: "X post",
       payload: { draft_title: `Wortins Daily ${dateISO} (X)`, ...timing,
-                 platforms: { x: { enabled: true, posts: [{ text: drafted.tweet }] } } } });
-    console.log(`\n--- X ---\n${drafted.tweet}\n---------\n`);
+                 platforms: { x: { enabled: true, posts: xPosts } } } });
+    console.log(`\n--- X (${drafted.xThread.length} posts + link reply) ---`);
+    drafted.xThread.forEach((t, i) => console.log(`  [${i + 1}] ${t}`));
+    console.log(`  [reply] Today's full AI briefing: ${editionUrl}\n`);
   } else if (xSet) {
-    console.log("→ X connected but no short version was drafted; skipping the X draft.");
+    console.log("→ X connected but no thread was drafted; skipping the X draft.");
   }
   // LinkedIn gets its OWN draft, not the note reused. Its first line is all
   // most people see before "see more", and it needs real paragraph breaks, so
   // reusing prose written for Substack read like a repost. Link-free by
   // design: the card image carries the brand instead.
   if (linkedinSet && drafted?.linkedin) {
+    // No link and no link-comment here. LinkedIn is capped at ONE post per
+    // draft (verified: a 2-post LinkedIn draft is rejected 400
+    // "LinkedIn only supports single posts"), so Typefully cannot post a first
+    // comment. The card image carries the brand; the link is added by hand.
+    //
     // Tagging is LinkedIn-only. On X a handle cannot be verified through any
     // API we have, and X's automation rules prohibit bulk automated mentions,
     // so a wrong guess would tag a real stranger under our brand, daily.
