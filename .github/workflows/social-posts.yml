@@ -1,0 +1,55 @@
+name: Social posts (fresh waves)
+
+# Drafts the day's social posts in three WAVES instead of one morning batch, so
+# a 7pm post carries afternoon news. Each wave drafts only the slots owed until
+# the next wave (self-healing: a skipped wave's share flows to the next), picks
+# from whatever the curator has produced by then, and dedups against stories
+# already used today via the social_posts_ledger table.
+#
+# The curator itself is fired by cron-job.org ~3x/day; these waves run shortly
+# after those drops. Publishing times are Typefully queue slots, not ours.
+on:
+  schedule:
+    # 03:30 / 07:30 / 11:30 UTC = 09:00 / 13:00 / 17:00 IST (GitHub delays of
+    # up to ~90min are absorbed by the wave-sizing window in daily-note.mjs).
+    - cron: "30 3,7,11 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Draft + print, create nothing"
+        type: boolean
+        default: false
+
+jobs:
+  wave:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Fresh items need their plain-English rewrite before they can be posted
+      # well. Idempotent; a fat edition finishes across the day's waves.
+      - name: Simplify the latest items into plain English
+        continue-on-error: true
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          npm install -g @anthropic-ai/claude-code || echo "claude CLI unavailable; titles stay as they are"
+          node .github/scripts/simplify-edition.mjs
+
+      - name: Draft and queue this wave
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TYPEFULLY_API_KEY: ${{ secrets.TYPEFULLY_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SITE_URL: https://www.wortins.com
+          NOTES_MODE: queue
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: node .github/scripts/daily-note.mjs
