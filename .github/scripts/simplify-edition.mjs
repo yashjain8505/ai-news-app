@@ -39,8 +39,8 @@ const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 const FORCE = process.env.FORCE === "1" || process.env.FORCE === "true";
 const EDITION_DATE = (process.env.EDITION_DATE || "").trim();
 
-const MAX_ITEMS = 60;        // one call; editions run ~16 items
-const CLAUDE_TIMEOUT_MS = 180000;
+const MAX_ITEMS = 24;        // per run; a fat edition (50+) finishes across the day's runs instead of one giant call that times out
+const CLAUDE_TIMEOUT_MS = 420_000; // 7m: rewriting a 30-40 item edition in one call regularly blew the old 3m (exit 143 on 2026-09-10)
 const TITLE_TARGET = 60;     // the rule we ask for
 const TITLE_HARD_MAX = 90;   // beyond this it is not a headline, drop it
 const LINE_TARGET = 160;
