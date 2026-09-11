@@ -50,10 +50,14 @@ select l.fired_at, l.workflow, r.status_code,
   left join net._http_response r on r.id = l.request_id
  order by l.fired_at desc;
 
--- Schedules are UTC (IST = UTC + 5:30).
-select cron.schedule('gh-daily-edition-morning', '30 1 * * *',  $$select public.gh_dispatch('daily-edition.yml')$$);                                   -- 07:00 IST
-select cron.schedule('gh-daily-edition-midday',  '30 7 * * *',  $$select public.gh_dispatch('daily-edition.yml', '{"skip_articles":"true"}'::jsonb)$$); -- 13:00 IST
-select cron.schedule('gh-daily-edition-evening', '30 12 * * *', $$select public.gh_dispatch('daily-edition.yml')$$);                                   -- 18:00 IST
-select cron.schedule('gh-daily-newsletter',      '5 2,8 * * *', $$select public.gh_dispatch('daily-newsletter.yml')$$);                                -- 07:35 / 13:35 IST
-select cron.schedule('gh-social-posts',          '35 3,7,11 * * *', $$select public.gh_dispatch('social-posts.yml')$$);                                -- 09:05 / 13:05 / 17:05 IST
+-- Schedules are UTC (IST = UTC + 5:30). Ordering rule: a curator run lands
+-- ~35 min before whatever consumes it (a run takes 12-16 min), so waves and
+-- the newsletter always draft from a fresh edition, never the previous one.
+select cron.schedule('gh-daily-edition-morning', '30 1 * * *',  $$select public.gh_dispatch('daily-edition.yml')$$);                                   -- 07:00 IST → newsletter 07:35, wave 1 09:05
+select cron.schedule('gh-daily-edition-midday',  '0 7 * * *',   $$select public.gh_dispatch('daily-edition.yml', '{"skip_articles":"true"}'::jsonb)$$); -- 12:30 IST → wave 2 13:05
+select cron.schedule('gh-daily-edition-evening', '0 11 * * *',  $$select public.gh_dispatch('daily-edition.yml')$$);                                   -- 16:30 IST → wave 3 17:05
+select cron.schedule('gh-daily-edition-night',   '30 14 * * *', $$select public.gh_dispatch('daily-edition.yml', '{"skip_articles":"true"}'::jsonb)$$); -- 20:00 IST → insta 22:00 slot, night readers
+select cron.schedule('gh-daily-newsletter',      '5 2,8 * * *', $$select public.gh_dispatch('daily-newsletter.yml')$$);                                -- 07:35 / 13:35 IST (13:35 = retry, idempotent)
+select cron.schedule('gh-social-posts',          '35 3,7,11 * * *', $$select public.gh_dispatch('social-posts.yml')$$);                                -- 09:05 / 13:05 / 17:05 IST (must match WAVE_HOURS_UTC in daily-note.mjs)
 select cron.schedule('gh-bluesky-replies',       '5 3,5,7,9,11,13,15 * * *', $$select public.gh_dispatch('bluesky-replies.yml')$$);                    -- 08:35-20:35 IST every 2h
+-- The insta-news project shares this scheduler (gh-insta-* jobs, poke-bluesky-drip); those are owned there.
