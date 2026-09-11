@@ -20,6 +20,14 @@ on:
         type: boolean
         default: false
 
+# Exactly one wave at a time. A delayed GitHub cron firing next to a manual
+# dispatch made two waves race the ledger (both read "5 used" before either
+# wrote) and draft the same stories twice on 2026-09-11. The second run now
+# waits its turn and sees the first one's ledger rows.
+concurrency:
+  group: social-posts-wave
+  cancel-in-progress: false
+
 jobs:
   wave:
     runs-on: ubuntu-latest
