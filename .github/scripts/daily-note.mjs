@@ -267,12 +267,17 @@ async function uploadMedia(setId, bytes, fileName, altText) {
 
 const safeName = (slug) => String(slug).replace(/[^a-zA-Z0-9_.()-]/g, "-").slice(0, 60);
 
+async function fetchCardBytes(slug) {
+  const img = await fetch(`${SITE_URL}/story/${encodeURIComponent(slug)}/card.png`);
+  if (!img.ok) throw new Error(`card fetch -> ${img.status}`);
+  const bytes = Buffer.from(await img.arrayBuffer());
+  if (!bytes.length) throw new Error("card was empty");
+  return bytes;
+}
+
 async function attachCard(setId, slug, altText) {
   try {
-    const img = await fetch(`${SITE_URL}/story/${encodeURIComponent(slug)}/card.png`);
-    if (!img.ok) throw new Error(`card fetch -> ${img.status}`);
-    const bytes = Buffer.from(await img.arrayBuffer());
-    if (!bytes.length) throw new Error("card was empty");
+    const bytes = await fetchCardBytes(slug);
     const id = await uploadMedia(setId, bytes, `wortins-${safeName(slug)}.png`, altText);
     console.log(`  ✓ card uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB)`);
     return id;
@@ -317,6 +322,38 @@ async function attachRealImage(setId, story, altText) {
     return id;
   } catch (e) {
     warn(`article photo skipped for ${story.slug.slice(0, 40)}: ${e.message}`);
+    return null;
+  }
+}
+
+// LinkedIn gets a carousel: a PDF of today's story cards, this post's own
+// story on the cover. LinkedIn renders an attached PDF as a swipeable
+// document, which earns far more feed reach than a single image. Needs
+// pdf-lib (the workflow installs it); if anything fails the post falls back
+// to a single image like every other platform.
+const CAROUSEL_PAGES = 6;
+
+async function attachCarousel(setId, story, pool, altText) {
+  try {
+    const { PDFDocument } = await import("pdf-lib");
+    const slugs = [story.slug, ...pool.map((s) => s.slug).filter((s) => s !== story.slug)].slice(0, CAROUSEL_PAGES);
+    const pdf = await PDFDocument.create();
+    for (const slug of slugs) {
+      try {
+        const png = await pdf.embedPng(await fetchCardBytes(slug));
+        const page = pdf.addPage([1080, 1350]);
+        page.drawImage(png, { x: 0, y: 0, width: 1080, height: 1350 });
+      } catch (e) {
+        warn(`carousel page skipped (${slug.slice(0, 40)}): ${e.message}`);
+      }
+    }
+    if (pdf.getPageCount() < 2) throw new Error(`only ${pdf.getPageCount()} usable page(s)`);
+    const bytes = Buffer.from(await pdf.save());
+    const id = await uploadMedia(setId, bytes, `wortins-briefing-${safeName(story.slug)}.pdf`, altText);
+    console.log(`  ✓ carousel uploaded to set ${setId} (${pdf.getPageCount()} pages, ${Math.round(bytes.length / 1024)} KB)`);
+    return id;
+  } catch (e) {
+    warn(`carousel skipped for ${story.slug.slice(0, 40)}: ${e.message}`);
     return null;
   }
 }
@@ -467,13 +504,15 @@ async function main() {
 
   for (const j of jobs) console.log(`  → ${j.label}: ${headlineOf(j.story)}`);
 
-  // Every post carries an image and none carry a link. Which image alternates
-  // per story: the hero and every second pick keep the branded clipping card,
-  // the others use the article's own photo (items.image_url, the publisher's
-  // og:image), falling back to the card when the photo is missing or junk.
-  // Roughly half and half across a 30-post day, and a story uses the same
-  // image on every platform it appears on. Media is scoped to one social set,
-  // so each chosen image uploads once per set.
+  // Every post carries an image and none carry a link. LinkedIn gets a
+  // carousel (a PDF of today's cards, this story on the cover). Everywhere
+  // else the image alternates per story: the hero and every second pick keep
+  // the branded clipping card, the others use the article's own photo
+  // (items.image_url, the publisher's og:image), falling back to the card
+  // when the photo is missing or junk. Roughly half and half across a
+  // 30-post day, and a story uses the same image on every platform it
+  // appears on. Media is scoped to one social set, so each chosen image
+  // uploads once per set.
   const pickIndex = new Map(picks.map((pk, i) => [pk.slug, i]));
   if (!DRY_RUN) {
     const cache = new Map(); // set:slug -> media_id | null
@@ -482,8 +521,11 @@ async function main() {
       let mediaId = cache.get(key);
       if (mediaId === undefined) {
         const alt = `${headlineOf(j.story)}. ${lineOf(j.story)}`;
-        const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
-        mediaId = wantsPhoto ? await attachRealImage(j.set.id, j.story, alt) : null;
+        mediaId = j.platform === "linkedin" ? await attachCarousel(j.set.id, j.story, pool, alt) : null;
+        if (!mediaId) {
+          const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
+          mediaId = wantsPhoto ? await attachRealImage(j.set.id, j.story, alt) : null;
+        }
         if (!mediaId) mediaId = await attachCard(j.set.id, j.story.slug, alt);
         cache.set(key, mediaId);
       }

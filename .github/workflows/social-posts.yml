@@ -52,7 +52,11 @@ jobs:
           SITE_URL: https://www.wortins.com
           NOTES_MODE: queue
           DRY_RUN: ${{ github.event.inputs.dry_run }}
-        run: node .github/scripts/daily-note.mjs
+        # pdf-lib builds the LinkedIn carousel (a PDF of today's cards). If the
+        # install fails the wave still runs; LinkedIn just gets a single image.
+        run: |
+          npm install --no-save pdf-lib || echo "pdf-lib unavailable; LinkedIn falls back to a single image"
+          node .github/scripts/daily-note.mjs
 
       # Warm the edge cache for today's cards while nobody is waiting. /today
       # shows a card per story and each render costs ~3s, so an unwarmed page
