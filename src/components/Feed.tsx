@@ -420,8 +420,8 @@ export default function Feed({
                 of the page is not even relevant". */}
             <div className="mono" style={{ fontSize: 10.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--dim)", marginTop: 8 }}>
               The daily AI briefing
-              {"  "}<span style={{ color: "var(--sep)" }}>&middot;</span>{"  "}
-              <span style={{ color: "var(--ink)", fontWeight: 700 }}>{day?.full}</span>
+              {"  "}<span className="bs-datesep" style={{ color: "var(--sep)" }}>&middot;</span>{"  "}
+              <span className="bs-date" style={{ color: "var(--ink)", fontWeight: 700 }}>{day?.full}</span>
             </div>
           </div>
           {/* Top-right corner: the subscribe form, squeezed. Yash's sketch —
@@ -438,7 +438,7 @@ export default function Feed({
 
       {/* section tabs (no counts) */}
       <div className="bs-controls">
-        <nav style={{ display: "flex", gap: 26 }}>
+        <nav className="bs-tabs">
           {SECTION_TABS.map((s) => {
             const a = s.key === active;
             return (
@@ -446,7 +446,7 @@ export default function Feed({
                 key={s.key}
                 href={SECTION_HREF[s.key]}
                 className={`bs-tab${a ? " bs-tab--on" : ""}`}
-                style={{ fontFamily: "inherit", fontSize: 13, letterSpacing: "0.13em", textTransform: "uppercase", padding: "0 0 12px", borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1, textDecoration: "none", color: a ? "var(--ink)" : "var(--dim)", cursor: "pointer" }}
+                style={{ borderBottom: a ? "2px solid var(--accent)" : "2px solid transparent", color: a ? "var(--ink)" : "var(--dim)" }}
               >
                 {s.label}
               </Link>
@@ -454,7 +454,7 @@ export default function Feed({
           })}
         </nav>
         {updatedAgo && (
-          <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6, paddingBottom: 12, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--faint)", whiteSpace: "nowrap" }}>
+          <span className="mono bs-updated" style={{ display: "inline-flex", alignItems: "center", gap: 6, paddingBottom: 12, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--faint)", whiteSpace: "nowrap" }}>
             <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--live)", animation: "sigpulse 1.8s ease-in-out infinite" }} />
             Updated {updatedAgo}
           </span>
