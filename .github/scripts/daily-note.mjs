@@ -289,8 +289,17 @@ async function attachCard(setId, slug, altText) {
 // trackers are common og:image junk).
 const IMAGE_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 
+// Agency stock photos (a generic "hands on keyboard" Getty shot) are not
+// about the story and look bad on the feed, so they get the card instead.
+// Agencies watermark their filenames, which makes them cheap to spot.
+const STOCK_RE = /gettyimages|shutterstock|istock|depositphotos|adobestock|dreamstime|alamy|stock-photo/i;
+
 async function attachRealImage(setId, story, altText) {
   if (!story.image_url) return null;
+  if (STOCK_RE.test(story.image_url)) {
+    console.log(`  → stock photo detected for ${story.slug.slice(0, 40)}; using the card`);
+    return null;
+  }
   try {
     const res = await fetch(story.image_url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; WortinsBot/1.0)" },
