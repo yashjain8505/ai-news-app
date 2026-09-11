@@ -173,7 +173,7 @@ function claudeNote(items, want) {
     const args = ["-p", draftPrompt(items, want), "--output-format", "text"];
     if (DRAFT_MODEL) args.splice(2, 0, "--model", DRAFT_MODEL);
     const out = execFileSync("claude", args, {
-      encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 300000, env: process.env,
+      encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 540000, env: process.env,
     });
     const m = out.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("no JSON in claude output");
