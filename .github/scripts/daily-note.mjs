@@ -244,38 +244,70 @@ function buildNote({ items, dateISO }) {
 //
 // Best-effort by design: if anything here fails the post still goes out, just
 // without the image. A missing picture is not worth losing the post.
+// Upload bytes to a social set and wait until Typefully has processed them.
+// "ready" is not immediate, and attaching a still-processing media id makes
+// the draft POST fail with media_not_found.
+async function uploadMedia(setId, bytes, fileName, altText) {
+  const created = await tf(`/v2/social-sets/${setId}/media/upload`, {
+    method: "POST",
+    body: JSON.stringify({ file_name: fileName, alt_text: String(altText || "").slice(0, 380) }),
+  });
+  if (!created?.media_id || !created?.upload_url) throw new Error("no media_id/upload_url in response");
+  const put = await fetch(created.upload_url, { method: "PUT", body: bytes });
+  if (!put.ok) throw new Error(`presigned PUT -> ${put.status}`);
+  const deadline = Date.now() + 60000;
+  for (;;) {
+    const st = await tf(`/v2/social-sets/${setId}/media/${created.media_id}`);
+    if (st?.status === "ready") return created.media_id;
+    if (st?.status === "failed") throw new Error(`processing failed: ${st.error_reason || "unknown"}`);
+    if (Date.now() > deadline) throw new Error("still processing after 60s");
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+
+const safeName = (slug) => String(slug).replace(/[^a-zA-Z0-9_.()-]/g, "-").slice(0, 60);
+
 async function attachCard(setId, slug, altText) {
   try {
-    const safe = `wortins-${String(slug).replace(/[^a-zA-Z0-9_.()-]/g, "-").slice(0, 60)}.png`;
-    const created = await tf(`/v2/social-sets/${setId}/media/upload`, {
-      method: "POST",
-      body: JSON.stringify({ file_name: safe, alt_text: String(altText || "").slice(0, 380) }),
-    });
-    if (!created?.media_id || !created?.upload_url) throw new Error("no media_id/upload_url in response");
-
     const img = await fetch(`${SITE_URL}/story/${encodeURIComponent(slug)}/card.png`);
     if (!img.ok) throw new Error(`card fetch -> ${img.status}`);
     const bytes = Buffer.from(await img.arrayBuffer());
     if (!bytes.length) throw new Error("card was empty");
-
-    const put = await fetch(created.upload_url, { method: "PUT", body: bytes });
-    if (!put.ok) throw new Error(`presigned PUT -> ${put.status}`);
-
-    // "ready" is not immediate, and attaching a still-processing media id makes
-    // the draft POST fail with media_not_found.
-    const deadline = Date.now() + 60000;
-    for (;;) {
-      const st = await tf(`/v2/social-sets/${setId}/media/${created.media_id}`);
-      if (st?.status === "ready") {
-        console.log(`  ✓ card uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB)`);
-        return created.media_id;
-      }
-      if (st?.status === "failed") throw new Error(`processing failed: ${st.error_reason || "unknown"}`);
-      if (Date.now() > deadline) throw new Error("still processing after 60s");
-      await new Promise((r) => setTimeout(r, 2000));
-    }
+    const id = await uploadMedia(setId, bytes, `wortins-${safeName(slug)}.png`, altText);
+    console.log(`  ✓ card uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB)`);
+    return id;
   } catch (e) {
     warn(`card image skipped for set ${setId}: ${e.message}`);
+    return null;
+  }
+}
+
+// The story's real photo: the article's own og:image, resolved by the curator
+// into items.image_url (the same trick the insta-news project uses). Returns
+// null on anything dubious so the caller can fall back to the clipping card:
+// a missing url, a non-image, an SVG, or a tiny file (favicons and 1px
+// trackers are common og:image junk).
+const IMAGE_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
+
+async function attachRealImage(setId, story, altText) {
+  if (!story.image_url) return null;
+  try {
+    const res = await fetch(story.image_url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; WortinsBot/1.0)" },
+      redirect: "follow",
+    });
+    if (!res.ok) throw new Error(`image fetch -> ${res.status}`);
+    const type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const ext = IMAGE_EXT[type];
+    if (!ext) throw new Error(`not a usable image type (${type || "unknown"})`);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length < 25000) throw new Error(`too small (${bytes.length}b), likely a logo or tracker`);
+    if (bytes.length > 8 * 1024 * 1024) throw new Error(`too large (${Math.round(bytes.length / 1048576)}MB)`);
+    const id = await uploadMedia(setId, bytes, `wortins-${safeName(story.slug)}.${ext}`, altText);
+    console.log(`  ✓ article photo uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB ${ext})`);
+    return id;
+  } catch (e) {
+    warn(`article photo skipped for ${story.slug.slice(0, 40)}: ${e.message}`);
     return null;
   }
 }
@@ -318,7 +350,7 @@ async function main() {
   if (Object.values(quota).every((q) => q === 0)) return skip("Today's counts are already met; nothing owed this wave.");
 
   const items = await sb(
-    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,rank,plain_title,plain_line`
+    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,rank,plain_title,plain_line,image_url`
   );
   if (!items?.length) return skip(`No active items for ${dateISO}.`);
 
@@ -426,15 +458,24 @@ async function main() {
 
   for (const j of jobs) console.log(`  → ${j.label}: ${headlineOf(j.story)}`);
 
-  // EVERY platform carries the story card. Media is scoped to one social set,
-  // so the same card uploads once per set.
+  // Every post carries an image and none carry a link. Which image alternates
+  // per story: the hero and every second pick keep the branded clipping card,
+  // the others use the article's own photo (items.image_url, the publisher's
+  // og:image), falling back to the card when the photo is missing or junk.
+  // Roughly half and half across a 30-post day, and a story uses the same
+  // image on every platform it appears on. Media is scoped to one social set,
+  // so each chosen image uploads once per set.
+  const pickIndex = new Map(picks.map((pk, i) => [pk.slug, i]));
   if (!DRY_RUN) {
-    const cache = new Map();
+    const cache = new Map(); // set:slug -> media_id | null
     for (const j of jobs) {
       const key = `${j.set.id}:${j.story.slug}`;
       let mediaId = cache.get(key);
       if (mediaId === undefined) {
-        mediaId = await attachCard(j.set.id, j.story.slug, `${headlineOf(j.story)}. ${lineOf(j.story)}`);
+        const alt = `${headlineOf(j.story)}. ${lineOf(j.story)}`;
+        const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
+        mediaId = wantsPhoto ? await attachRealImage(j.set.id, j.story, alt) : null;
+        if (!mediaId) mediaId = await attachCard(j.set.id, j.story.slug, alt);
         cache.set(key, mediaId);
       }
       if (mediaId) j.payload.platforms[j.platform].posts[0].media_ids = [mediaId];
