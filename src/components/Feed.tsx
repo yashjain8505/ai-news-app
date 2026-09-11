@@ -475,9 +475,9 @@ export default function Feed({
           {active === "daily" && (
             <section>
               <div className="bs-lead">
-                <div>
+                <div className="bs-well">
                 {lead && (
-                  <article>
+                  <article className="bs-hero">
                     <CardPhoto it={lead} ratio="16/9" rank={0} onOpen={onOpen} />
                     <div style={{ marginTop: 16 }}>{meta(lead, "·", 11, true)}</div>
                     <Link href={storyHref(lead)} onClick={() => onOpen(lead, 0)} className="bs-hl">
@@ -527,49 +527,51 @@ export default function Feed({
                     measured blank while the rail ran on. Now both columns carry
                     content for their full height, and old news starts right
                     where new news ends instead of a screen later. */}
-                  {more.length > 0 && (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 10 }}>
-                        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", whiteSpace: "nowrap" }}>
-                          More stories
-                        </span>
-                        <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
-                      </div>
-                      {/* Row list: text-forward, with a small thumbnail on the right.
-                          Real photo when we have one, else a branded plate — so every
-                          row reads as a complete card. Row height follows the text. */}
-                      <div className="bs-more">
-                        {more.map((it, i) => (
-                          <article className="bs-story" key={it.id}>
-                            <div className="bs-story__body">
-                              <div>{meta(it, "·", 10, false)}</div>
-                              <Link href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
-                                <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
-                                  {it.title}
-                                </h4>
-                              </Link>
-                              {it.summary && (
-                                <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                  {it.summary}
-                                </p>
-                              )}
-                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9 }}>
-                                {it.read_time && (
-                                  <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
-                                    {it.read_time} min read
-                                  </span>
+                  <div className="bs-morewrap">
+                    {more.length > 0 && (
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 50, marginBottom: 10 }}>
+                          <span className="mono" style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--dim)", whiteSpace: "nowrap" }}>
+                            More stories
+                          </span>
+                          <span style={{ flex: 1, height: 3, borderTop: "1px solid var(--ruleStrong)", borderBottom: "1px solid var(--ruleStrong)" }} />
+                        </div>
+                        {/* Row list: text-forward, with a small thumbnail on the right.
+                            Real photo when we have one, else a branded plate — so every
+                            row reads as a complete card. Row height follows the text. */}
+                        <div className="bs-more">
+                          {more.map((it, i) => (
+                            <article className="bs-story" key={it.id}>
+                              <div className="bs-story__body">
+                                <div>{meta(it, "·", 10, false)}</div>
+                                <Link href={storyHref(it)} onClick={() => onOpen(it, i + 3)} className="bs-hl">
+                                  <h4 className="display" style={{ fontSize: 19, lineHeight: 1.16, margin: "6px 0 0", color: "var(--ink)" }}>
+                                    {it.title}
+                                  </h4>
+                                </Link>
+                                {it.summary && (
+                                  <p className="serif" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--dim)", margin: "7px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                    {it.summary}
+                                  </p>
                                 )}
-                                <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 9 }}>
+                                  {it.read_time && (
+                                    <span className="mono" style={{ fontSize: 11, color: "var(--faint)" }}>
+                                      {it.read_time} min read
+                                    </span>
+                                  )}
+                                  <ShareButton compact url={`/story/${it.slug}`} title={it.title} />
+                                </div>
+                                {cardPrompt(it)}
                               </div>
-                              {cardPrompt(it)}
-                            </div>
-                            <CardPhoto it={it} ratio="4/3" rank={i + 3} onOpen={onOpen} className="bs-story__thumb" imgWidth={400} />
-                          </article>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {exploreBtn}
+                              <CardPhoto it={it} ratio="4/3" rank={i + 3} onOpen={onOpen} className="bs-story__thumb" imgWidth={400} />
+                            </article>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {exploreBtn}
+                  </div>
                 </div>
 
                 <div className="bs-rail">

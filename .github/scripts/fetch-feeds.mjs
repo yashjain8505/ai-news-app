@@ -33,7 +33,11 @@ const UA =
 // Only stories published inside the curator's window are candidates. Falls back
 // to 24h, matching the gather prompt.
 const SINCE = Date.parse(process.env.GATHER_SINCE || "") || Date.now() - 24 * 3600_000;
-const MAX_PER_FEED = 12;
+// 20, not 12. With three runs a day the evening window is only ~5h plus
+// overlap, and the whole pool came to 32 items - the writer then had 19 to
+// choose from and needs 12. A per-feed cap that low was trimming the busiest
+// feeds (TechCrunch, The Decoder) exactly when the pool was thinnest.
+const MAX_PER_FEED = 20;
 const FETCH_TIMEOUT_MS = 20_000;
 
 // Tiered by how often the feed carries something this reader wants. `core` is

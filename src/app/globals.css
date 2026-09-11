@@ -436,6 +436,19 @@ a:hover > .news-photo img {
     grid-template-columns: 1fr;
     gap: 30px;
   }
+  /* On a phone the two columns stack, and the main well now carries hero,
+     features AND the More-stories ledger - so the rail (the second tier, this
+     afternoon's stories) was landing after the whole ledger, underneath
+     days-old items. Measured: 1h 1h 1h 6h 14h 14h 14h 14h 14h 6h 6h 6h 6h.
+     `display: contents` dissolves the well so its children become grid items,
+     then `order` puts them in reading order: hero, features, rail, ledger. */
+  .bs-well {
+    display: contents;
+  }
+  .bs-hero { order: 0; }
+  .bs-features { order: 1; }
+  .bs-rail { order: 2; }
+  .bs-morewrap { order: 3; }
   .bs-features {
     grid-template-columns: 1fr;
   }
