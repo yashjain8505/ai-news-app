@@ -82,7 +82,7 @@ export default function Today(p: Props) {
   async function load(s: Story) {
     if (shown[s.slug] || busy) return;
     setBusy(s.slug);
-    say("making the image…");
+    say("loading…");
     try {
       const b = await getBlob(s);
       setShown((m) => ({ ...m, [s.slug]: URL.createObjectURL(b) }));
@@ -98,7 +98,8 @@ export default function Today(p: Props) {
     setBusy(s.slug);
     try {
       const b = await getBlob(s);
-      const file = new File([b], `wortins-${s.slug.slice(0, 40)}.png`, { type: "image/png" });
+      const ext = b.type.includes("png") ? "png" : b.type.includes("webp") ? "webp" : "jpg";
+      const file = new File([b], `wortins-${s.slug.slice(0, 40)}.${ext}`, { type: b.type || "image/jpeg" });
       const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
       if (nav.share && nav.canShare?.({ files: [file] })) {
         await nav.share({ files: [file] });
@@ -137,7 +138,7 @@ export default function Today(p: Props) {
                 <p className="st">@{r.author} <span className="dim">{r.source === "article" ? "· the original post" : "· discussing the story"}</span></p>
                 <p className="dek">{r.reply}</p>
                 <div className="row">
-                  <a className="btn rust" href={r.draftUrl} target="_blank" rel="noopener noreferrer">Open draft → Publish</a>
+                  <a className="btn rust" href={`/api/x-replies/open?id=${r.id}`} target="_blank" rel="noopener noreferrer">Open draft → Publish</a>
                   <a className="btn ghost" href={r.tweetUrl} target="_blank" rel="noopener noreferrer">Their post ↗</a>
                 </div>
               </div>
@@ -172,7 +173,7 @@ export default function Today(p: Props) {
         </div>
 
         <div className="card">
-          <div className="lbl">Images · {p.stories.length} stories</div>
+          <div className="lbl">Photos for the article · {p.stories.length}</div>
           {p.stories.map((s) => {
             const isBusy = busy === s.slug;
             const src = shown[s.slug];
@@ -183,7 +184,7 @@ export default function Today(p: Props) {
                 <div className="row">
                   {!src ? (
                     <button className="rust" disabled={isBusy} onClick={() => load(s)}>
-                      {isBusy ? "Making image…" : "Get image"}
+                      {isBusy ? "Loading…" : "Show photo"}
                     </button>
                   ) : (
                     <button className="rust" disabled={isBusy} onClick={() => share(s)}>

@@ -7,7 +7,7 @@
 // Substack at all. It publishes Substack *Notes* only (the API caps the
 // platform at a single note), which is exactly the half worth automating: notes
 // are the discovery surface and are posted many times a week, while the long
-// newsletter post stays a 30-second paste from /compose.
+// newsletter post stays a 30-second paste from /today.
 //
 // DEFAULT IS A DRAFT, ON PURPOSE. Omitting `publish_at` saves the note as a
 // Typefully draft: nothing goes public without a human, and it costs none of
