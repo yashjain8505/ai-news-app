@@ -71,8 +71,13 @@ jobs:
             echo "recent=false" >> "$GITHUB_OUTPUT"; echo "force=true -> on-demand curate"; exit 0
           fi
           DAY="${EDITION_DATE:-$(date -u +%F)}"
-          latest=$(curl -s "$SUPABASE_URL/rest/v1/items?select=created_at&edition_date=eq.$DAY&order=created_at.desc&limit=1" \
-            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].created_at // empty')
+          # A Supabase blip returns an error OBJECT instead of a list, which
+          # used to crash jq and take the whole curation down with it
+          # (2026-09-12 07:00, the morning edition never ran). The guard is
+          # only a dedupe: when in doubt, curate.
+          latest=$(curl -s --max-time 20 "$SUPABASE_URL/rest/v1/items?select=created_at&edition_date=eq.$DAY&order=created_at.desc&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            | jq -r 'if type == "array" then (.[0].created_at // empty) else empty end' 2>/dev/null || true)
           if [ -z "$latest" ]; then
             echo "recent=false" >> "$GITHUB_OUTPUT"; echo "no items yet for $DAY -> will add a drop"
           else
