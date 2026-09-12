@@ -117,7 +117,7 @@ async function tweetsFromSearch(story) {
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": SERPER_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ q, num: 20, tbs: "qdr:w" }),
+      body: JSON.stringify({ q, num: 10, tbs: "qdr:w" }), // num > 10 is rejected (400) on this plan
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) throw new Error(`serper -> ${res.status}`);

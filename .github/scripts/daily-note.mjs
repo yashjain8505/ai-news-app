@@ -152,7 +152,7 @@ THE THREE PIECES:
 "x" - the X (Twitter) thread: an array of 3 or 4 posts, each 280 characters or fewer, hard limit per post. This is where a reader gets the WHOLE story without leaving X, so it is the most detailed of the short formats.
 - Post 1 is the lead and must stand completely on its own: the news as a full specific sentence, a blank line, then your honest reaction. Use the space, up to 280 characters; a 120-character lead wastes the slot.
 - Posts 2 to 4 are the details, written under the lead as a thread, each a full 200-280 characters. In order: (2) the concrete specifics: numbers, names, dates, what exactly was said or shipped; (3) the background a reader is missing: what came before, why now, who else is involved; (4) what it changes and for whom, or the part everyone is glossing over. Full sentences, no "1/", no "thread", no "more below". Each post must add facts the earlier ones did not carry.
-- Post 4 is optional; write it when there is a real fourth angle, skip it when there is not.
+- Write all 4 posts unless the story genuinely cannot support a fourth angle; NEVER fewer than 3 (lead + two detail posts). A lead with a single detail post under it is a failed thread.
 - Do NOT write a closing "read more" post; the link is added separately.
 
 "short" - ONE standalone post, used on Bluesky and Mastodon. Never a thread.
