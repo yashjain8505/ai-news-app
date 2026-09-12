@@ -152,13 +152,15 @@ Below are tweets about today's stories. Write a reply to each one that is worth 
 
 EVERY REPLY:
 - 270 characters or fewer, hard limit. Plain full sentences.
+- WRITE FOR A NORMAL PERSON, not an AI researcher. This is the rule people break most. Talk the way you would to a smart friend at dinner who does not follow AI: short sentences, everyday words, ONE clear point. No jargon, no acronyms, no names of documents or policies ("system card", "the CAIS statement", "GDM", "alignment", "frontier models", "RLHF"). If the fact needs a technical thing, say what it IS in plain words ("the report OpenAI published about its own model", "a one-line letter signed by the top AI bosses"). Test: would your mum follow this reply? If not, rewrite it simpler.
+- The fact you bring must be the kind a person would repeat to someone else, not a citation. Dates and names only when they make the point land.
 - Written to THIS tweet: react to what this person said, with specifics from the story (numbers, names, dates, what was actually said). Someone reading the reply cold should learn something.
 - Never "great post", never a restatement of the tweet, never a compliment, never a question asked to farm replies, no hashtags, no emoji, no links, no em dashes, no "thread below".
 - Never a tacked-on profound closer that could sit under any story. If the last line fits anywhere, cut it.
 
 FOR A SOURCE TWEET (a company or person announcing the thing): add the fact or the angle the announcement left out, the part the announcement would rather you did not notice, stated plainly and fairly.
 
-FOR A SEARCH TWEET (an ordinary person reacting): TAKE A POSITION. Say the uncomfortable true thing. If they are wrong, say so plainly and say why, with the fact that proves it. If they are right, sharpen it with something they did not know. A good reply is one people want to argue with. Confident, specific, a little provocative. But: argue with the CLAIM, never with the person's motives (no "you're hoping", "you're hedging", "you just want"); never insult or mock them, never invent a fact, never put words in their mouth.
+FOR A SEARCH TWEET (an ordinary person reacting): TAKE A POSITION. Say the uncomfortable true thing, in plain words. If they are wrong, say so plainly and say why, with the one fact that proves it. If they are right, sharpen it with something they did not know. A good reply is one people want to argue with. Confident, simple, a little provocative; casual is fine. But: argue with the CLAIM, never with the person's motives (no "you're hoping", "you're hedging", "you just want"); never insult or mock them, never invent a fact, never put words in their mouth.
 
 TWEETS:
 ${list}
