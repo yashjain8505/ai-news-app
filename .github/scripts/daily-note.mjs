@@ -149,10 +149,11 @@ THE THREE PIECES:
 
 "note" - the Substack Note. 700 to 1100 characters. **Written to be READ, not skimmed off a wall of text: SHORT PARAGRAPHS of one to three sentences, with a blank line between every paragraph.** Open on the news itself, give it room to breathe across several paragraphs, and land on the part that actually matters. This is the longest of the three and can carry the most detail.
 
-"x" - the X (Twitter) thread: an array of 2 or 3 posts, each 280 characters or fewer, hard limit per post.
+"x" - the X (Twitter) thread: an array of 3 or 4 posts, each 280 characters or fewer, hard limit per post. This is where a reader gets the WHOLE story without leaving X, so it is the most detailed of the short formats.
 - Post 1 is the lead and must stand completely on its own: the news as a full specific sentence, a blank line, then your honest reaction. Use the space, up to 280 characters; a 120-character lead wastes the slot.
-- Posts 2 and 3 are the details, written under the lead as a thread: the concrete specifics (numbers, names, dates, what exactly was said or shipped), then the background or the consequence, the thing a reader would otherwise have to open the article for. Full sentences, no "1/", no "thread", no "more below". Each detail post must add facts the lead did not carry.
-- Post 3 is optional; only write it if there is a genuinely new fact or angle left to give.
+- Posts 2 to 4 are the details, written under the lead as a thread, each a full 200-280 characters. In order: (2) the concrete specifics: numbers, names, dates, what exactly was said or shipped; (3) the background a reader is missing: what came before, why now, who else is involved; (4) what it changes and for whom, or the part everyone is glossing over. Full sentences, no "1/", no "thread", no "more below". Each post must add facts the earlier ones did not carry.
+- Post 4 is optional; write it when there is a real fourth angle, skip it when there is not.
+- Do NOT write a closing "read more" post; the link is added separately.
 
 "short" - ONE standalone post, used on Bluesky and Mastodon. Never a thread.
 - 270 characters or fewer, hard limit.
@@ -216,7 +217,7 @@ function claudeNote(items, want) {
       if (!short) continue;
       // The X thread: 2-3 posts, each within X's 280 limit. Anything malformed
       // collapses to the standalone short, so X never goes empty.
-      let x = Array.isArray(it.x) ? it.x.map(clean).filter(Boolean).slice(0, 3) : [];
+      let x = Array.isArray(it.x) ? it.x.map(clean).filter(Boolean).slice(0, 4) : [];
       if (x.length < 2 || x.some((t) => t.length > 280)) x = [short];
       picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", short, x, linkedin });
     }
@@ -347,6 +348,29 @@ async function attachRealImage(setId, story, altText) {
   }
 }
 
+
+// How many queue slots a set still has open today. Typefully's queue view
+// already knows the set's timezone and which slots hold a draft, so ask it
+// rather than re-deriving from the rules (whose timezone silently changed
+// once). "Today" is the user's day, IST.
+const IST = "Asia/Kolkata";
+function istDate(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: IST, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+async function freeSlotsToday(set) {
+  const today = istDate();
+  const q = await tf(`/v2/social-sets/${set.id}/queue?start_date=${today}&end_date=${today}`);
+  const now = Date.now() + 5 * 60000;
+  let free = 0;
+  for (const day of q?.days || []) {
+    for (const it of day.items || []) {
+      if (it.kind === "queue_slot" && !it.draft && new Date(it.at).getTime() > now && istDate(new Date(it.at)) === today) free++;
+    }
+  }
+  return free;
+}
+
 async function main() {
   if (!SUPABASE_KEY) return skip("No Supabase key; skipping.");
   if (!TF_KEY) {
@@ -384,31 +408,6 @@ async function main() {
   console.log(`→ wave: ${remainingRuns} run(s) left today · quotas ${JSON.stringify(quota)} · ${usedSlugs.size} slug(s) already used`);
   if (Object.values(quota).every((q) => q === 0)) return skip("Today's counts are already met; nothing owed this wave.");
 
-  const items = await sb(
-    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,rank,plain_title,plain_line,image_url`
-  );
-  if (!items?.length) return skip(`No active items for ${dateISO}.`);
-
-  const bySection = (sec, n) => items
-    .filter((i) => i.section === sec && !usedSlugs.has(i.slug))
-    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
-    .slice(0, n);
-  const daily = bySection("daily", POOL_DAILY);
-  const pool = [...daily, ...bySection("funding", POOL_FUNDING), ...bySection("articles", POOL_ARTICLES)];
-  if (!pool.length) return skip("No stories to build a note from.");
-
-  // The link is appended here, never by the model: Typefully attaches the
-  // preview card to the LAST url, so it has to stand alone at the end.
-  const want = { picks: Math.max(...Object.values(quota)), note: quota.substack, linkedin: quota.linkedin };
-  let picks = claudeNote(pool, want);
-  if (!picks?.length) {
-    // Fallback: one template note, so a Claude outage still posts something.
-    const body = buildNote({ items, dateISO });
-    if (!body) return skip("No daily story to build a note from.");
-    picks = [{ slug: pool[0].slug, note: body, short: "", x: [], linkedin: "" }];
-  }
-  console.log(`→ ${picks.length} story pick(s) drafted`);
-
   // Pick sets BY CAPABILITY, never by list order. The account now has one set
   // per channel (Substack on one, X on another), and results[0] is not
   // guaranteed to be the Substack one, so indexing would post to the wrong
@@ -445,6 +444,47 @@ async function main() {
     return skip(`Publishing quota is exhausted (resets ${pubQuota.resets_at}); not publishing.`);
   }
 
+  // NEVER SPILL INTO TOMORROW. "next-free-slot" happily books tomorrow
+  // morning once today's slots are full, which is how 10 drafts with today's
+  // news ended up on tomorrow's 09:30-12:30 (2026-09-12). Each platform's
+  // quota is capped at the queue slots still open today; what does not fit
+  // is simply not drafted, and tomorrow's waves write tomorrow's posts.
+  if (MODE === "queue" && !DRY_RUN) {
+    for (const [plat, set] of [["substack", substackSet], ["x", xSet], ["bluesky", blueskySet], ["mastodon", mastodonSet], ["linkedin", linkedinSet]]) {
+      if (!set || !quota[plat]) continue;
+      const free = await freeSlotsToday(set).catch((e) => { warn(`slot count failed for ${plat}: ${e.message}`); return null; });
+      if (free === null) continue;
+      if (free < quota[plat]) console.log(`  ${plat}: only ${free} slot(s) left today; capping ${quota[plat]} -> ${free}`);
+      quota[plat] = Math.min(quota[plat], free);
+    }
+    if (Object.values(quota).every((q) => q === 0)) return skip("No queue slots left today on any platform; nothing drafted (no spill into tomorrow).");
+  }
+
+  const items = await sb(
+    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,rank,plain_title,plain_line,image_url`
+  );
+  if (!items?.length) return skip(`No active items for ${dateISO}.`);
+
+  const bySection = (sec, n) => items
+    .filter((i) => i.section === sec && !usedSlugs.has(i.slug))
+    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
+    .slice(0, n);
+  const daily = bySection("daily", POOL_DAILY);
+  const pool = [...daily, ...bySection("funding", POOL_FUNDING), ...bySection("articles", POOL_ARTICLES)];
+  if (!pool.length) return skip("No stories to build a note from.");
+
+  // The link is appended here, never by the model: Typefully attaches the
+  // preview card to the LAST url, so it has to stand alone at the end.
+  const want = { picks: Math.max(...Object.values(quota)), note: quota.substack, linkedin: quota.linkedin };
+  let picks = claudeNote(pool, want);
+  if (!picks?.length) {
+    // Fallback: one template note, so a Claude outage still posts something.
+    const body = buildNote({ items, dateISO });
+    if (!body) return skip("No daily story to build a note from.");
+    picks = [{ slug: pool[0].slug, note: body, short: "", x: [], linkedin: "" }];
+  }
+  console.log(`→ ${picks.length} story pick(s) drafted`);
+
   // Omitting publish_at is what makes a draft. Only add it when the operator
   // has explicitly asked for real publishing. "next-free-slot" is what spaces
   // the day's posts: each draft takes the next configured queue slot, so three
@@ -477,7 +517,12 @@ async function main() {
     for (const [plat, set] of [["x", xSet], ["bluesky", blueskySet], ["mastodon", mastodonSet]]) {
       if (!set || i >= quota[plat] || !pk.short) continue;
       const cap = plat === "x" ? "X" : plat[0].toUpperCase() + plat.slice(1);
-      const texts = plat === "x" && pk.x?.length ? pk.x : [pk.short];
+      // The X thread ends on the Wortins story page (the user's call,
+      // 2026-09-12: "in the thread, link them to the article on Wortins").
+      // Last post only, so the lead is never a link post.
+      const texts = plat === "x" && pk.x?.length > 1
+        ? [...pk.x, `Full story and our take, on Wortins:\n${SITE_URL}/story/${encodeURIComponent(story.slug)}`]
+        : [pk.short];
       jobs.push({
         set, label: `${cap} ${n}`, platform: plat, story,
         payload: { draft_title: `Wortins ${dateISO} · ${cap} ${n}`, ...timing,
@@ -505,18 +550,26 @@ async function main() {
   // is scoped to one social set, so each chosen image uploads once per set.
   const pickIndex = new Map(picks.map((pk, i) => [pk.slug, i]));
   if (!DRY_RUN) {
-    const cache = new Map(); // set:slug -> media_id | null
+    const cache = new Map(); // set:slug -> { lead, other } media ids
     for (const j of jobs) {
       const key = `${j.set.id}:${j.story.slug}`;
-      let mediaId = cache.get(key);
-      if (mediaId === undefined) {
+      let media = cache.get(key);
+      if (media === undefined) {
         const alt = `${headlineOf(j.story)}. ${lineOf(j.story)}`;
         const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
-        mediaId = wantsPhoto ? await attachRealImage(j.set.id, j.story, alt) : null;
-        if (!mediaId) mediaId = await attachCard(j.set.id, j.story.slug, alt);
-        cache.set(key, mediaId);
+        const photo = j.story.image_url ? await attachRealImage(j.set.id, j.story, alt) : null;
+        const card = (!wantsPhoto || !photo) ? await attachCard(j.set.id, j.story.slug, alt) : null;
+        // lead = whichever the alternation asked for; the other image, when
+        // it exists, goes on the details post so a thread is not one image
+        // repeated (user: "occasionally use different images").
+        const lead = wantsPhoto ? (photo || card) : (card || photo);
+        const other = lead === photo ? card : photo;
+        media = { lead, other };
+        cache.set(key, media);
       }
-      if (mediaId) j.payload.platforms[j.platform].posts[0].media_ids = [mediaId];
+      const posts = j.payload.platforms[j.platform].posts;
+      if (media.lead) posts[0].media_ids = [media.lead];
+      if (media.other && j.platform === "x" && posts.length > 2) posts[1].media_ids = [media.other];
     }
   }
 
