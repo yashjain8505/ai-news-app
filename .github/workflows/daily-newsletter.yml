@@ -77,7 +77,7 @@ jobs:
         run: node .github/scripts/send-newsletter.mjs
 
       # Hand off the same edition to Substack: builds the post and emails it
-      # ready to paste (title + formatted body + a link to /compose, whose Copy
+      # ready to paste (title + formatted body + a link to /today, whose Copy
       # button puts rich HTML on the clipboard). Idempotent per edition via the
       # substack_drafts ledger. continue-on-error: a Substack hand-off hiccup
       # must never mark the newsletter job failed, since the mail already went.

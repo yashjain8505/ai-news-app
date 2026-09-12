@@ -3,7 +3,7 @@
 //
 // Runs right after the daily newsletter goes out, so every send produces a
 // matching Substack draft with zero effort: the email lands with the post
-// title, the fully formatted body, and a one-click link to /compose (whose
+// title, the fully formatted body, and a one-click link to /today (whose
 // "Copy post" button puts rich HTML on the clipboard, so pasting into the
 // Substack editor keeps headings, bold and links).
 //
@@ -208,7 +208,7 @@ function storyTotal(tiers) {
 
 // ---- the hand-off email -----------------------------------------------------
 function buildEmail({ post, dateISO, storyCount }) {
-  const composer = `${SITE_URL}/compose?date=${dateISO}`;
+  const composer = `${SITE_URL}/today`;
   // buildPost keeps the markup style-free so it pastes cleanly into Substack.
   // For the *email* preview, brand the links so it doesn't read as raw HTML.
   const styledPost = post.postHtml.replace(
@@ -225,7 +225,7 @@ function buildEmail({ post, dateISO, storyCount }) {
   </td></tr>
 
   <tr><td style="padding:22px 0 0">
-    <a href="${composer}" style="display:inline-block;background:#9c2b1d;color:#f3ecda;text-decoration:none;font-size:16px;font-weight:700;padding:13px 22px;border-radius:8px">Open the composer → one-click copy</a>
+    <a href="${composer}" style="display:inline-block;background:#9c2b1d;color:#f3ecda;text-decoration:none;font-size:16px;font-weight:700;padding:13px 22px;border-radius:8px">Open wortins.com/today → copy buttons</a>
     <a href="${SUBSTACK_URL}/publish/post?type=newsletter" style="display:inline-block;margin-left:10px;border:1px solid #9c2b1d;color:#9c2b1d;text-decoration:none;font-size:15px;padding:12px 18px;border-radius:8px">New Substack post ↗</a>
     <div style="font-size:13px;color:#6a6052;margin-top:9px">Copy title → copy post → paste into Substack → Publish. About 30 seconds.</div>
   </td></tr>

@@ -258,7 +258,7 @@ async function telegram(items) {
 // Typefully what became of the earlier drafts, so published or deleted ones
 // drop off that list.
 async function syncDraftStatuses(day) {
-  const rows = await sb(`x_replies_ledger?status=eq.draft&select=id,draft_id&draft_id=neq.`);
+  const rows = await sb(`x_replies_ledger?status=eq.draft&select=id,draft_id,opened_at&draft_id=neq.`);
   if (!rows?.length) return;
   const sets = await tf("/v2/social-sets");
   const setList = Array.isArray(sets) ? sets : sets?.results || [];
@@ -272,8 +272,10 @@ async function syncDraftStatuses(day) {
   for (const r of rows) {
     const st = byId.get(String(r.draft_id));
     const next = st === "published" ? "published" : st ? "draft" : "gone";
-    if (next === "draft") continue;
-    await sb(`x_replies_ledger?id=eq.${r.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: next }) });
+    // Opened on /today but still a draft in Typefully: bring it back.
+    const patch = next === "draft" ? (r.opened_at ? { opened_at: null } : null) : { status: next };
+    if (!patch) continue;
+    await sb(`x_replies_ledger?id=eq.${r.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(patch) });
   }
 }
 
