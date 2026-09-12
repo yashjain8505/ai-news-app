@@ -114,8 +114,18 @@ jobs:
         run: |
           OVERLAP_H=2
           MAX_H=24
+          # MIN_H floor: always look back at least this far, even right after a
+          # recent drop. A pure since-last-drop window starved the short evening
+          # runs (a ~5h window yielded only 4-7 candidates, so the writer had
+          # nothing to reach the 15 floor). Each run gathers ~40 candidates but
+          # publishes ~15, so a wider window mostly re-surfaces FRESH stories the
+          # earlier runs never picked -- not repeats, which the URL + rerun dedup
+          # in taste-gate remove anyway. Net effect: a deep pool every run, so
+          # every drop can hit 10-15 new stories, without reintroducing staleness.
+          MIN_H=18
           now_s=$(date -u +%s)
           floor_s=$(( now_s - MAX_H * 3600 ))
+          min_since_s=$(( now_s - MIN_H * 3600 ))
           last=$(curl -s "$SUPABASE_URL/rest/v1/items?select=published_at&is_active=eq.true&section=eq.daily&order=published_at.desc&limit=1" \
             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" | jq -r '.[0].published_at // empty')
           if [ -z "$last" ]; then
@@ -124,6 +134,9 @@ jobs:
           else
             last_s=$(date -u -d "$last" +%s)
             since_s=$(( last_s - OVERLAP_H * 3600 ))
+            # never look back LESS than MIN_H (deepens thin evening windows)
+            if [ "$since_s" -gt "$min_since_s" ]; then since_s=$min_since_s; fi
+            # never look back MORE than MAX_H
             if [ "$since_s" -lt "$floor_s" ]; then
               since_s=$floor_s
               echo "last drop was long ago ($last) -> clamping to ${MAX_H}h"

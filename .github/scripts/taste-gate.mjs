@@ -28,8 +28,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.s
 const KEY = process.env.SUPABASE_SERVICE_KEY;
 
 const WINDOW_HOURS = 96;
-const MAX_PER_EDITION = 2;
-const MAX_PER_WINDOW = 4;
+const MAX_PER_EDITION = 3;
+const MAX_PER_WINDOW = 8;
 // Look back further than the display window so a re-run is caught against the
 // story's ORIGINAL airing, not just what is currently on screen.
 const DEDUP_LOOKBACK_HOURS = 8 * 24;
