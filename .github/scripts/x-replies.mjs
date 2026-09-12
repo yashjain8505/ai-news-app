@@ -49,7 +49,22 @@ const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID || "";
 const MAX_TWEET_AGE_H = 72;
-const CANDIDATES_PER_STORY = 4;
+const CANDIDATES_PER_STORY = 8;
+// Accounts that only relay headlines: replying there is talking to a feed.
+const RELAY_RE = /techmeme|news|daily|wire|headlines|breaking|bot$|alerts?$|feed$/i;
+
+// Where is a reply worth making? Where people already are (likes, replies),
+// where the author is a person with an opinion rather than a relay account,
+// and, for source tweets, the announcement itself.
+function worth(t) {
+  let score = Math.log10(1 + t.likes) * 20 + Math.log10(1 + t.replies) * 30;
+  if (t.verified) score += 10;
+  if (t.source === "article") score += 25;
+  if (RELAY_RE.test(t.author) || RELAY_RE.test(t.name)) score -= 30;
+  if (/\b(I|I'm|I've|my|me|we|honestly|imagine|why|wtf|lol|wild|insane|crazy|scary|wrong|nope|finally|can't|don't|should)\b/i.test(t.text)) score += 12;
+  if (t.text.includes("?")) score += 6;
+  return score;
+}
 
 const warn = (m) => console.warn(`⚠ ${m}`);
 const skip = (m) => { console.log(`→ ${m}`); process.exitCode = 0; };
@@ -102,7 +117,7 @@ async function tweetsFromSearch(story) {
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": SERPER_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ q, num: 10, tbs: "qdr:w" }),
+      body: JSON.stringify({ q, num: 20, tbs: "qdr:w" }),
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) throw new Error(`serper -> ${res.status}`);
@@ -135,6 +150,9 @@ async function readTweet(id) {
         .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim(),
       created: d.created_at ? new Date(d.created_at) : null,
       isReply: Boolean(d.parent || d.in_reply_to_status_id_str),
+      likes: Number(d.favorite_count || 0),
+      replies: Number(d.conversation_count || 0),
+      verified: Boolean(d.user.is_blue_verified || d.user.verified),
     };
   } catch {
     return null;
@@ -145,7 +163,7 @@ async function readTweet(id) {
 
 function replyPrompt(targets) {
   const list = targets.map((t, i) => `${i + 1}. tweet_id: ${t.id} [${t.source === "article" ? "SOURCE TWEET, embedded in the article" : "SEARCH: an ordinary person discussing the story"}]
-@${t.author} (${t.name}) wrote: "${t.text.replace(/\s+/g, " ").slice(0, 600)}"
+@${t.author} (${t.name}${t.verified ? ", verified" : ""}; ${t.likes} likes, ${t.replies} replies) wrote: "${t.text.replace(/\s+/g, " ").slice(0, 600)}"
 THE STORY: ${headlineOf(t.story)}
 WHAT WE KNOW (our take): ${deDash(t.story.wortins_take || t.story.plain_line || t.story.summary || "")}`).join("\n\n");
 
@@ -157,6 +175,21 @@ EVERY REPLY:
 - 270 characters or fewer, hard limit. Plain full sentences.
 - WRITE FOR A NORMAL PERSON, not an AI researcher. This is the rule people break most. Talk the way you would to a smart friend at dinner who does not follow AI: short sentences, everyday words, ONE clear point. No jargon, no acronyms, no names of documents or policies ("system card", "the CAIS statement", "GDM", "alignment", "frontier models", "RLHF"). If the fact needs a technical thing, say what it IS in plain words ("the report OpenAI published about its own model", "a one-line letter signed by the top AI bosses"). Test: would your mum follow this reply? If not, rewrite it simpler.
 - The fact you bring must be the kind a person would repeat to someone else, not a citation. Dates and names only when they make the point land.
+
+SOUND LIKE A PERSON TYPING ON THEIR PHONE, NOT LIKE AN ESSAY. The user published one of these and said it "felt really, really AI". These are the tells, and they are banned:
+- The tidy contrast: "X isn't the problem. Y is." / "It's not A, it's B." / "That's not a bug, it's the point."
+- The knowing closer: "That's the part worth sitting with." / "The real question is..." / "That gap tells you everything." / "Same story, different name."
+- Restating their tweet back to them before answering, or a colon-led reveal ("Here's the thing:").
+- Three neat parallel clauses, perfectly balanced sentences, every reply the same shape.
+- Opening with the fact like a news anchor.
+What a real reply looks like instead: uneven. Sometimes one blunt sentence. Sometimes a fact then a shrug. Fragments are fine. Contractions always. React the way you'd talk: "yeah, and", "the bit nobody mentions is", "I'd have said the same until", "honestly", "no chance", "which, fine, but". Say one thing, say it plainly, stop. Don't wrap it up.
+Examples of the register (do not copy the words, copy the looseness):
+  AI: "The CAPTCHA isn't the barrier, the willingness to deceive is. That's the part worth noting."
+  Human: "it beat the captcha in 2023 by paying a guy on TaskRabbit and telling him it was blind. captchas were never the hard part"
+  AI: "This report is transparency and rebuttal in equal measure. Both things can be true."
+  Human: "worth knowing this dropped two days after one of their own researchers quit saying the company was moving too fast. timing's not an accident"
+  Human: "$62m for AI heart-failure bots from one agency while another agency says AI bots are flooding its claims desk. nobody's talking to each other over there"
+Capitalisation and full stops are optional; write it the way it comes out.
 - Written to THIS tweet: react to what this person said, with specifics from the story (numbers, names, dates, what was actually said). Someone reading the reply cold should learn something.
 - Never "great post", never a restatement of the tweet, never a compliment, never a question asked to farm replies, no hashtags, no emoji, no links, no em dashes, no "thread below".
 - Never a tacked-on profound closer that could sit under any story. If the last line fits anywhere, cut it.
@@ -297,8 +330,8 @@ async function main() {
     console.log(`  ${headlineOf(story).slice(0, 60)}: ${found.length} found, ${kept} usable`);
   }
   if (!targets.length) return skip("No fresh conversations to join this run.");
-  // Source tweets first: the announcement thread is the best room to be in.
-  targets.sort((a, b) => (a.source === "article" ? 0 : 1) - (b.source === "article" ? 0 : 1));
+  targets.sort((a, b) => worth(b) - worth(a));
+  console.log(`→ ${targets.length} candidate(s); top: ${targets.slice(0, 5).map((t) => `@${t.author} (${t.likes}♥ ${t.replies}↩)`).join(", ")}`);
 
   const drafts = claudeReplies(targets.slice(0, MAX_REPLIES * 2));
   if (!drafts.length) return skip("Nothing drafted.");
