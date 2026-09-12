@@ -184,6 +184,7 @@ export default function Feed({
   signedIn = true,
   personalized = true,
   initialActive = "daily",
+  blogPicks = [],
 }: {
   items: Item[];
   days: Day[];
@@ -197,6 +198,9 @@ export default function Feed({
   signedIn?: boolean;
   personalized?: boolean;
   initialActive?: Section;
+  // Newest evergreen posts, rendered as a strip above the footer so each one is
+  // a single link away from the root page (the page crawlers visit most).
+  blogPicks?: { slug: string; title: string }[];
 }) {
   const active = initialActive;
   // How many stories are revealed per section. "Explore more" grows this; it
@@ -466,6 +470,13 @@ export default function Feed({
               </Link>
             );
           })}
+          {/* The blog is a different page, not a feed section, but it belongs
+              in the same row: without this the homepage and every section
+              page had NO path to /blog at all, and crawlers only reached it
+              three hops deep through dated story pages. */}
+          <a href="/blog" className="bs-tab" style={{ borderBottom: "2px solid transparent", color: "var(--dim)" }}>
+            Blog
+          </a>
         </nav>
         {updatedAgo && (
           <span className="mono bs-updated" style={{ display: "inline-flex", alignItems: "center", gap: 6, paddingBottom: 12, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--faint)", whiteSpace: "nowrap" }}>
@@ -661,11 +672,34 @@ export default function Feed({
         </div>
       )}
 
+      {blogPicks.length > 0 && (
+        <section aria-label="From the blog" style={{ marginTop: 56, borderTop: "3px solid var(--ruleStrong)", paddingTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
+            <span className="mono" style={{ fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)" }}>
+              From the blog
+            </span>
+            <a href="/blog" className="mono bs-ilink" style={{ fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--dim)", textDecoration: "none" }}>
+              All posts &rarr;
+            </a>
+          </div>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "10px 28px" }}>
+            {blogPicks.map((p) => (
+              <li key={p.slug} style={{ minWidth: 0 }}>
+                <a href={`/blog/${p.slug}`} className="display bs-hl" style={{ fontSize: 17, lineHeight: 1.25, color: "var(--ink)", textDecoration: "none" }}>
+                  {p.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <footer className="mono" style={{ marginTop: 64, borderTop: "3px double var(--ruleStrong)", paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", fontSize: 11, letterSpacing: "0.08em", color: "var(--faint)" }}>
         <span style={{ textTransform: "uppercase" }}>Wortins, printed for one reader</span>
         <nav style={{ display: "flex", gap: 18, textTransform: "uppercase" }}>
           <a href="/about" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>About</a>
           <a href="/editions" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>Editions</a>
+          <a href="/blog" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>Blog</a>
           <a href="/contact" className="bs-ilink" style={{ color: "var(--dim)", textDecoration: "none" }}>Contact</a>
         </nav>
       </footer>
