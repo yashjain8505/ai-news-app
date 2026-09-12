@@ -121,7 +121,8 @@ async function readTweet(id) {
       id: String(d.id_str || id),
       author: d.user.screen_name,
       name: d.user.name || d.user.screen_name,
-      text: String(d.text).replace(/https:\/\/t\.co\/\S+/g, "").trim(),
+      text: String(d.text).replace(/https:\/\/t\.co\/\S+/g, "")
+        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim(),
       created: d.created_at ? new Date(d.created_at) : null,
       isReply: Boolean(d.parent || d.in_reply_to_status_id_str),
     };
@@ -150,7 +151,7 @@ EVERY REPLY:
 
 FOR A SOURCE TWEET (a company or person announcing the thing): add the fact or the angle the announcement left out, the part the announcement would rather you did not notice, stated plainly and fairly.
 
-FOR A SEARCH TWEET (an ordinary person reacting): TAKE A POSITION. Say the uncomfortable true thing. If they are wrong, say so plainly and say why, with the fact that proves it. If they are right, sharpen it with something they did not know. A good reply is one people want to argue with. Confident, specific, a little provocative. But: never insult or mock the person, never invent a fact, never put words in their mouth.
+FOR A SEARCH TWEET (an ordinary person reacting): TAKE A POSITION. Say the uncomfortable true thing. If they are wrong, say so plainly and say why, with the fact that proves it. If they are right, sharpen it with something they did not know. A good reply is one people want to argue with. Confident, specific, a little provocative. But: argue with the CLAIM, never with the person's motives (no "you're hoping", "you're hedging", "you just want"); never insult or mock them, never invent a fact, never put words in their mouth.
 
 TWEETS:
 ${list}
