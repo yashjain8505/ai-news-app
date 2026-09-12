@@ -4,8 +4,9 @@ import { useRef, useState } from "react";
 
 type Story = { slug: string; headline: string; line: string; card: string };
 type Cover = { headline: string; card: string; photo: string | null };
+type Reply = { id: number; author: string; source: string; reply: string; draftUrl: string; tweetUrl: string };
 type Props = {
-  dateISO: string; dateLabel: string; title: string; subtitle: string; cover: Cover | null; body: string;
+  dateISO: string; dateLabel: string; title: string; subtitle: string; cover: Cover | null; replies: Reply[]; body: string;
   stories: Story[]; siteUrl: string; empty?: boolean;
 };
 
@@ -19,6 +20,7 @@ const CSS = `
 .td .lbl{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9c2b1d;margin-bottom:10px}
 .td .ttl{font-size:21px;line-height:1.25;font-weight:700;margin:0 0 8px}
 .td .dek{font-size:15px;line-height:1.45;color:#5a5244;margin:0 0 12px}
+.td .dim{font-weight:400;color:#8a7f6a;font-size:13px}
 .td .fld{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8a7f6a;margin:14px 0 4px}
 .td pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:15px;line-height:1.6;margin:0;max-height:200px;overflow:auto;color:#3a342a}
 .td button,.td a.btn{display:block;width:100%;font:inherit;font-size:17px;cursor:pointer;border:1px solid #1b1712;background:#1b1712;color:#f3ecda;padding:14px;border-radius:10px;margin-top:10px;text-align:center;text-decoration:none}
@@ -126,6 +128,22 @@ export default function Today(p: Props) {
       <div className="wrap">
         <h1>WORTINS · TODAY</h1>
         <div className="sub">{p.dateLabel}</div>
+
+        {p.replies.length > 0 && (
+          <div className="card">
+            <div className="lbl">X replies waiting for your tap · {p.replies.length}</div>
+            {p.replies.map((r) => (
+              <div className="story" key={r.id}>
+                <p className="st">@{r.author} <span className="dim">{r.source === "article" ? "· the original post" : "· discussing the story"}</span></p>
+                <p className="dek">{r.reply}</p>
+                <div className="row">
+                  <a className="btn rust" href={r.draftUrl} target="_blank" rel="noopener noreferrer">Open draft → Publish</a>
+                  <a className="btn ghost" href={r.tweetUrl} target="_blank" rel="noopener noreferrer">Their post ↗</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="card">
           <div className="lbl">Substack post</div>
