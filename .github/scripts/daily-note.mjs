@@ -124,7 +124,7 @@ function draftPrompt(items, want) {
 
 Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
-Order them best first. The order decides where each runs, and the FIRST picks are the LinkedIn picks, so they must be the most interesting NEWS (see the LinkedIn rules below); the funding and worthwhile-read picks come after them.
+Order them best first. The order decides where each runs, and the FIRST picks are the LinkedIn picks, so they must be the ones that pass the INTERESTING test hardest (defined in the LinkedIn rules below), from any section; the rest follow.
 - EVERY pick gets "short".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
@@ -157,7 +157,13 @@ THE THREE PIECES:
 - No "1/", no "a thread", no teasing a follow-up, no "read more".
 
 "linkedin" - for LinkedIn. 1600 to 2600 characters. This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly.
-- WHICH STORY: the LinkedIn picks must be the most interesting NEWS of the day. Something a curious person would tell a friend about: a big lab or big name doing something surprising, a launch people will actually use, a number that makes you look twice, a fight or a reversal. Not a funding round, not a university or vendor announcement, not a procedural legal update, not an opinion piece, unless it is honestly the biggest thing that happened.
+- WHICH STORY: the LinkedIn picks must pass the INTERESTING test, whatever section they come from. A story is interesting when a smart friend who does not follow AI would say "wait, really?" on hearing it. That happens when at least one of these is true:
+  1. a big player made a surprising move, or reversed itself (OpenAI says it may slow down; the DOJ goes after an Nvidia deal);
+  2. a number stops you (a $3 billion round at a $30 billion valuation; a chipmaker up 188% on its first day). Funding rounds count exactly when the size, the valuation or who is writing the cheque tells you where the money is going;
+  3. it changes what people can do next week (a launch people will actually use, from anyone, big or small);
+  4. there is a fight, a leak or a mess (a settlement descending into chaos; a lab banning staff from talking);
+  5. a strange real-world consequence (AI agents flooding benefit systems; a phone hinge designed by AI).
+  NOT interesting, however large the company: routine partnerships, a university opening a department, a small round for a niche vertical, procedural legal steps, technical internals, plain product updates with no twist. Rank the candidates by how hard the "wait, really?" hits, and take the top ones.
 - The FIRST line is the only thing most people see before "see more". Make it the single most surprising fact, as one complete specific sentence. Never a label, never a question, never "Here's what happened".
 - Then a blank line, then TELL THE WHOLE STORY, in this order, in short paragraphs of one to three sentences with a blank line between each:
   (a) what exactly happened, with the concrete details that make it real: who, what they did, the numbers, the dates, the names of the products or people;
