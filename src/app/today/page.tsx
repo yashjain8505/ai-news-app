@@ -36,7 +36,7 @@ export default async function TodayPage({
   const sp = await searchParams;
   const dates = await getAllEditionDates();
   const dateISO = sp.date && dates.includes(sp.date) ? sp.date : dates[0] ?? null;
-  if (!dateISO) return <Today empty dateISO="" dateLabel="" title="" body="" stories={[]} siteUrl={SITE.url} />;
+  if (!dateISO) return <Today empty dateISO="" dateLabel="" title="" subtitle="" cover={null} body="" stories={[]} siteUrl={SITE.url} />;
 
   const [items, meta] = await Promise.all([getEditionItems(dateISO), getEditionSynopsis(dateISO)]);
   const grouped: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
@@ -70,11 +70,27 @@ export default async function TodayPage({
     card: `${SITE.url}/story/${it.slug}/card.png`,
   }));
 
+  // Substack title = the biggest story, stated as news (the thematic edition
+  // headline read as vague). Subtitle = the next two stories plus a count, so
+  // the post promises specific things. Cover = the hero's card, or its photo.
+  const tops = grouped.daily.slice(0, 3);
+  const title = hero ? headlineOf(hero) : deDash(meta?.headline || "The Wortins Daily");
+  const others = tops.slice(1).map(headlineOf);
+  const more = Math.max(0, items.filter((i) => i.section !== "tools").length - 1 - others.length);
+  const subtitle = others.length
+    ? `Plus ${others.join(". ")}. And ${more} more AI stories.`
+    : `The AI news that matters, ${prettyDate(dateISO)}.`;
+  const cover = hero
+    ? { headline: headlineOf(hero), card: `${SITE.url}/story/${hero.slug}/card.png`, photo: hero.image_url || null }
+    : null;
+
   return (
     <Today
       dateISO={dateISO}
       dateLabel={prettyDate(dateISO)}
-      title={deDash(meta?.headline || (hero ? headlineOf(hero) : "The Wortins Daily"))}
+      title={title}
+      subtitle={subtitle}
+      cover={cover}
       body={blocks.join("\n\n")}
       stories={stories}
       siteUrl={SITE.url}
