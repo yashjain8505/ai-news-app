@@ -221,6 +221,29 @@ async function telegram(items) {
   }
 }
 
+// /today lists the replies still waiting for a tap. Each run first asks
+// Typefully what became of the earlier drafts, so published or deleted ones
+// drop off that list.
+async function syncDraftStatuses(day) {
+  const rows = await sb(`x_replies_ledger?status=eq.draft&select=id,draft_id&draft_id=neq.`);
+  if (!rows?.length) return;
+  const sets = await tf("/v2/social-sets");
+  const setList = Array.isArray(sets) ? sets : sets?.results || [];
+  const xSetId = (await Promise.all(setList.map((s) => tf(`/v2/social-sets/${s.id}/`).catch(() => null)))).find((d) => d?.platforms?.x)?.id;
+  if (!xSetId) return;
+  const byId = new Map();
+  for (const status of ["draft", "published", "scheduled"]) {
+    const list = await tf(`/v2/social-sets/${xSetId}/drafts?status=${status}&limit=50`).catch(() => null);
+    for (const d of (Array.isArray(list) ? list : list?.results || [])) byId.set(String(d.id), status);
+  }
+  for (const r of rows) {
+    const st = byId.get(String(r.draft_id));
+    const next = st === "published" ? "published" : st ? "draft" : "gone";
+    if (next === "draft") continue;
+    await sb(`x_replies_ledger?id=eq.${r.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: next }) });
+  }
+}
+
 // ---- main --------------------------------------------------------------------
 
 async function main() {
@@ -244,6 +267,7 @@ async function main() {
   console.log(`→ ${stories.length} story(ies) to look around · sources: article${SERPER_KEY ? " + search" : " only (no SERPER_API_KEY)"}`);
 
   const done = await sb(`x_replies_ledger?select=tweet_id,author,day`).catch(() => []);
+  await syncDraftStatuses(day).catch((e) => warn(`status sync skipped: ${e.message}`));
   const doneIds = new Set(done.map((r) => r.tweet_id));
   const authorsToday = new Set(done.filter((r) => r.day === day).map((r) => r.author.toLowerCase()));
 
@@ -299,7 +323,7 @@ async function main() {
       });
       await sb("x_replies_ledger", {
         method: "POST", headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ day, tweet_id: t.id, tweet_url: url, author: t.author, slug: t.story.slug, source: t.source, draft_id: String(created?.id || ""), reply_text: d.text }),
+        body: JSON.stringify({ day, tweet_id: t.id, tweet_url: url, author: t.author, slug: t.story.slug, source: t.source, draft_id: String(created?.id || ""), draft_url: created?.private_url || `https://typefully.com/?d=${created?.id}&a=${xSet.id}`, reply_text: d.text }),
       });
       const draftUrl = created?.private_url || `https://typefully.com/?d=${created?.id}`;
       console.log(`  ✓ draft ready to publish: ${draftUrl}`);

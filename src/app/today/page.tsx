@@ -36,9 +36,9 @@ export default async function TodayPage({
   const sp = await searchParams;
   const dates = await getAllEditionDates();
   const dateISO = sp.date && dates.includes(sp.date) ? sp.date : dates[0] ?? null;
-  if (!dateISO) return <Today empty dateISO="" dateLabel="" title="" subtitle="" cover={null} body="" stories={[]} siteUrl={SITE.url} />;
+  if (!dateISO) return <Today empty dateISO="" dateLabel="" title="" subtitle="" cover={null} replies={[]} body="" stories={[]} siteUrl={SITE.url} />;
 
-  const [items, meta] = await Promise.all([getEditionItems(dateISO), getEditionSynopsis(dateISO)]);
+  const [items, meta, replies] = await Promise.all([getEditionItems(dateISO), getEditionSynopsis(dateISO), getPendingReplies()]);
   const grouped: Record<Section, Item[]> = { daily: [], tools: [], articles: [], funding: [] };
   for (const it of items) grouped[it.section]?.push(it);
 
@@ -91,9 +91,31 @@ export default async function TodayPage({
       title={title}
       subtitle={subtitle}
       cover={cover}
+      replies={replies}
       body={blocks.join("\n\n")}
       stories={stories}
       siteUrl={SITE.url}
     />
   );
+}
+
+// X replies the engine drafted and nobody has tapped Publish on yet. X's
+// rules block API-published replies, so this list is the to-do.
+async function getPendingReplies() {
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { data } = await sb
+      .from("x_replies_ledger")
+      .select("id, author, source, reply_text, draft_url, tweet_url, created_at")
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(12);
+    return (data ?? []).map((r) => ({
+      id: r.id as number, author: r.author as string, source: r.source as string,
+      reply: (r.reply_text as string) ?? "", draftUrl: (r.draft_url as string) ?? "", tweetUrl: (r.tweet_url as string) ?? "",
+    }));
+  } catch {
+    return [];
+  }
 }
