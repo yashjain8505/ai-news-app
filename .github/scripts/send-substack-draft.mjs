@@ -140,7 +140,19 @@ function moneyLineOf(it) { return it.plain_line ? clean(it.plain_line) : deDash(
 // Deliberately plain, semantic HTML (no inline styles): Substack's editor maps
 // h3/strong/a/p onto its own blocks cleanly, and styles would just be stripped.
 function buildPost({ edition, tiers, dateISO }) {
-  const title = deDash(edition?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`);
+  // Title = the biggest story stated as news; the thematic edition headline
+  // read as vague. Subtitle names the next stories, so the post promises
+  // specific things. Cover = the hero card, with the article photo as the
+  // alternative.
+  const title = tiers.hero ? headlineOf(tiers.hero) : deDash(edition?.headline || `The Wortins Daily · ${prettyDate(dateISO)}`);
+  const others = tiers.also.slice(0, 2).map(headlineOf);
+  const moreCount = Math.max(0, storyTotal(tiers) - 1 - others.length);
+  const subtitle = others.length
+    ? `Plus ${others.join(". ")}. And ${moreCount} more AI stories.`
+    : `The AI news that matters, ${prettyDate(dateISO)}.`;
+  const cover = tiers.hero
+    ? { card: `${SITE_URL}/story/${encodeURIComponent(tiers.hero.slug)}/card.png`, photo: tiers.hero.image_url || null }
+    : null;
   const dek = clean(edition?.synopsis, 240);
 
   const parts = [];
@@ -187,7 +199,11 @@ function buildPost({ edition, tiers, dateISO }) {
     `${SITE_URL}/edition/${dateISO}`,
   ].join("\n");
 
-  return { title, dek, postHtml: parts.join("\n"), postText: lines.join("\n"), noteText };
+  return { title, subtitle, cover, dek, postHtml: parts.join("\n"), postText: lines.join("\n"), noteText };
+}
+
+function storyTotal(tiers) {
+  return [tiers.hero, ...tiers.also, ...tiers.money, ...tiers.reads].filter(Boolean).length;
 }
 
 // ---- the hand-off email -----------------------------------------------------
@@ -218,6 +234,17 @@ function buildEmail({ post, dateISO, storyCount }) {
     <div style="font-family:monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:1px solid #d8ccb2;padding-bottom:7px">Post title</div>
     <div style="font-size:24px;line-height:1.2;font-weight:700;padding:12px 0 0">${esc(post.title)}</div>
   </td></tr>
+
+  <tr><td style="padding:22px 0 0">
+    <div style="font-family:monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:1px solid #d8ccb2;padding-bottom:7px">Subtitle</div>
+    <div style="font-size:16px;line-height:1.45;color:#3a342a;padding:12px 0 0">${esc(post.subtitle)}</div>
+  </td></tr>
+${post.cover ? `
+  <tr><td style="padding:22px 0 0">
+    <div style="font-family:monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:1px solid #d8ccb2;padding-bottom:7px">Cover image</div>
+    <div style="padding:12px 0 0"><a href="${post.cover.card}"><img src="${post.cover.card}" alt="Cover card" width="240" style="width:240px;max-width:100%;border-radius:8px;border:1px solid #d8ccb2"></a></div>
+    <div style="font-size:13px;color:#6a6052;margin-top:8px"><a href="${post.cover.card}" style="color:#9c2b1d">Download the card</a>${post.cover.photo ? ` · <a href="${esc(post.cover.photo)}" style="color:#9c2b1d">or use the article's photo</a>` : ""}</div>
+  </td></tr>` : ""}
 
   <tr><td style="padding:26px 0 0">
     <div style="font-family:monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9c2b1d;border-bottom:1px solid #d8ccb2;padding-bottom:7px">The post</div>
@@ -278,7 +305,7 @@ async function main() {
   }
 
   const items = await sb(
-    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,source,rank,plain_title,plain_line`
+    `items?is_active=eq.true&edition_date=eq.${dateISO}&select=section,slug,title,summary,source,rank,plain_title,plain_line,image_url`
   );
   if (!items?.length) die(`No active items for ${dateISO}`);
   const tiers = buildTiers(items);
@@ -292,6 +319,7 @@ async function main() {
 
   if (DRY_RUN) {
     console.log(`\n[DRY RUN] subject: ${subject}`);
+    console.log(`[DRY RUN] title: ${post.title}\n[DRY RUN] subtitle: ${post.subtitle}\n[DRY RUN] cover: ${post.cover?.card} | photo: ${post.cover?.photo}`);
     console.log(`[DRY RUN] ${storyCount} stories, email ${html.length} bytes, would go to ${MAIL_TO}`);
     console.log(`\n--- post text ---\n${post.postText}\n`);
     if (process.env.WRITE_PREVIEW) {
@@ -302,7 +330,7 @@ async function main() {
     return;
   }
 
-  await sendEmail({ subject, html, text: post.postText });
+  await sendEmail({ subject, html, text: `TITLE: ${post.title}\nSUBTITLE: ${post.subtitle}\n${post.cover ? `COVER: ${post.cover.card}\n` : ""}\n${post.postText}` });
   console.log(`✓ Sent the Substack hand-off to ${MAIL_TO}`);
 
   await sb("substack_drafts", {

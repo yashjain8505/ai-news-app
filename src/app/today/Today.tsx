@@ -3,8 +3,9 @@
 import { useRef, useState } from "react";
 
 type Story = { slug: string; headline: string; line: string; card: string };
+type Cover = { headline: string; card: string; photo: string | null };
 type Props = {
-  dateISO: string; dateLabel: string; title: string; body: string;
+  dateISO: string; dateLabel: string; title: string; subtitle: string; cover: Cover | null; body: string;
   stories: Story[]; siteUrl: string; empty?: boolean;
 };
 
@@ -16,11 +17,14 @@ const CSS = `
 .td .sub{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a7f6a;margin-top:6px}
 .td .card{border:1px solid #ded3ba;background:#faf7f0;border-radius:14px;padding:16px;margin:16px 0}
 .td .lbl{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9c2b1d;margin-bottom:10px}
-.td .ttl{font-size:21px;line-height:1.25;font-weight:700;margin:0 0 12px}
+.td .ttl{font-size:21px;line-height:1.25;font-weight:700;margin:0 0 8px}
+.td .dek{font-size:15px;line-height:1.45;color:#5a5244;margin:0 0 12px}
+.td .fld{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8a7f6a;margin:14px 0 4px}
 .td pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:15px;line-height:1.6;margin:0;max-height:200px;overflow:auto;color:#3a342a}
 .td button,.td a.btn{display:block;width:100%;font:inherit;font-size:17px;cursor:pointer;border:1px solid #1b1712;background:#1b1712;color:#f3ecda;padding:14px;border-radius:10px;margin-top:10px;text-align:center;text-decoration:none}
-.td button.ghost{background:transparent;color:#1b1712}
-.td button.rust{background:#9c2b1d;border-color:#9c2b1d;color:#fff}
+.td button.ghost,.td a.btn.ghost{background:transparent;color:#1b1712}
+.td button.rust,.td a.btn.rust{background:#9c2b1d;border-color:#9c2b1d;color:#fff}
+.td .row a.btn{flex:1;font-size:15px}
 .td button[disabled]{opacity:.55}
 .td .row{display:flex;gap:8px}
 .td .row button{flex:1}
@@ -125,10 +129,26 @@ export default function Today(p: Props) {
 
         <div className="card">
           <div className="lbl">Substack post</div>
+          <div className="fld">Title</div>
           <p className="ttl">{p.title}</p>
+          <div className="fld">Subtitle</div>
+          <p className="dek">{p.subtitle}</p>
+          <div className="fld">Post</div>
           <pre>{p.body}</pre>
           <button onClick={() => copy(p.title, "Title")}>Copy title</button>
+          <button onClick={() => copy(p.subtitle, "Subtitle")}>Copy subtitle</button>
           <button onClick={() => copy(p.body, "Post")}>Copy post</button>
+          {p.cover && (
+            <>
+              <div className="fld">Cover image · {p.cover.headline}</div>
+              <div className="row">
+                <a className="btn rust" href={p.cover.card} target="_blank" rel="noopener noreferrer">Wortins card ↗</a>
+                {p.cover.photo && (
+                  <a className="btn ghost" href={p.cover.photo} target="_blank" rel="noopener noreferrer">Article photo ↗</a>
+                )}
+              </div>
+            </>
+          )}
           <a className="btn ghost" href="https://wortins.substack.com/publish/post?type=newsletter"
              target="_blank" rel="noopener noreferrer">Open Substack ↗</a>
         </div>
