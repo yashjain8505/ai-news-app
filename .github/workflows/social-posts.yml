@@ -62,6 +62,22 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: node .github/scripts/daily-note.mjs
 
+      # Join the X conversations around the stories this wave just posted:
+      # the announcement tweet embedded in the article, plus (with a Serper
+      # key) ordinary people discussing it. Replies publish immediately.
+      - name: Reply on X around today's stories
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TYPEFULLY_API_KEY: ${{ secrets.TYPEFULLY_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          MAX_REPLIES: "4"
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: node .github/scripts/x-replies.mjs
+
       # Warm the edge cache for today's cards while nobody is waiting. /today
       # shows a card per story and each render costs ~3s, so an unwarmed page
       # made the first tap on every story feel broken. Never fails the wave.

@@ -125,7 +125,7 @@ function draftPrompt(items, want) {
 Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
 Order them best first. The order decides where each runs, and the FIRST picks are the LinkedIn picks, so they must be the ones that pass the INTERESTING test hardest (defined in the LinkedIn rules below), from any section; the rest follow.
-- EVERY pick gets "short".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
+- EVERY pick gets "short" AND "x".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
 Write each required piece native to its place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
@@ -149,7 +149,12 @@ THE THREE PIECES:
 
 "note" - the Substack Note. 700 to 1100 characters. **Written to be READ, not skimmed off a wall of text: SHORT PARAGRAPHS of one to three sentences, with a blank line between every paragraph.** Open on the news itself, give it room to breathe across several paragraphs, and land on the part that actually matters. This is the longest of the three and can carry the most detail.
 
-"short" - ONE standalone post, used on X, Bluesky and Mastodon. Never a thread.
+"x" - the X (Twitter) thread: an array of 2 or 3 posts, each 280 characters or fewer, hard limit per post.
+- Post 1 is the lead and must stand completely on its own: the news as a full specific sentence, a blank line, then your honest reaction. Use the space, up to 280 characters; a 120-character lead wastes the slot.
+- Posts 2 and 3 are the details, written under the lead as a thread: the concrete specifics (numbers, names, dates, what exactly was said or shipped), then the background or the consequence, the thing a reader would otherwise have to open the article for. Full sentences, no "1/", no "thread", no "more below". Each detail post must add facts the lead did not carry.
+- Post 3 is optional; only write it if there is a genuinely new fact or angle left to give.
+
+"short" - ONE standalone post, used on Bluesky and Mastodon. Never a thread.
 - 270 characters or fewer, hard limit.
 - It must stand completely on its own. Someone who reads only this has learned the news.
 - Lead with the most concrete, surprising thing, stated as a full sentence.
@@ -177,7 +182,7 @@ TODAY'S STORIES:
 ${list}
 
 Return ONLY a JSON object, no prose around it, with up to ${want.picks} entries in "picks", best first. Omit "note" and "linkedin" on picks that do not need them per the rules above:
-{"picks":[{"slug":"<slug>","short":"<the one standalone post>","note":"<where required>","linkedin":"<where required>"}]}`;
+{"picks":[{"slug":"<slug>","short":"<the one standalone post>","x":["<lead post>","<details>","<optional more details>"],"note":"<where required>","linkedin":"<where required>"}]}`;
 }
 
 function claudeNote(items, want) {
@@ -209,7 +214,11 @@ function claudeNote(items, want) {
       // every pick must at least carry the short format; note under 150 chars
       // is treated as absent rather than posted half-baked
       if (!short) continue;
-      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", short, linkedin });
+      // The X thread: 2-3 posts, each within X's 280 limit. Anything malformed
+      // collapses to the standalone short, so X never goes empty.
+      let x = Array.isArray(it.x) ? it.x.map(clean).filter(Boolean).slice(0, 3) : [];
+      if (x.length < 2 || x.some((t) => t.length > 280)) x = [short];
+      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", short, x, linkedin });
     }
     if (!picks.length) throw new Error("no usable picks in claude output");
     return picks;
@@ -396,7 +405,7 @@ async function main() {
     // Fallback: one template note, so a Claude outage still posts something.
     const body = buildNote({ items, dateISO });
     if (!body) return skip("No daily story to build a note from.");
-    picks = [{ slug: pool[0].slug, note: body, short: "", linkedin: "" }];
+    picks = [{ slug: pool[0].slug, note: body, short: "", x: [], linkedin: "" }];
   }
   console.log(`→ ${picks.length} story pick(s) drafted`);
 
@@ -460,16 +469,19 @@ async function main() {
       });
     }
 
-    // X, Bluesky and Mastodon each get ONE standalone post carrying the story
-    // card. No threads, no links, no mentions: the card is the payload and it
-    // has wortins.com on it.
+    // X gets the lead post with the details threaded under it (the user's
+    // call, 2026-09-12: "make it longer, then under the same thread write more
+    // details"). Bluesky and Mastodon get the one standalone short. No links,
+    // no mentions anywhere: the image is the payload and it has wortins.com
+    // on it.
     for (const [plat, set] of [["x", xSet], ["bluesky", blueskySet], ["mastodon", mastodonSet]]) {
       if (!set || i >= quota[plat] || !pk.short) continue;
       const cap = plat === "x" ? "X" : plat[0].toUpperCase() + plat.slice(1);
+      const texts = plat === "x" && pk.x?.length ? pk.x : [pk.short];
       jobs.push({
         set, label: `${cap} ${n}`, platform: plat, story,
         payload: { draft_title: `Wortins ${dateISO} · ${cap} ${n}`, ...timing,
-          platforms: { [plat]: { enabled: true, posts: [{ text: pk.short }] } } },
+          platforms: { [plat]: { enabled: true, posts: texts.map((text) => ({ text })) } } },
       });
     }
 
