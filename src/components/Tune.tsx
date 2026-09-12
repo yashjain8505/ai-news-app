@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMix, reviseReaction, signOut, deleteAccount } from "@/app/actions";
 import { TOPICS as APPETITES, LEVELS } from "@/lib/topics";
+import posthog from "posthog-js";
 
 type Reaction = {
   itemId: string;
@@ -67,8 +68,14 @@ export default function Tune({
 
   function save() {
     startTransition(async () => {
-      await saveMix(mix, level, [...muted]);
-      setSaved(true);
+      const result = await saveMix(mix, level, [...muted]);
+      if (result?.ok) {
+        posthog.capture("preferences_saved", {
+          technical_preference: level,
+          muted_topic_count: muted.size,
+        });
+        setSaved(true);
+      }
     });
   }
 
@@ -85,6 +92,11 @@ export default function Tune({
   function flip(i: number, next: "like" | "less" | "neutral") {
     const r = rx[i];
     if (r.action === next) return;
+    posthog.capture("story_reaction_revised", {
+      story_id: r.itemId,
+      previous_reaction: r.action,
+      reaction: next,
+    });
     reviseReaction(r.itemId, r.tags, r.action, next);
     setRx((cur) => cur.map((x, j) => (j === i ? { ...x, action: next } : x)));
   }
@@ -138,7 +150,7 @@ export default function Tune({
       {/* sign out / delete */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginTop: 16 }}>
         <button
-          onClick={() => startAuth(async () => { await signOut(); })}
+          onClick={() => startAuth(async () => { posthog.reset(); await signOut(); })}
           disabled={authPending}
           className="mono bs-tap"
           style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid var(--sep)", background: "transparent", color: "var(--ink)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}
@@ -159,7 +171,7 @@ export default function Tune({
               This erases everything, permanently.
             </span>
             <button
-              onClick={() => startAuth(async () => { await deleteAccount(); })}
+              onClick={() => startAuth(async () => { posthog.reset(); await deleteAccount(); })}
               disabled={authPending}
               className="mono bs-tap"
               style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", border: 0, background: "var(--accent)", color: "var(--onAccent)", padding: "10px 18px", cursor: "pointer", opacity: authPending ? 0.5 : 1 }}

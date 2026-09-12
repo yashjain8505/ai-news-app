@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import posthog from "posthog-js";
 import { Item, Section } from "@/lib/types";
 import { recordFeedClick, recordRating } from "@/app/actions";
 import { timeAgo } from "@/lib/time";
@@ -310,7 +311,13 @@ export default function Feed({
     const idx = list.findIndex((x) => x.id === it.id);
     const above = idx > 0 ? list.slice(0, idx) : [];
     const skippedTags = above.flatMap((x) => x.tags ?? []);
-    recordFeedClick(it.id, tags, idx < 0 ? rank : idx, skippedTags);
+    const displayPosition = idx < 0 ? rank : idx;
+    posthog.capture("story_opened", {
+      story_id: it.id,
+      section: it.section,
+      display_position: displayPosition,
+    });
+    recordFeedClick(it.id, tags, displayPosition, skippedTags);
     // Pending marker so the return-to-tab handler can show the rate prompt.
     const p: Pending = { id: it.id, tags, rank, ts: Date.now() };
     pendingRef.current = p;
@@ -321,12 +328,19 @@ export default function Feed({
 
   // Reveal the next batch BELOW the current ones (append, never swap).
   function exploreMore() {
+    posthog.capture("feed_expanded", {
+      section: active,
+      stories_previously_shown: shown[active],
+    });
     setShown((s) => ({ ...s, [active]: s[active] + PAGES[active] }));
     setPromptItem(null);
   }
 
   function rate(r: number) {
-    if (promptItem) recordRating(promptItem.id, r, promptItem.tags);
+    if (promptItem) {
+      posthog.capture("story_rated", { story_id: promptItem.id, rating: r });
+      recordRating(promptItem.id, r, promptItem.tags);
+    }
     setPromptItem(null);
   }
 

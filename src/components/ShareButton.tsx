@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 
 // One-tap share for a Wortins story link. Native share sheet on mobile, clipboard
 // copy on desktop (with a last-ditch prompt if the clipboard API is blocked).
@@ -24,6 +25,13 @@ export default function ShareButton({
     setTimeout(() => setPressed(false), 120);
   }
 
+  function captureShared(method: "native_share" | "clipboard") {
+    posthog.capture("story_shared", {
+      sharing_method: method,
+      story_slug: url.split("/").filter(Boolean).pop() ?? "story",
+    });
+  }
+
   async function share() {
     pop();
     const abs =
@@ -33,6 +41,7 @@ export default function ShareButton({
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({ title, url: abs });
+        captureShared("native_share");
         return;
       } catch {
         // user dismissed the sheet, or it failed, fall through to copy
@@ -40,6 +49,7 @@ export default function ShareButton({
     }
     try {
       await navigator.clipboard.writeText(abs);
+      captureShared("clipboard");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

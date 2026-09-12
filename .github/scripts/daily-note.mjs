@@ -47,11 +47,11 @@ const ALSO_COUNT = 3;
 // created with publish_at "next-free-slot", so three drafts land on the three
 // configured slots (11:00 / 15:00 / 19:00 IST). LinkedIn takes fewer because a
 // company page dilutes its own reach if it posts more than about twice a day.
-// 30 posts/day total. X and Bluesky take the most (short-format feeds that
+// 32 posts/day total. X and Bluesky take the most (short-format feeds that
 // tolerate frequency, and Bluesky is the only account with traction), Substack
-// Notes and Mastodon sit in the middle, LinkedIn stays at its company-page
-// ceiling of 2, past which it dilutes its own reach.
-const PER_DAY = { substack: 6, x: 8, bluesky: 8, mastodon: 6, linkedin: 2 };
+// Notes and Mastodon sit in the middle. LinkedIn runs 4 in-depth news posts
+// (the user's call, 2026-09-12: one image each, no carousels).
+const PER_DAY = { substack: 6, x: 8, bluesky: 8, mastodon: 6, linkedin: 4 };
 // The day is drafted in WAVES, not one morning batch. Each run drafts only the
 // slots owed until the next wave, from whatever the curator has produced by
 // then, so an evening post carries evening news. Wave sizing self-heals: a
@@ -124,7 +124,7 @@ function draftPrompt(items, want) {
 
 Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
-Order them best first. The order decides where each runs:
+Order them best first. The order decides where each runs, and the FIRST picks are the LinkedIn picks, so they must be the most interesting NEWS (see the LinkedIn rules below); the funding and worthwhile-read picks come after them.
 - EVERY pick gets "short".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
@@ -156,10 +156,16 @@ THE THREE PIECES:
 - FORMAT IT TO BE READ ON A PHONE: put a blank line between the news and your reaction. Two short blocks read far better than one dense paragraph. Never one long run-on block.
 - No "1/", no "a thread", no teasing a follow-up, no "read more".
 
-"linkedin" - for LinkedIn. 900 to 1500 characters. Longer and more considered than the others.
-- The FIRST line is the only thing most people see before "see more". Make it a complete, specific, interesting sentence. Never a label, never a question, never "Here's what happened".
-- Then a blank line, then the argument in SHORT paragraphs of one to two sentences each, blank line between them. No paragraph longer than two sentences.
-- Write the way a person types a post, not the way a brand writes a caption. No bullet lists. Do not open with the company name as a headline fragment.
+"linkedin" - for LinkedIn. 1600 to 2600 characters. This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly.
+- WHICH STORY: the LinkedIn picks must be the most interesting NEWS of the day. Something a curious person would tell a friend about: a big lab or big name doing something surprising, a launch people will actually use, a number that makes you look twice, a fight or a reversal. Not a funding round, not a university or vendor announcement, not a procedural legal update, not an opinion piece, unless it is honestly the biggest thing that happened.
+- The FIRST line is the only thing most people see before "see more". Make it the single most surprising fact, as one complete specific sentence. Never a label, never a question, never "Here's what happened".
+- Then a blank line, then TELL THE WHOLE STORY, in this order, in short paragraphs of one to three sentences with a blank line between each:
+  (a) what exactly happened, with the concrete details that make it real: who, what they did, the numbers, the dates, the names of the products or people;
+  (b) the background a smart outsider is missing: what came before this, what the company or person was doing until now, why it is happening now;
+  (c) what it actually changes and for whom: users, competitors, workers, a specific industry. Be concrete, name them;
+  (d) your honest read of it, in one or two plain sentences. Specific to this story, or leave it out.
+- Depth means detail, not length. Every paragraph must add a new fact or a new angle. If you find yourself restating, stop.
+- Write the way a knowledgeable person types a post to people they respect, not the way a brand writes a caption. No bullet lists, no headers, no bold. Do not open with the company name as a headline fragment.
 
 TODAY'S STORIES:
 ${list}
@@ -193,7 +199,7 @@ function claudeNote(items, want) {
       let short = clean(it.short);
       if (short.length > 275) short = "";
       let linkedin = clean(it.linkedin);
-      if (linkedin.length < 300 || linkedin.length > 2200) linkedin = "";
+      if (linkedin.length < 900 || linkedin.length > 3000) linkedin = "";
       // every pick must at least carry the short format; note under 150 chars
       // is treated as absent rather than posted half-baked
       if (!short) continue;
@@ -322,38 +328,6 @@ async function attachRealImage(setId, story, altText) {
     return id;
   } catch (e) {
     warn(`article photo skipped for ${story.slug.slice(0, 40)}: ${e.message}`);
-    return null;
-  }
-}
-
-// LinkedIn gets a carousel: a PDF of today's story cards, this post's own
-// story on the cover. LinkedIn renders an attached PDF as a swipeable
-// document, which earns far more feed reach than a single image. Needs
-// pdf-lib (the workflow installs it); if anything fails the post falls back
-// to a single image like every other platform.
-const CAROUSEL_PAGES = 6;
-
-async function attachCarousel(setId, story, pool, altText) {
-  try {
-    const { PDFDocument } = await import("pdf-lib");
-    const slugs = [story.slug, ...pool.map((s) => s.slug).filter((s) => s !== story.slug)].slice(0, CAROUSEL_PAGES);
-    const pdf = await PDFDocument.create();
-    for (const slug of slugs) {
-      try {
-        const png = await pdf.embedPng(await fetchCardBytes(slug));
-        const page = pdf.addPage([1080, 1350]);
-        page.drawImage(png, { x: 0, y: 0, width: 1080, height: 1350 });
-      } catch (e) {
-        warn(`carousel page skipped (${slug.slice(0, 40)}): ${e.message}`);
-      }
-    }
-    if (pdf.getPageCount() < 2) throw new Error(`only ${pdf.getPageCount()} usable page(s)`);
-    const bytes = Buffer.from(await pdf.save());
-    const id = await uploadMedia(setId, bytes, `wortins-briefing-${safeName(story.slug)}.pdf`, altText);
-    console.log(`  ✓ carousel uploaded to set ${setId} (${pdf.getPageCount()} pages, ${Math.round(bytes.length / 1024)} KB)`);
-    return id;
-  } catch (e) {
-    warn(`carousel skipped for ${story.slug.slice(0, 40)}: ${e.message}`);
     return null;
   }
 }
@@ -504,15 +478,13 @@ async function main() {
 
   for (const j of jobs) console.log(`  → ${j.label}: ${headlineOf(j.story)}`);
 
-  // Every post carries an image and none carry a link. LinkedIn gets a
-  // carousel (a PDF of today's cards, this story on the cover). Everywhere
-  // else the image alternates per story: the hero and every second pick keep
-  // the branded clipping card, the others use the article's own photo
-  // (items.image_url, the publisher's og:image), falling back to the card
-  // when the photo is missing or junk. Roughly half and half across a
-  // 30-post day, and a story uses the same image on every platform it
-  // appears on. Media is scoped to one social set, so each chosen image
-  // uploads once per set.
+  // Every post carries exactly one image and none carry a link. The image
+  // alternates per story: the hero and every second pick keep the branded
+  // clipping card, the others use the article's own photo (items.image_url,
+  // the publisher's og:image), falling back to the card when the photo is
+  // missing or junk. Roughly half and half across the day, and a story uses
+  // the same image on every platform it appears on, LinkedIn included. Media
+  // is scoped to one social set, so each chosen image uploads once per set.
   const pickIndex = new Map(picks.map((pk, i) => [pk.slug, i]));
   if (!DRY_RUN) {
     const cache = new Map(); // set:slug -> media_id | null
@@ -521,11 +493,8 @@ async function main() {
       let mediaId = cache.get(key);
       if (mediaId === undefined) {
         const alt = `${headlineOf(j.story)}. ${lineOf(j.story)}`;
-        mediaId = j.platform === "linkedin" ? await attachCarousel(j.set.id, j.story, pool, alt) : null;
-        if (!mediaId) {
-          const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
-          mediaId = wantsPhoto ? await attachRealImage(j.set.id, j.story, alt) : null;
-        }
+        const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
+        mediaId = wantsPhoto ? await attachRealImage(j.set.id, j.story, alt) : null;
         if (!mediaId) mediaId = await attachCard(j.set.id, j.story.slug, alt);
         cache.set(key, mediaId);
       }

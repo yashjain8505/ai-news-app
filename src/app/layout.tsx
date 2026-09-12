@@ -9,6 +9,7 @@ import "./globals.css";
 import { SITE, SAME_AS, FOUNDER, FOUNDING_DATE } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
+import { PostHogIdentity } from "@/components/SignInButton";
 
 // Theme is applied by this tiny blocking script from the sig_theme cookie before
 // first paint. Doing it client-side (instead of reading cookies() on the server)
@@ -93,6 +94,7 @@ export default function RootLayout({
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <PostHogIdentity />
         <JsonLd
           data={{
             "@context": "https://schema.org",

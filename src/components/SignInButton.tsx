@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { useEffect, useState } from "react";
+import { createSupabaseBrowser, identifyCurrentUser } from "@/lib/supabase-browser";
 
 // "Continue with Google" — starts the Supabase OAuth flow; on return the
 // /auth/callback route exchanges the code for a session.
+export function PostHogIdentity() {
+  useEffect(() => {
+    void identifyCurrentUser();
+  }, []);
+
+  return null;
+}
+
 export default function SignInButton({ next = "/welcome" }: { next?: string }) {
   const [loading, setLoading] = useState(false);
 

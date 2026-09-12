@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import posthog from "posthog-js";
 import ShareButton from "@/components/ShareButton";
 
 // Share a story as an IMAGE, never a link. The ticket card (/story/<slug>/
@@ -70,6 +71,10 @@ export default function SocialShare({
   }
 
   function track(method: string) {
+    posthog.capture("story_social_shared", {
+      sharing_method: method,
+      story_id: itemId,
+    });
     const g = (globalThis as unknown as { gtag?: (...a: unknown[]) => void }).gtag;
     g?.("event", "share", { method, item_id: itemId, transport_type: "beacon" });
   }
