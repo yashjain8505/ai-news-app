@@ -8,6 +8,7 @@ import { timeAgo } from "@/lib/time";
 import { SITE, SECTION_SEO, sectionPath, absoluteUrl } from "@/lib/seo";
 import { SITE_FAQ, SECTION_FAQ, GLOSSARY } from "@/lib/faq";
 import Feed from "@/components/Feed";
+import { getLatestBlogPosts } from "@/lib/blog";
 import JsonLd from "@/components/JsonLd";
 
 const MONTHS = [
@@ -168,6 +169,7 @@ export default async function FeedPage({ section }: { section: Section }) {
 
   const feed = (
     <Feed
+      blogPicks={section === "daily" ? getLatestBlogPosts([], 3).map((p) => ({ slug: p.slug, title: p.title })) : []}
       items={items}
       days={days}
       todayIdx={todayIdx}
