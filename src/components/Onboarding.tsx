@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { completeOnboarding } from "@/app/actions";
 import { TOPICS as APPETITES, LEVELS } from "@/lib/topics";
+import posthog from "posthog-js";
 
 type Article = {
   id: string;
@@ -200,6 +201,11 @@ export default function Onboarding({
       });
       const wait = Math.max(0, 3400 - (Date.now() - started));
       if (res?.ok) {
+        posthog.capture("onboarding_completed", {
+          topic_count: picks.size,
+          technical_preference: techPref,
+          rated_story_count: Object.keys(ratings).length,
+        });
         setTimeout(() => {
           setPhase("ready");
           setTimeout(() => window.location.assign("/"), 1300);

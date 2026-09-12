@@ -4,6 +4,11 @@ import type { NextConfig } from "next";
 // app ships framework bootstrap, the GA snippet, the theme script, and JSON-LD as
 // inline <script>s (no nonce pipeline). img-src allows any https host + our image
 // CDN since story thumbnails come from arbitrary publishers.
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogCspSource = posthogHost
+  ? `https://*.${new URL(posthogHost).hostname.split(".").slice(-2).join(".")}`
+  : undefined;
+
 const csp = [
   "default-src 'self'",
   // static.cloudflareinsights.com: Cloudflare auto-injects its Web Analytics
@@ -13,12 +18,13 @@ const csp = [
   // ... violates the following Content Security Policy directive"). The beacon
   // is injected by the edge, not by our HTML, so it never shows up in a curl of
   // the page - only a real browser reveals it.
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com",
+  `script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com${posthogCspSource ? ` ${posthogCspSource}` : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   // cloudflareinsights.com is where the beacon POSTs its measurements.
-  "connect-src 'self' https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://cloudflareinsights.com",
+  `connect-src 'self' https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://cloudflareinsights.com${posthogCspSource ? ` ${posthogCspSource}` : ""}`,
+  "worker-src 'self' blob: data:",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",

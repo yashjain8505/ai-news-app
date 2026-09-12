@@ -1,0 +1,255 @@
+{
+  "version": 1,
+  "runId": "a0db38d8-b58d-422e-9df3-6fb28efd5558",
+  "tasks": [
+    {
+      "id": "d4b3f8f5-0f1c-4095-80bc-cf11c32de646",
+      "type": "warehouse",
+      "status": "running",
+      "dependsOn": [
+        "521393e1-aef9-40fe-b6e0-648b2c8c5e12",
+        "7cabc0a2-eb27-4fc9-8f3f-66811e755dd4",
+        "4e269784-fd7b-454e-a117-607e7ef48819",
+        "15c20e18-9f92-4548-acc3-c6bb4943bf3e",
+        "97302a6c-d36f-478c-bbaf-ed2f38ccc095",
+        "dc4165bd-a70b-4ca4-aa68-6840df5907ee",
+        "0e04a1f0-3d00-404b-ad37-e6a8613e3691"
+      ],
+      "inputs": {
+        "sources": [
+          {
+            "kind": "Supabase",
+            "label": "Supabase",
+            "mode": "in-cli",
+            "matchedSignal": "found `@supabase/supabase-js` in package.json"
+          },
+          {
+            "kind": "GoogleSearchConsole",
+            "label": "Google Search Console",
+            "mode": "deep-link",
+            "matchedSignal": "found `GSC_SERVICE_ACCOUNT_B64` in `.env.local`"
+          }
+        ]
+      },
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "optional": true,
+      "createdAt": "2026-09-12T05:37:39.378Z",
+      "startedAt": "2026-09-12T05:45:38.517Z"
+    },
+    {
+      "id": "521393e1-aef9-40fe-b6e0-648b2c8c5e12",
+      "type": "install",
+      "label": "Add the PostHog SDK",
+      "status": "done",
+      "dependsOn": [],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:48.819Z",
+      "startedAt": "2026-09-12T05:38:02.495Z",
+      "handoff": {
+        "goals": "Install the PostHog SDK using the project’s own package manager, adding a server SDK only if existing server-side capture requires it.",
+        "did": "Ran `npm add posthog-js`. This added the browser-only `posthog-js` SDK at the package manager-resolved version `^1.430.2`. No `posthog-node` package was added because source inspection found no existing server-side PostHog capture to support. The installed client package enables later client initialization and browser analytics instrumentation.",
+        "forNextAgent": "Import the client SDK as `posthog` from `posthog-js`. The app uses Next.js 16.3.3, so client initialization should follow the App Router instrumentation-client pattern. No server SDK is available or needed yet.",
+        "filesTouched": [
+          "package.json",
+          "package-lock.json"
+        ],
+        "evidence": "`npm add posthog-js` completed successfully: “added 12 packages.” Verified `package.json` lists `posthog-js`: `^1.430.2`, and `package-lock.json` contains the same dependency declaration.",
+        "assumptions": "The grep over `src` found no existing PostHog capture usage, so a server-side SDK was not warranted by this installation-only task."
+      },
+      "finishedAt": "2026-09-12T05:38:29.812Z"
+    },
+    {
+      "id": "7cabc0a2-eb27-4fc9-8f3f-66811e755dd4",
+      "type": "init",
+      "label": "Initialize PostHog",
+      "status": "done",
+      "dependsOn": [],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:48.820Z",
+      "startedAt": "2026-09-12T05:38:02.498Z",
+      "handoff": {
+        "goals": "Initialize PostHog for the Next.js App Router app, configure the public environment variables through wizard tools, document them for developers, and ensure the existing CSP permits browser analytics and replay assets.",
+        "did": "Created `instrumentation-client.ts` as the Next.js 16 client initialization point. It imports the shared `posthog-js` singleton and initializes it only when `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` are configured; development throws the required explicit error for either missing key, while production is a no-op. Set the two real public configuration values in `.env.local` using `set_env_values`, and created `.env.example` with safe placeholders. Updated `next.config.ts` so `script-src` and `connect-src` include a PostHog wildcard source derived from the configured public host, and added `worker-src 'self' blob: data:` for session replay.",
+        "forNextAgent": "Client-side call sites must import the existing singleton directly with `import posthog from \"posthog-js\";`. `instrumentation-client.ts` is the sole initialization path—do not add a provider or another `init()` call. The app is Next.js 16.3.3, so this root-level instrumentation client entry point runs. The CSP changes touched `script-src`, `connect-src`, and `worker-src`; `default-src`, `style-src`, `img-src`, `font-src`, `frame-ancestors`, `base-uri`, `form-action`, `object-src`, and `upgrade-insecure-requests` were left unchanged.",
+        "filesTouched": [
+          "instrumentation-client.ts",
+          ".env.example",
+          "next.config.ts"
+        ],
+        "evidence": "Read back `instrumentation-client.ts`, `.env.example`, and the modified CSP. `check_env_keys` reported both `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` present in `.env.local`. Read `package.json` after changes and confirmed `posthog-js` is listed as a dependency. No builds, linters, or tests were run, per task instructions.",
+        "assumptions": "The deployment environment will provide the same two `NEXT_PUBLIC_POSTHOG_*` variables used locally; without them, production intentionally leaves analytics inactive and development emits the configured error."
+      },
+      "finishedAt": "2026-09-12T05:38:56.716Z"
+    },
+    {
+      "id": "4e269784-fd7b-454e-a117-607e7ef48819",
+      "type": "identify",
+      "label": "Add user identification",
+      "status": "done",
+      "dependsOn": [
+        "521393e1-aef9-40fe-b6e0-648b2c8c5e12",
+        "7cabc0a2-eb27-4fc9-8f3f-66811e755dd4"
+      ],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:52.611Z",
+      "startedAt": "2026-09-12T05:39:01.967Z",
+      "handoff": {
+        "goals": "Wire PostHog identification to the app’s stable authenticated user identity, including reset at logout/account deletion, so client events and browser exception capture inherit the user context.",
+        "did": "Updated `src/lib/supabase-browser.ts` with `identifyCurrentUser()`, which reads the browser-visible Supabase Auth session and calls `posthog.identify()` using the immutable Supabase `user.id` UUID as the distinct ID. Email and OAuth display name are sent only as person properties. Updated `src/components/SignInButton.tsx` with a non-rendering `restoreIdentity` mode that invokes this helper after hydration. Mounted that mode once in `src/app/layout.tsx`, giving every route a single root-level identity restoration boundary after a cookie-backed session is restored. Updated `src/components/Tune.tsx` to call `posthog.reset()` immediately before the existing sign-out and account-deletion Server Action transitions, preventing a subsequent visitor from inheriting the prior identity. This establishes the person context that all later browser captures and automatic exception captures use; no server-side PostHog SDK or server event calls exist in the project.",
+        "forNextAgent": "Import the initialized `posthog-js` singleton only from client components when adding browser events; do not add another `init()` or re-identify at individual event call sites. The root layout establishes identity once per loaded session using Supabase Auth UUIDs, and Tune resets it on account exit. There is no `posthog-node` dependency or existing server-side PostHog instrumentation, so any later server captures would need their own supported server SDK integration and per-request identity handling.",
+        "filesTouched": [
+          "src/lib/supabase-browser.ts",
+          "src/components/SignInButton.tsx",
+          "src/app/layout.tsx",
+          "src/components/Tune.tsx",
+          "src/components/Feed.tsx",
+          "src/components/Onboarding.tsx"
+        ],
+        "evidence": "Reviewed the final helper, root mount, and account-exit handlers. The final source search found exactly one `posthog.identify()` path (the Supabase UUID helper) and the two intentional `posthog.reset()` account-exit calls. No builds, linters, or tests were run, as this task explicitly prohibits them.",
+        "assumptions": "Supabase’s browser client can read the cookie-backed session after hydration, as it is already used by the existing Google OAuth client flow. The existing OAuth callback redirects to a route under the root layout, so the root restoration call runs after successful login."
+      },
+      "finishedAt": "2026-09-12T05:40:50.807Z"
+    },
+    {
+      "id": "15c20e18-9f92-4548-acc3-c6bb4943bf3e",
+      "type": "error-tracking",
+      "label": "Enable error tracking",
+      "status": "done",
+      "dependsOn": [
+        "521393e1-aef9-40fe-b6e0-648b2c8c5e12",
+        "7cabc0a2-eb27-4fc9-8f3f-66811e755dd4"
+      ],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:52.612Z",
+      "startedAt": "2026-09-12T05:39:01.969Z",
+      "handoff": {
+        "goals": "Ensure uncaught client-side application errors reach PostHog through the Next.js App Router SDK mechanism.",
+        "did": "No files were edited. The existing root `instrumentation-client.ts` initialization already sets `capture_exceptions: true` on the single guarded `posthog.init()` call. This is the documented `posthog-js` global exception-autocapture configuration and captures unhandled errors without adding manual capture calls or boundaries.",
+        "forNextAgent": "Error Tracking client exception autocapture is already configured centrally in `instrumentation-client.ts`. Keep that single initialization path and do not add a provider, another init call, or scattered exception capture calls for uncaught errors.",
+        "filesTouched": [],
+        "evidence": "Read the error-tracking skill, framework commandments, Next.js reference, and the current `instrumentation-client.ts`; its initialized configuration contains `capture_exceptions: true` alongside the existing environment guards."
+      },
+      "finishedAt": "2026-09-12T05:39:12.874Z"
+    },
+    {
+      "id": "97302a6c-d36f-478c-bbaf-ed2f38ccc095",
+      "type": "capture",
+      "label": "Instrument key events",
+      "status": "done",
+      "dependsOn": [
+        "4e269784-fd7b-454e-a117-607e7ef48819"
+      ],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:55.047Z",
+      "startedAt": "2026-09-12T05:40:54.885Z",
+      "handoff": {
+        "goals": "Select meaningful user-action events for the Next.js App Router app, instrument them at their real client-side action points, and record the resulting analytics contract.",
+        "did": "Created `.posthog-wizard-cache/.posthog-events.json` with the 10 unique events selected for the core reader funnel. Updated `src/components/Feed.tsx` to capture `story_opened` with stable story ID, section, and display position; `feed_expanded` with section and prior visible count; and `story_rated` with stable story ID and score. These support content engagement, feed-depth, and personalization-quality analysis. Updated `src/components/Onboarding.tsx` to capture successful `onboarding_completed` with non-PII preference counts and level, completing the activation funnel. Updated `src/components/Tune.tsx` to capture successful `preferences_saved` and `story_reaction_revised`, supporting retention and taste-model refinement analysis. Updated `src/components/NewsletterSignup.tsx` and `src/components/ReadGate.tsx` to capture successful `newsletter_subscribed` conversions with a non-PII placement property, and read-gate churn intent through `read_gate_dismissed`. Updated `src/components/ShareButton.tsx` to capture completed native or clipboard `story_shared` actions, and `src/components/SocialShare.tsx` to capture `story_social_shared` after its existing social-image share/download paths. All browser captures import the initialized `posthog-js` singleton and are plain calls: the root identity restoration established upstream provides the authenticated Supabase UUID where available, while the client singleton retains anonymous browser attribution otherwise. No PII or user-entered content is included in event properties.",
+        "forNextAgent": "No server-side PostHog calls were added: the prior handoff establishes that `posthog-node` is not installed and there is no server instrumentation path. The meaningful admin/API publishing flows are candidates for a future server SDK integration with request-bound identity and awaited flushing, but are outside this client capture task. Review the 10-event contract in `.posthog-wizard-cache/.posthog-events.json`; `newsletter_subscribed` is intentionally emitted from both subscription components and distinguished by `placement`.",
+        "filesTouched": [
+          ".posthog-wizard-cache/.posthog-events.json",
+          "src/components/Feed.tsx",
+          "src/components/Onboarding.tsx",
+          "src/components/Tune.tsx",
+          "src/components/NewsletterSignup.tsx",
+          "src/components/ReadGate.tsx",
+          "src/components/ShareButton.tsx",
+          "src/components/SocialShare.tsx"
+        ],
+        "evidence": "Read each selected client component before editing. A final source search shows capture calls only at completed user handlers or successful action results for: `story_opened`, `feed_expanded`, `story_rated`, `onboarding_completed`, `preferences_saved`, `story_reaction_revised`, `newsletter_subscribed`, `read_gate_dismissed`, `story_shared`, and `story_social_shared`. No build, lint, or tests were run, as explicitly prohibited by this task.",
+        "assumptions": "The upstream root-level identity restoration finishes before meaningful authenticated reader actions occur; this is the identity model supplied in the previous handoff. Newsletter and read-gate events may be anonymous, for which the initialized browser singleton retains its normal browser-level attribution."
+      },
+      "finishedAt": "2026-09-12T05:42:16.380Z"
+    },
+    {
+      "id": "dc4165bd-a70b-4ca4-aa68-6840df5907ee",
+      "type": "review",
+      "label": "Review the integration",
+      "status": "done",
+      "dependsOn": [
+        "521393e1-aef9-40fe-b6e0-648b2c8c5e12",
+        "7cabc0a2-eb27-4fc9-8f3f-66811e755dd4",
+        "4e269784-fd7b-454e-a117-607e7ef48819",
+        "97302a6c-d36f-478c-bbaf-ed2f38ccc095",
+        "15c20e18-9f92-4548-acc3-c6bb4943bf3e"
+      ],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:57.667Z",
+      "startedAt": "2026-09-12T05:42:21.727Z",
+      "handoff": {
+        "goals": "Install the declared PostHog SDK, verify the project-defined build/typecheck/lint checks without running tests, and strictly review the full upstream PostHog changeset across minimality, unrelated behavior, codebase patterns, and framework example shape.",
+        "did": "Detected npm and ran `npm add posthog-js`; it completed successfully with the dependency tree already up to date. Reviewed every upstream-touched source/config/contract file (with env state judged through `check_env_keys`, which confirmed both public PostHog keys in `.env.local`) plus only the relevant callers and neighboring patterns. Made 2 review fixes: (1) Minimal / Unrelated / Codebase patterns — replaced `SignInButton`'s unrelated hidden `restoreIdentity` mode with a named non-rendering `PostHogIdentity` client boundary in the same module, mounted directly by the root layout; analytics identity behavior is unchanged. (2) Minimal — removed redundant narration above `identifyCurrentUser`. The four ordered dimensions now pass: Minimal (no duplicate init/provider/unused analytics helpers), Unrelated (visible auth UI no longer doubles as hidden analytics infrastructure), Codebase patterns (direct browser singleton imports, root client boundary, matching env/import conventions), and Example shapes (single Next.js 16 `instrumentation-client.ts` init, guarded real env config, direct captures, stable UUID identify/reset, valid CSP script/connect/worker directives). The 10-event analytics contract was not changed. Full `npm run build` compiled successfully before failing in TypeScript on stale generated `.next/dev` route references unrelated to PostHog. Full `npm run lint` failed on existing/generated `.open-next` and unrelated source findings; no PostHog-specific call-site failure surfaced. A scoped lint of all files changed by this review passed. No tests were run.",
+        "forNextAgent": "The integration is installed and reviewed. Keep `instrumentation-client.ts` as the only init path and keep event names/properties unchanged. Project-level green verification requires resolving or clearing the stale `.next/dev/types/validator.ts` references to removed `admin/analytics` and `api/admin/brief-input` routes, plus the repository's broad pre-existing/generated lint backlog; these are outside this PostHog task. The published handoff contains the complete verification report.",
+        "filesTouched": [
+          "src/components/SignInButton.tsx",
+          "src/app/layout.tsx",
+          "src/lib/supabase-browser.ts"
+        ],
+        "evidence": "`npm add posthog-js` passed: “up to date, audited 672 packages.” `npm run build` reported “Compiled successfully” before TypeScript failed only in `.next/dev/types/validator.ts` on missing non-PostHog route modules. `npm run lint -- src/components/SignInButton.tsx src/app/layout.tsx src/lib/supabase-browser.ts` exited successfully with no findings. `check_env_keys` reported both `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` present in `.env.local`. Full lint ran and showed existing/generated errors rather than errors in the review fix.",
+        "assumptions": "Deployment will provide the same two `NEXT_PUBLIC_POSTHOG_*` values configured locally. The existing Supabase browser session remains available after hydration, as assumed by the upstream identity task.",
+        "conflict": "`npm run build` and full `npm run lint` remain red on pre-existing/generated issues: stale `.next/dev` references to two missing routes and the repository's existing `.open-next`/source lint backlog."
+      },
+      "finishedAt": "2026-09-12T05:45:30.141Z"
+    },
+    {
+      "id": "0e04a1f0-3d00-404b-ad37-e6a8613e3691",
+      "type": "dashboard",
+      "label": "Build product dashboard",
+      "status": "done",
+      "dependsOn": [
+        "97302a6c-d36f-478c-bbaf-ed2f38ccc095"
+      ],
+      "inputs": {},
+      "attempts": 1,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:37:57.668Z",
+      "startedAt": "2026-09-12T05:42:21.729Z",
+      "handoff": {
+        "goals": "Create a starter PostHog dashboard with a handful of insights built on the integration's captured events.",
+        "did": "Created the `Analytics basics (wizard)` dashboard (ID 2089046) in PostHog project 604786 and attached five wizard-tagged 30-day insights: reader activation funnel (`onboarding_completed` → `story_opened`), newsletter conversion funnel (`story_opened` → `newsletter_subscribed`), stories opened by section, feed expansion trend, and story sharing trend. These views cover the intended activation, conversion, engagement, feed-depth, and sharing signals.",
+        "forNextAgent": "Dashboard URL: https://us.posthog.com/project/604786/dashboard/2089046. All five insight definitions were successfully saved and attached; fresh integrations can show empty results until client events are ingested. No project files were changed.",
+        "filesTouched": [],
+        "evidence": "PostHog MCP returned dashboard ID 2089046 and a dashboard URL. It returned five successfully saved insight records with dashboard ID 2089046 in their `dashboards` arrays: IDs 11820808, 11820809, 11820810, 11820812, and 11820811.",
+        "assumptions": "The `section` event property on `story_opened` remains part of the captured event contract supplied by the prior capture task."
+      },
+      "finishedAt": "2026-09-12T05:42:47.547Z"
+    },
+    {
+      "id": "b2f30a07-0e4f-46cf-a08a-eb16f0270245",
+      "type": "report",
+      "label": "Report the setup",
+      "status": "pending",
+      "dependsOn": [
+        "0e04a1f0-3d00-404b-ad37-e6a8613e3691",
+        "dc4165bd-a70b-4ca4-aa68-6840df5907ee",
+        "d4b3f8f5-0f1c-4095-80bc-cf11c32de646"
+      ],
+      "inputs": {},
+      "attempts": 0,
+      "maxAttempts": 2,
+      "enqueuedBy": "orchestrator",
+      "createdAt": "2026-09-12T05:38:00.662Z"
+    }
+  ]
+}

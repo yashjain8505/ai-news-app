@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import { subscribeNewsletter } from "@/app/actions";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,6 +32,9 @@ export default function NewsletterSignup({ compact = false }: { compact?: boolea
     setMsg(null);
     const res = await subscribeNewsletter(value);
     if (res.ok) {
+      posthog.capture("newsletter_subscribed", {
+        placement: compact ? "feed_header" : "inline_form",
+      });
       setState("done");
       setEmail("");
     } else {

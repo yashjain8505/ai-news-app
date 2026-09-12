@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 import { subscribeNewsletter } from "@/app/actions";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,6 +32,7 @@ export default function ReadGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   function notNow() {
+    posthog.capture("read_gate_dismissed");
     try {
       localStorage.setItem(KEY, String(Date.now() + SNOOZE_MS));
     } catch {}
@@ -50,6 +52,7 @@ export default function ReadGate({ children }: { children: React.ReactNode }) {
     setMsg(null);
     const res = await subscribeNewsletter(value);
     if (res.ok) {
+      posthog.capture("newsletter_subscribed", { placement: "read_gate" });
       setState("done");
       try {
         localStorage.setItem(KEY, "subscribed");
