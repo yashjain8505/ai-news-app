@@ -19,6 +19,10 @@ on:
         description: "Draft + print, create nothing"
         type: boolean
         default: false
+      replies_only:
+        description: "Skip the posts; only run the X reply finder"
+        type: boolean
+        default: false
 
 # Exactly one wave at a time. A delayed GitHub cron firing next to a manual
 # dispatch made two waves race the ledger (both read "5 used" before either
@@ -52,6 +56,7 @@ jobs:
           node .github/scripts/simplify-edition.mjs
 
       - name: Draft and queue this wave
+        if: ${{ github.event.inputs.replies_only != 'true' }}
         env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -64,7 +69,8 @@ jobs:
 
       # Join the X conversations around the stories this wave just posted:
       # the announcement tweet embedded in the article, plus (with a Serper
-      # key) ordinary people discussing it. Replies publish immediately.
+      # key) ordinary people discussing it. Replies land as Typefully DRAFTS
+      # (X policy blocks API-published replies); the user taps publish.
       - name: Reply on X around today's stories
         if: ${{ always() }}
         continue-on-error: true
@@ -82,7 +88,7 @@ jobs:
       # shows a card per story and each render costs ~3s, so an unwarmed page
       # made the first tap on every story feel broken. Never fails the wave.
       - name: Pre-warm today's story cards
-        if: ${{ always() && github.event.inputs.dry_run != 'true' }}
+        if: ${{ always() && github.event.inputs.dry_run != 'true' && github.event.inputs.replies_only != 'true' }}
         continue-on-error: true
         env:
           SUPABASE_URL: https://zrjbzowohsgjbrhsldfi.supabase.co

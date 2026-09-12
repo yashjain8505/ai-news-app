@@ -12,6 +12,13 @@
 // A tweet's text is read through X's public syndication endpoint, so every
 // reply is written against what the person actually said.
 //
+// REPLIES ARE DRAFTS, BY X'S RULE. Typefully refuses to publish or schedule
+// a reply via the API (403: "not allowed by X policy"); X's automation rules
+// forbid unsolicited automated replies, and posting them through the raw X
+// API would risk the account. So each reply lands in Typefully as a draft
+// with the target attached, and the user publishes it with one tap in the
+// Typefully app. That tap is what makes it a human reply.
+//
 // Voice: the house voice, plus a spine. Source-tweet replies add the fact or
 // angle the announcement left out. Search replies take a clear position and
 // say the uncomfortable true thing; a good one makes people want to argue
@@ -247,14 +254,13 @@ async function main() {
     const t = targets.find((x) => x.id === d.tweet_id);
     if (!t || repliedAuthors.has(t.author.toLowerCase())) continue;
     const url = `https://x.com/${t.author}/status/${t.id}`;
-    console.log(`\n→ reply to @${t.author} [${t.source}] ${url}\n  "${t.text.slice(0, 120).replace(/\s+/g, " ")}"\n  ↳ ${d.text}`);
+    console.log(`\n→ reply draft for @${t.author} [${t.source}] ${url}\n  "${t.text.slice(0, 120).replace(/\s+/g, " ")}"\n  ↳ ${d.text}`);
     if (DRY_RUN) { posted++; repliedAuthors.add(t.author.toLowerCase()); continue; }
     try {
       const created = await tf(`/v2/social-sets/${xSet.id}/drafts`, {
         method: "POST",
         body: JSON.stringify({
-          draft_title: `Wortins reply · @${t.author} · ${day}`,
-          publish_at: "now",
+          draft_title: `Reply · @${t.author} · ${day}`,
           platforms: { x: { enabled: true, posts: [{ text: d.text }], settings: { reply_to_url: url } } },
         }),
       });
@@ -262,14 +268,14 @@ async function main() {
         method: "POST", headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ day, tweet_id: t.id, tweet_url: url, author: t.author, slug: t.story.slug, source: t.source, draft_id: String(created?.id || ""), reply_text: d.text }),
       });
-      console.log(`  ✓ posted (draft ${created?.id})`);
+      console.log(`  ✓ draft ready to publish: ${created?.private_url || `https://typefully.com/?d=${created?.id}`}`);
       posted++;
       repliedAuthors.add(t.author.toLowerCase());
     } catch (e) {
       warn(`reply to @${t.author} failed: ${e.message}`);
     }
   }
-  console.log(`\n→ ${posted} reply(ies) ${DRY_RUN ? "would be " : ""}posted`);
+  console.log(`\n→ ${posted} reply draft(s) ${DRY_RUN ? "would be " : ""}created; publish them from the Typefully app`);
 }
 
 main().catch((e) => { warn(e.message); process.exitCode = 0; });
