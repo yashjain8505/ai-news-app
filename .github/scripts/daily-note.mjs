@@ -125,7 +125,7 @@ function draftPrompt(items, want) {
 Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
 Order them best first. The order decides where each runs, and the FIRST picks are the LinkedIn picks, so they must be the ones that pass the INTERESTING test hardest (defined in the LinkedIn rules below), from any section; the rest follow.
-- EVERY pick gets "short" AND "x".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
+- EVERY pick gets "short", "x" AND "x_long".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
 Write each required piece native to its place. Same facts and same voice every time, but genuinely different shapes, not one text reflowed. NONE of them may contain a URL; links are added separately.
@@ -149,11 +149,12 @@ THE THREE PIECES:
 
 "note" - the Substack Note. 700 to 1100 characters. **Written to be READ, not skimmed off a wall of text: SHORT PARAGRAPHS of one to three sentences, with a blank line between every paragraph.** Open on the news itself, give it room to breathe across several paragraphs, and land on the part that actually matters. This is the longest of the three and can carry the most detail.
 
-"x" - the X (Twitter) thread: an array of 3 or 4 posts, each 280 characters or fewer, hard limit per post. This is where a reader gets the WHOLE story without leaving X, so it is the most detailed of the short formats.
-- Post 1 is the lead and must stand completely on its own: the news as a full specific sentence, a blank line, then your honest reaction. Use the space, up to 280 characters; a 120-character lead wastes the slot.
-- Posts 2 to 4 are the details, written under the lead as a thread, each a full 200-280 characters. In order: (2) the concrete specifics: numbers, names, dates, what exactly was said or shipped; (3) the background a reader is missing: what came before, why now, who else is involved; (4) what it changes and for whom, or the part everyone is glossing over. Full sentences, no "1/", no "thread", no "more below". Each post must add facts the earlier ones did not carry.
-- Write all 4 posts unless the story genuinely cannot support a fourth angle; NEVER fewer than 3 (lead + two detail posts). A lead with a single detail post under it is a failed thread.
-- Do NOT write a closing "read more" post; the link is added separately.
+"x_long" - the X post, for an account with long posts. 90 to 200 words (600 to 1400 characters). ONE post, not a thread. This is where a reader gets the WHOLE story without leaving X.
+- FORMAT FOR THE PHONE: short paragraphs of one or two sentences, a blank line between every paragraph, never a wall. The first line is the news itself, specific and complete. Then the details: the numbers, the names, what exactly was said or shipped. Then the background a reader is missing. Then, in one or two plain sentences, what you honestly make of it.
+- Vary the length across the day: some posts around 90 words, some 150, some closer to 200. Match the story, do not pad.
+- No "1/", no "thread", no "read more", no URL.
+
+"x" - the same story for an account WITHOUT long posts: an array of exactly 2 posts, each 280 characters or fewer, hard limit. Post 1: the news as a full specific sentence, blank line, your reaction, using the full 280. Post 2: the two or three concrete details a reader would otherwise have to open the article for, written as one continuous piece, not fragments. No "1/", no "thread", no URL.
 
 "short" - ONE standalone post, used on Bluesky and Mastodon. Never a thread.
 - 270 characters or fewer, hard limit.
@@ -162,7 +163,7 @@ THE THREE PIECES:
 - FORMAT IT TO BE READ ON A PHONE: put a blank line between the news and your reaction. Two short blocks read far better than one dense paragraph. Never one long run-on block.
 - No "1/", no "a thread", no teasing a follow-up, no "read more".
 
-"linkedin" - for LinkedIn. 1600 to 2600 characters. This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly.
+"linkedin" - for LinkedIn. 2000 to 3000 characters (LinkedIn's cap is 3000; use most of it). This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly, and READABLE on a phone.
 - WHICH STORY: the LinkedIn picks must pass the INTERESTING test, whatever section they come from. A story is interesting when a smart friend who does not follow AI would say "wait, really?" on hearing it. That happens when at least one of these is true:
   1. a big player made a surprising move, or reversed itself (OpenAI says it may slow down; the DOJ goes after an Nvidia deal);
   2. a number stops you (a $3 billion round at a $30 billion valuation; a chipmaker up 188% on its first day). Funding rounds count exactly when the size, the valuation or who is writing the cheque tells you where the money is going;
@@ -171,7 +172,7 @@ THE THREE PIECES:
   5. a strange real-world consequence (AI agents flooding benefit systems; a phone hinge designed by AI).
   NOT interesting, however large the company: routine partnerships, a university opening a department, a small round for a niche vertical, procedural legal steps, technical internals, plain product updates with no twist. Rank the candidates by how hard the "wait, really?" hits, and take the top ones.
 - The FIRST line is the only thing most people see before "see more". Make it the single most surprising fact, as one complete specific sentence. Never a label, never a question, never "Here's what happened".
-- Then a blank line, then TELL THE WHOLE STORY, in this order, in short paragraphs of one to three sentences with a blank line between each:
+- Then a blank line, then TELL THE WHOLE STORY, in this order. READABILITY IS THE RULE: paragraphs of ONE or TWO sentences, never three, a blank line between every paragraph, and every few paragraphs a single short line on its own that carries the key fact or number. Nobody reads a block; they read lines.
   (a) what exactly happened, with the concrete details that make it real: who, what they did, the numbers, the dates, the names of the products or people;
   (b) the background a smart outsider is missing: what came before this, what the company or person was doing until now, why it is happening now;
   (c) what it actually changes and for whom: users, competitors, workers, a specific industry. Be concrete, name them;
@@ -183,7 +184,7 @@ TODAY'S STORIES:
 ${list}
 
 Return ONLY a JSON object, no prose around it, with up to ${want.picks} entries in "picks", best first. Omit "note" and "linkedin" on picks that do not need them per the rules above:
-{"picks":[{"slug":"<slug>","short":"<the one standalone post>","x":["<lead post>","<details>","<optional more details>"],"note":"<where required>","linkedin":"<where required>"}]}`;
+{"picks":[{"slug":"<slug>","short":"<the one standalone post>","x":["<lead post>","<details post>"],"x_long":"<the long single post>","note":"<where required>","linkedin":"<where required>"}]}`;
 }
 
 function claudeNote(items, want) {
@@ -217,9 +218,12 @@ function claudeNote(items, want) {
       if (!short) continue;
       // The X thread: 2-3 posts, each within X's 280 limit. Anything malformed
       // collapses to the standalone short, so X never goes empty.
-      let x = Array.isArray(it.x) ? it.x.map(clean).filter(Boolean).slice(0, 4) : [];
+      let x = Array.isArray(it.x) ? it.x.map(clean).filter(Boolean).slice(0, 2) : [];
       if (x.length < 2 || x.some((t) => t.length > 280)) x = [short];
-      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", short, x, linkedin });
+      // The long single post, used when the X account has long posts.
+      let xLong = clean(it.x_long);
+      if (xLong.length < 400 || xLong.length > 1800) xLong = "";
+      picks.push({ slug: String(it.slug || ""), note: note.length >= 150 ? note : "", short, x, xLong, linkedin });
     }
     if (!picks.length) throw new Error("no usable picks in claude output");
     return picks;
@@ -309,45 +313,37 @@ async function attachCard(setId, slug, altText) {
   }
 }
 
-// The story's real photo: the article's own og:image, resolved by the curator
-// into items.image_url (the same trick the insta-news project uses). Returns
-// null on anything dubious so the caller can fall back to the clipping card:
-// a missing url, a non-image, an SVG, or a tiny file (favicons and 1px
-// trackers are common og:image junk).
-const IMAGE_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 
-// Agency stock photos (a generic "hands on keyboard" Getty shot) are not
-// about the story and look bad on the feed, so they get the card instead.
-// Agencies watermark their filenames, which makes them cheap to spot.
-const STOCK_RE = /gettyimages|shutterstock|istock|depositphotos|adobestock|dreamstime|alamy|stock-photo/i;
+async function xAccountHasLongPosts(set) {
+  const list = await tf(`/v2/social-sets/${set.id}/drafts?status=published&limit=10`);
+  const rows = Array.isArray(list) ? list : list?.results || [];
+  const url = rows.map((d) => d.x_published_url).find(Boolean);
+  const id = url && url.match(/status\/(\d+)/)?.[1];
+  if (!id) return false;
+  const res = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${id}&token=a`, { headers: { "User-Agent": "Mozilla/5.0 (compatible; WortinsBot/1.0)" } });
+  if (!res.ok) return false;
+  const d = await res.json();
+  return Boolean(d?.user?.is_blue_verified || d?.user?.verified);
+}
 
-async function attachRealImage(setId, story, altText) {
-  if (!story.image_url) return null;
-  if (STOCK_RE.test(story.image_url)) {
-    console.log(`  → stock photo detected for ${story.slug.slice(0, 40)}; using the card`);
-    return null;
-  }
+// The photo card: the story's real photo with the headline set over it
+// (/story/<slug>/photo-card.png, the insta-news cover look). 404 = no usable
+// photo, so the caller falls back to the clipping card.
+async function attachPhotoCard(setId, slug, altText) {
   try {
-    const res = await fetch(story.image_url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; WortinsBot/1.0)" },
-      redirect: "follow",
-    });
-    if (!res.ok) throw new Error(`image fetch -> ${res.status}`);
-    const type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-    const ext = IMAGE_EXT[type];
-    if (!ext) throw new Error(`not a usable image type (${type || "unknown"})`);
-    const bytes = Buffer.from(await res.arrayBuffer());
-    if (bytes.length < 25000) throw new Error(`too small (${bytes.length}b), likely a logo or tracker`);
-    if (bytes.length > 8 * 1024 * 1024) throw new Error(`too large (${Math.round(bytes.length / 1048576)}MB)`);
-    const id = await uploadMedia(setId, bytes, `wortins-${safeName(story.slug)}.${ext}`, altText);
-    console.log(`  ✓ article photo uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB ${ext})`);
+    const img = await fetch(`${SITE_URL}/story/${encodeURIComponent(slug)}/photo-card.png`);
+    if (img.status === 404) return null;
+    if (!img.ok) throw new Error(`photo card fetch -> ${img.status}`);
+    const bytes = Buffer.from(await img.arrayBuffer());
+    if (!bytes.length) throw new Error("photo card was empty");
+    const id = await uploadMedia(setId, bytes, `wortins-${safeName(slug)}-photo.png`, altText);
+    console.log(`  ✓ photo card uploaded to set ${setId} (${Math.round(bytes.length / 1024)} KB)`);
     return id;
   } catch (e) {
-    warn(`article photo skipped for ${story.slug.slice(0, 40)}: ${e.message}`);
+    warn(`photo card skipped for ${slug.slice(0, 40)}: ${e.message}`);
     return null;
   }
 }
-
 
 // How many queue slots a set still has open today. Typefully's queue view
 // already knows the set's timezone and which slots hold a draft, so ask it
@@ -444,6 +440,13 @@ async function main() {
     return skip(`Publishing quota is exhausted (resets ${pubQuota.resets_at}); not publishing.`);
   }
 
+  // Does the X account have long posts (Premium)? Read our own latest
+  // published tweet through the public syndication endpoint: is_blue_verified
+  // is the Premium badge. Without it X caps every post at 280 and a long
+  // draft would fail at publish time, so the thread shape is used instead.
+  const xLongPosts = xSet ? await xAccountHasLongPosts(xSet).catch(() => false) : false;
+  if (xSet) console.log(`→ X long posts: ${xLongPosts ? "yes (Premium)" : "no (280-char cap; upgrade @" + (xSet.platforms.x.username || "the X account") + " to Premium to unlock)"}`);
+
   // NEVER SPILL INTO TOMORROW. "next-free-slot" happily books tomorrow
   // morning once today's slots are full, which is how 10 drafts with today's
   // news ended up on tomorrow's 09:30-12:30 (2026-09-12). Each platform's
@@ -481,7 +484,7 @@ async function main() {
     // Fallback: one template note, so a Claude outage still posts something.
     const body = buildNote({ items, dateISO });
     if (!body) return skip("No daily story to build a note from.");
-    picks = [{ slug: pool[0].slug, note: body, short: "", x: [], linkedin: "" }];
+    picks = [{ slug: pool[0].slug, note: body, short: "", x: [], xLong: "", linkedin: "" }];
   }
   console.log(`→ ${picks.length} story pick(s) drafted`);
 
@@ -520,8 +523,10 @@ async function main() {
       // The X thread ends on the Wortins story page (the user's call,
       // 2026-09-12: "in the thread, link them to the article on Wortins").
       // Last post only, so the lead is never a link post.
-      const texts = plat === "x" && pk.x?.length > 1
-        ? [...pk.x, `Full story and our take, on Wortins:\n${SITE_URL}/story/${encodeURIComponent(story.slug)}`]
+      const link = `Full story and our take, on Wortins:\n${SITE_URL}/story/${encodeURIComponent(story.slug)}`;
+      const texts = plat !== "x" ? [pk.short]
+        : xLongPosts && pk.xLong ? [pk.xLong, link]
+        : pk.x?.length > 1 ? [...pk.x, link]
         : [pk.short];
       jobs.push({
         set, label: `${cap} ${n}`, platform: plat, story,
@@ -556,20 +561,19 @@ async function main() {
       let media = cache.get(key);
       if (media === undefined) {
         const alt = `${headlineOf(j.story)}. ${lineOf(j.story)}`;
-        const wantsPhoto = (pickIndex.get(j.story.slug) ?? 0) % 2 === 1;
-        const photo = j.story.image_url ? await attachRealImage(j.set.id, j.story, alt) : null;
-        const card = (!wantsPhoto || !photo) ? await attachCard(j.set.id, j.story.slug, alt) : null;
-        // lead = whichever the alternation asked for; the other image, when
-        // it exists, goes on the details post so a thread is not one image
-        // repeated (user: "occasionally use different images").
-        const lead = wantsPhoto ? (photo || card) : (card || photo);
-        const other = lead === photo ? card : photo;
-        media = { lead, other };
+        // Photo card (real photo + headline over it) is the default; every
+        // third pick keeps the clipping card so the feed is not one format
+        // (user: "occasionally use different images"), and it is the
+        // fallback whenever a story has no usable photo.
+        const wantsClipping = (pickIndex.get(j.story.slug) ?? 0) % 3 === 2;
+        let lead = wantsClipping ? null : await attachPhotoCard(j.set.id, j.story.slug, alt);
+        if (!lead) lead = await attachCard(j.set.id, j.story.slug, alt);
+        media = { lead, other: null };
         cache.set(key, media);
       }
       const posts = j.payload.platforms[j.platform].posts;
       if (media.lead) posts[0].media_ids = [media.lead];
-      if (media.other && j.platform === "x" && posts.length > 2) posts[1].media_ids = [media.other];
+
     }
   }
 
