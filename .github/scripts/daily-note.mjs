@@ -173,7 +173,7 @@ THE THREE PIECES:
 - FORMAT IT TO BE READ ON A PHONE: put a blank line between the news and your reaction. Two short blocks read far better than one dense paragraph. Never one long run-on block.
 - No "1/", no "a thread", no teasing a follow-up, no "read more".
 
-"linkedin" - for LinkedIn. 2000 to 3000 characters (LinkedIn's cap is 3000; use most of it). This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly, and READABLE on a phone.
+"linkedin" - for LinkedIn. 1300 to 1900 characters, roughly 200 to 300 words: long enough to give the whole story, short enough to finish on a phone. This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly, and READABLE.
 - WHICH STORY: the LinkedIn picks must pass the INTERESTING test, whatever section they come from. A story is interesting when a smart friend who does not follow AI would say "wait, really?" on hearing it. That happens when at least one of these is true:
   1. a big player made a surprising move, or reversed itself (OpenAI says it may slow down; the DOJ goes after an Nvidia deal);
   2. a number stops you (a $3 billion round at a $30 billion valuation; a chipmaker up 188% on its first day). Funding rounds count exactly when the size, the valuation or who is writing the cheque tells you where the money is going;
@@ -182,7 +182,7 @@ THE THREE PIECES:
   5. a strange real-world consequence (AI agents flooding benefit systems; a phone hinge designed by AI).
   NOT interesting, however large the company: routine partnerships, a university opening a department, a small round for a niche vertical, procedural legal steps, technical internals, plain product updates with no twist. Rank the candidates by how hard the "wait, really?" hits, and take the top ones.
 - The FIRST line is the only thing most people see before "see more". Make it the single most surprising fact, as one complete specific sentence. Never a label, never a question, never "Here's what happened".
-- Then a blank line, then TELL THE WHOLE STORY, in this order. READABILITY IS THE RULE: paragraphs of ONE or TWO sentences, never three, a blank line between every paragraph, and every few paragraphs a single short line on its own that carries the key fact or number. Nobody reads a block; they read lines.
+- Then a blank line, then TELL THE WHOLE STORY, in this order, without padding. READABILITY IS THE RULE: paragraphs of ONE or TWO sentences, never three, a blank line between every paragraph, and once or twice a single short line on its own that carries the key fact or number. Nobody reads a block; they read lines. Six to nine paragraphs in total, not more.
   (a) what exactly happened, with the concrete details that make it real: who, what they did, the numbers, the dates, the names of the products or people;
   (b) the background a smart outsider is missing: what came before this, what the company or person was doing until now, why it is happening now;
   (c) what it actually changes and for whom: users, competitors, workers, a specific industry. Be concrete, name them;
@@ -222,7 +222,7 @@ function claudeNote(items, want) {
       let short = clean(it.short);
       if (short.length > 275) short = "";
       let linkedin = clean(it.linkedin);
-      if (linkedin.length < 900 || linkedin.length > 3000) linkedin = "";
+      if (linkedin.length < 800 || linkedin.length > 2200) linkedin = "";
       // every pick must at least carry the short format; note under 150 chars
       // is treated as absent rather than posted half-baked
       if (!short) continue;
