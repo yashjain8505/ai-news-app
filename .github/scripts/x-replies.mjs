@@ -70,14 +70,29 @@ const warn = (m) => console.warn(`⚠ ${m}`);
 const skip = (m) => { console.log(`→ ${m}`); process.exitCode = 0; };
 const UA = "Mozilla/5.0 (compatible; WortinsBot/1.0)";
 
+// Supabase's gateway 504s now and then (three times on 2026-09-12 alone),
+// and one of those took a whole curation down. Transient 5xx and network
+// errors are retried with backoff; 4xx are real and thrown at once.
 async function sb(path, init = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", ...(init.headers || {}) },
-  });
-  const body = await res.text().catch(() => "");
-  if (!res.ok) throw new Error(`Supabase ${init.method || "GET"} ${path} -> ${res.status} ${body.slice(0, 200)}`);
-  return body ? JSON.parse(body) : null;
+  let last;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 1500 * 2 ** (attempt - 1)));
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...init,
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", ...(init.headers || {}) },
+        signal: AbortSignal.timeout(30000),
+      });
+      const body = await res.text().catch(() => "");
+      if (res.ok) return body ? JSON.parse(body) : null;
+      last = new Error(`Supabase ${init.method || "GET"} ${path} -> ${res.status} ${body.slice(0, 200)}`);
+      if (res.status < 500) throw last;
+    } catch (e) {
+      last = e;
+      if (/-> 4\d\d/.test(String(e.message))) throw e;
+    }
+  }
+  throw last;
 }
 
 async function tf(path, init = {}) {
