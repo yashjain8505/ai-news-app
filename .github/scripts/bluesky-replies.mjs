@@ -30,6 +30,7 @@ function dailyCap() {
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://zrjbzowohsgjbrhsldfi.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
+const SITE_URL = (process.env.SITE_URL || "https://www.wortins.com").replace(/\/$/, "");
 const PER_DAY = Math.max(1, Number(process.env.REPLIES_PER_DAY) || dailyCap());
 const RUNS_PER_DAY = 7; // matches the cron; the daily cap auto-spreads across runs
 const PER_RUN = Math.max(1, Number(process.env.REPLIES_PER_RUN) || Math.ceil(PER_DAY / RUNS_PER_DAY));
@@ -66,20 +67,25 @@ function claudeJSON(prompt) {
   }
 }
 
-function buildPrompt(targets) {
+function buildPrompt(targets, stories) {
   const list = targets.map((t, i) => `${i + 1}. @${t.authorHandle} posted: "${(t.text || "").replace(/\s+/g, " ").slice(0, 240)}"`).join("\n");
+  const storyList = stories.map((st) => `- slug: ${st.slug} | ${deDash(st.plain_title || st.title)}`).join("\n");
   return `You reply on Bluesky as the person behind Wortins, an independent AI-news brief. You are one real person, not a brand. For each post below, write ONE reply.
 
 RULES:
 - Read what they actually said and react to THAT specifically. Add a real point, a fact, or a genuine disagreement.
 - Plain, clear, honest, a little understated. Contractions fine.
-- Never "great point" or empty agreement. Never restate their post. Never a fake-deep closer ("kind of the real story", "makes you think", etc.). No em dashes. No hashtags, no links, no emoji. Under 290 characters.
+- Never "great point" or empty agreement. Never restate their post. Never a fake-deep closer ("kind of the real story", "makes you think", etc.). No em dashes. No hashtags, no emoji. Under 220 characters (a link may be added after it).
+- Do NOT write a URL yourself. Instead, if one of TODAY'S WORTINS STORIES below is genuinely about the same thing the person is talking about, give its slug in "story" and the link is added for you, e.g. "we covered this today:". Only when it really is the same subject; otherwise leave "story" empty. Never force it.
 - If you have nothing genuine to add to a post, return an empty string for it.
+
+TODAY'S WORTINS STORIES:
+${storyList || "(none)"}
 
 POSTS:
 ${list}
 
-Return ONLY a JSON object: {"replies": ["<reply to post 1>", ... exactly ${targets.length} in order, empty string to skip]}`;
+Return ONLY a JSON object: {"replies": [{"text": "<reply to post 1>", "story": "<slug or empty>"}, ... exactly ${targets.length} in order, empty text to skip]}`;
 }
 
 async function main() {
@@ -101,11 +107,28 @@ async function main() {
   if (!fresh.length) { console.log("No fresh reply targets right now."); return; }
   console.log(`→ ${fresh.length} targets (room ${room}/${PER_DAY} today)`);
 
-  const drafted = claudeJSON(buildPrompt(fresh));
+  // Today's stories, so a reply can point at the Wortins page on the same
+  // subject (the user's call, 2026-09-13: "include the links to the related
+  // news from Wortins directly"). The drip turns the URL into a link facet.
+  let stories = [];
+  try {
+    const ed = await sb("items?is_active=eq.true&edition_date=not.is.null&select=edition_date&order=edition_date.desc&limit=1");
+    const date = ed?.[0]?.edition_date;
+    if (date) stories = (await sb(`items?is_active=eq.true&edition_date=eq.${date}&section=in.(daily,funding,articles)&select=slug,title,plain_title&order=rank.asc&limit=24`)) || [];
+  } catch (e) { console.warn(`⚠ could not load today's stories: ${e.message}`); }
+  const slugs = new Set(stories.map((st) => st.slug));
+
+  const drafted = claudeJSON(buildPrompt(fresh, stories));
   if (!drafted) { console.log("Skipping (no Claude drafts)."); return; }
   const replies = Array.isArray(drafted.replies) ? drafted.replies : [];
   const rows = fresh
-    .map((t, i) => ({ t, text: deDash(replies[i] || "") }))
+    .map((t, i) => {
+      const r = replies[i];
+      const text = deDash(typeof r === "string" ? r : r?.text || "").replace(/https?:\/\/\S+/g, "").trim();
+      const slug = typeof r === "object" && r?.story && slugs.has(String(r.story)) ? String(r.story) : "";
+      const full = slug ? `${text}\n\n${SITE_URL}/story/${slug}` : text;
+      return { t, text: full, slug };
+    })
     .filter((r) => r.text && r.text.length <= 300);
 
   console.log("─".repeat(56));
