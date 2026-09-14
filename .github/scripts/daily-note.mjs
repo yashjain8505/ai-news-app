@@ -121,6 +121,17 @@ function deDash(s) {
 const headlineOf = (it) => deDash(it.plain_title || it.title);
 const lineOf = (it) => deDash(it.plain_line || it.summary || "");
 
+// The megacap labs. Diagnosed 2026-09-14: 9 of 12 LinkedIn posts over three
+// days were OpenAI / Anthropic / Meta while the curated pool was only ~25%
+// big-lab. The picker equated "big name" with "interesting" and nothing
+// stopped it choosing the same company (or the same story) day after day.
+const BIG_LABS = [
+  ["OpenAI", /openai|altman|chatgpt|gpt-\d/i], ["Anthropic", /anthropic|claude|amodei/i], ["Meta", /\bmeta\b|zuckerberg|llama/i],
+  ["Google", /google|deepmind|gemini|hassabis/i], ["Nvidia", /nvidia|jensen/i], ["Microsoft", /microsoft|copilot|nadella/i],
+  ["xAI", /\bxai\b|grok|musk/i], ["Apple", /\bapple\b|siri/i], ["Amazon", /amazon|alexa/i],
+];
+const labOf = (headline) => (BIG_LABS.find(([, re]) => re.test(headline)) || [null])[0];
+
 // Draft the note in the house voice: news stated plainly, then an honest
 // reaction. This is the same voice already tuned for Bluesky (news first, no
 // fake-deep closers, plain language), widened for Notes, where there is room
@@ -135,6 +146,10 @@ function draftPrompt(items, want) {
 Pick the ${want.picks} stories below most worth writing about: the most surprising or consequential, not simply the first ones listed (fewer only if the list itself is shorter). They must be GENUINELY DIFFERENT stories, and mix the kinds: news, funding, and a worthwhile read. Each story is labelled with its section.
 
 Order them best first. The order decides where each runs, and the FIRST picks are the LinkedIn picks, so they must be the ones that pass the INTERESTING test hardest (defined in the LinkedIn rules below), from any section; the rest follow.
+
+VARIETY IS A HARD RULE. A feed that is OpenAI, Anthropic, Meta, OpenAI, Anthropic is boring even when each story is good, and that is exactly what has been going out.
+- Across today, at most ONE LinkedIn pick may be about a megacap lab (OpenAI, Anthropic, Meta, Google, Nvidia, Microsoft, xAI, Apple, Amazon). The other LinkedIn picks must be about someone or something else: a startup, a court, a country, a person, a study, a strange consequence in the real world.${want.avoidLabs?.length ? `\n- Megacap labs that ALREADY had a LinkedIn post today, so NO LinkedIn pick about them: ${want.avoidLabs.join(", ")}.` : ""}
+- Never two picks about the same company in one run, and never two picks that are the same underlying story with different headlines.${want.avoidHeadlines?.length ? `\n- These stories already went out in the last three days. Do not pick them, and do not pick a different item about the same event:\n${want.avoidHeadlines.map((h) => `  · ${h}`).join("\n")}` : ""}
 - EVERY pick gets "short", "x" AND "x_long".${want.note > 0 ? `\n- Picks 1 to ${want.note} ALSO get "note".` : `\n- No pick gets "note" this run.`}${want.linkedin > 0 ? `\n- Picks 1 to ${want.linkedin} ALSO get "linkedin".` : `\n- No pick gets "linkedin" this run.`}
 Later picks get fewer formats, so put the stories with the most substance first.
 
@@ -175,11 +190,12 @@ THE THREE PIECES:
 
 "linkedin" - for LinkedIn. 1300 to 1900 characters, roughly 200 to 300 words: long enough to give the whole story, short enough to finish on a phone. This is the piece people will actually READ, so it has to be worth reading: a genuinely interesting piece of AI news, explained properly, and READABLE.
 - WHICH STORY: the LinkedIn picks must pass the INTERESTING test, whatever section they come from. A story is interesting when a smart friend who does not follow AI would say "wait, really?" on hearing it. That happens when at least one of these is true:
-  1. a big player made a surprising move, or reversed itself (OpenAI says it may slow down; the DOJ goes after an Nvidia deal);
-  2. a number stops you (a $3 billion round at a $30 billion valuation; a chipmaker up 188% on its first day). Funding rounds count exactly when the size, the valuation or who is writing the cheque tells you where the money is going;
+  1. someone made a surprising move, or reversed themselves (Bitcoin miners quietly switching their rigs to AI; a Delhi court banning deepfakes of a TV host; Australia throwing AI-made songs off its music chart);
+  2. a number stops you (a $3 billion round at a $30 billion valuation; a chipmaker up 188% on its first day; a lawyer fined $5,000 for witnesses ChatGPT invented). Funding rounds count exactly when the size, the valuation or who is writing the cheque tells you where the money is going;
   3. it changes what people can do next week (a launch people will actually use, from anyone, big or small);
-  4. there is a fight, a leak or a mess (a settlement descending into chaos; a lab banning staff from talking);
-  5. a strange real-world consequence (AI agents flooding benefit systems; a phone hinge designed by AI).
+  4. there is a fight, a leak or a mess (a settlement descending into chaos; a lab banning staff from talking; mathematicians signing a letter against AI companies);
+  5. a strange real-world consequence (AI agents flooding benefit systems; a phone hinge designed by AI; schools warning about AI Cat in the Hat videos).
+  Notice that most of these are NOT about OpenAI or Anthropic. The big labs make news every day; that does not make each item interesting. A megacap story earns a LinkedIn slot only when it would surprise someone who already expects big-lab news.
   NOT interesting, however large the company: routine partnerships, a university opening a department, a small round for a niche vertical, procedural legal steps, technical internals, plain product updates with no twist. Rank the candidates by how hard the "wait, really?" hits, and take the top ones.
 - The FIRST line is the only thing most people see before "see more". Make it the single most surprising fact, as one complete specific sentence. Never a label, never a question, never "Here's what happened".
 - Then a blank line, then TELL THE WHOLE STORY, in this order, without padding. READABILITY IS THE RULE: paragraphs of ONE or TWO sentences, never three, a blank line between every paragraph, and once or twice a single short line on its own that carries the key fact or number. Nobody reads a block; they read lines. Six to nine paragraphs in total, not more.
@@ -406,7 +422,23 @@ async function main() {
   }
   const createdToday = {};
   for (const r of ledgerRows) createdToday[r.platform] = (createdToday[r.platform] || 0) + 1;
-  const usedSlugs = new Set(ledgerRows.map((r) => r.slug));
+  // Slugs posted in the last three days are out of the pool, not just
+  // today's: the same Anthropic story ran on LinkedIn two days running.
+  const since = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  const recentRows = FORCE ? [] : (await sb(`social_posts_ledger?day=gte.${since}&select=platform,slug,day`).catch(() => [])) || [];
+  const usedSlugs = new Set([...ledgerRows, ...recentRows].map((r) => r.slug));
+  // Which companies already had a LinkedIn post today, and which stories
+  // ran anywhere in the last three days (by headline), so the prompt can
+  // say "not these again" in plain words.
+  const recentSlugs = [...new Set(recentRows.map((r) => r.slug))];
+  const recentItems = recentSlugs.length
+    ? (await sb(`items?slug=in.(${recentSlugs.map((x) => `"${x}"`).join(",")})&select=slug,title,plain_title`).catch(() => [])) || []
+    : [];
+  const headlineBySlug = new Map(recentItems.map((it) => [it.slug, headlineOf(it)]));
+  const linkedinLabsToday = new Set(
+    recentRows.filter((r) => r.platform === "linkedin" && r.day === day).map((r) => labOf(headlineBySlug.get(r.slug) || "")).filter(Boolean)
+  );
+  const recentHeadlines = recentRows.filter((r) => r.day !== day || r.platform === "linkedin").map((r) => headlineBySlug.get(r.slug)).filter(Boolean);
   const quota = {};
   for (const [plat, perDay] of Object.entries(PER_DAY)) {
     quota[plat] = Math.max(0, Math.ceil((perDay - (createdToday[plat] || 0)) / remainingRuns));
@@ -488,13 +520,41 @@ async function main() {
 
   // The link is appended here, never by the model: Typefully attaches the
   // preview card to the LAST url, so it has to stand alone at the end.
-  const want = { picks: Math.max(...Object.values(quota)), note: quota.substack, linkedin: quota.linkedin };
+  const want = {
+    picks: Math.max(...Object.values(quota)), note: quota.substack, linkedin: quota.linkedin,
+    avoidLabs: [...linkedinLabsToday], avoidHeadlines: [...new Set(recentHeadlines)].slice(0, 30),
+  };
   let picks = claudeNote(pool, want);
   if (!picks?.length) {
     // Fallback: one template note, so a Claude outage still posts something.
     const body = buildNote({ items, dateISO });
     if (!body) return skip("No daily story to build a note from.");
     picks = [{ slug: pool[0].slug, note: body, short: "", x: [], xLong: "", linkedin: "" }];
+  }
+  // Enforce the variety rule in code, not just in the prompt: a LinkedIn
+  // pick about a lab that already had a LinkedIn post today, or a second
+  // megacap pick when one is already in this run's LinkedIn set, is swapped
+  // with the first later pick that is not about a megacap lab.
+  if (quota.linkedin > 0 && picks.length > 1) {
+    const labsUsed = new Set(linkedinLabsToday);
+    let megacapInRun = 0;
+    for (let i = 0; i < Math.min(quota.linkedin, picks.length); i++) {
+      const st = pool.find((d) => d.slug === picks[i].slug);
+      const lab = st ? labOf(headlineOf(st)) : null;
+      const clash = lab && (labsUsed.has(lab) || megacapInRun >= 1);
+      if (clash) {
+        const j = picks.findIndex((pk, k) => k > i && !labOf(headlineOf(pool.find((d) => d.slug === pk.slug) || { title: "" })));
+        if (j > 0) {
+          console.log(`  variety: LinkedIn pick ${i + 1} (${lab}) swapped with pick ${j + 1}`);
+          [picks[i], picks[j]] = [picks[j], picks[i]];
+          // the swapped-in pick may lack the long formats; the wave drops
+          // formats it does not have rather than posting a megacap repeat
+        }
+      }
+      const st2 = pool.find((d) => d.slug === picks[i].slug);
+      const lab2 = st2 ? labOf(headlineOf(st2)) : null;
+      if (lab2) { labsUsed.add(lab2); megacapInRun++; }
+    }
   }
   console.log(`→ ${picks.length} story pick(s) drafted`);
 
