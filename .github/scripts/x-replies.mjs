@@ -29,7 +29,6 @@
 //   TYPEFULLY_API_KEY      posting; absent => no-op
 //   CLAUDE_CODE_OAUTH_TOKEN drafting via the claude CLI
 //   SERPER_API_KEY         optional, enables source B
-//   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID  optional; one alert per run listing the drafts to tap
 //   MAX_REPLIES            per run (default 4)
 //   OWN_HANDLE             our X handle, never replied to (default Wortinscom)
 //   DRY_RUN=1              find + draft + print, post nothing
@@ -46,8 +45,6 @@ const MAX_REPLIES = Number(process.env.MAX_REPLIES || 4);
 const OWN_HANDLE = (process.env.OWN_HANDLE || "Wortinscom").toLowerCase();
 const DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 const DRAFT_MODEL = process.env.DRAFT_MODEL || "";
-const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-const TG_CHAT = process.env.TELEGRAM_CHAT_ID || "";
 const MAX_TWEET_AGE_H = 72;
 const CANDIDATES_PER_STORY = 8;
 // Accounts that only relay headlines: replying there is talking to a feed.
@@ -242,33 +239,6 @@ function claudeReplies(targets) {
   }
 }
 
-// ---- the alert ---------------------------------------------------------------
-
-// X's rule means a human taps Publish on each reply, so the run ends with one
-// Telegram message: what was found, who it answers, and the link that opens
-// the draft. Best-effort, never fails the run.
-async function telegram(items) {
-  if (!TG_TOKEN || !TG_CHAT || !items.length) return;
-  const esc = (t) => String(t).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
-  const lines = items.map((it, i) =>
-    `<b>${i + 1}. @${esc(it.author)}</b> ${it.source === "article" ? "(the original announcement)" : "(someone discussing it)"}\n` +
-    `<i>${esc(it.tweetText.replace(/\s+/g, " ").slice(0, 140))}${it.tweetText.length > 140 ? "…" : ""}</i>\n` +
-    `↳ ${esc(it.reply)}\n` +
-    `<a href="${it.draftUrl}">Open in Typefully → tap Publish</a>`);
-  const text = `💬 <b>${items.length} X repl${items.length === 1 ? "y" : "ies"} ready to publish</b>\n\n${lines.join("\n\n")}\n\nDelete any you don't like. Each one is a draft until you tap.`;
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: "HTML", disable_web_page_preview: true }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!json.ok) throw new Error(JSON.stringify(json).slice(0, 200));
-    console.log(`  ✓ Telegram alert sent (${items.length} draft(s))`);
-  } catch (e) {
-    warn(`telegram alert failed: ${e.message}`);
-  }
-}
-
 // /today lists the replies still waiting for a tap. Each run first asks
 // Typefully what became of the earlier drafts, so published or deleted ones
 // drop off that list.
@@ -355,7 +325,6 @@ async function main() {
 
   let posted = 0;
   const repliedAuthors = new Set();
-  const alertItems = [];
   for (const d of drafts) {
     if (posted >= MAX_REPLIES) break;
     const t = targets.find((x) => x.id === d.tweet_id);
@@ -385,7 +354,6 @@ async function main() {
     }
   }
   console.log(`\n→ ${posted} reply draft(s) ${DRY_RUN ? "would be " : ""}created; publish them from the Typefully app`);
-  await telegram(alertItems);
 }
 
 main().catch((e) => { warn(e.message); process.exitCode = 0; });
